@@ -1,0 +1,345 @@
+{
+  "name": "01 — Контент-мозг",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-brain",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "webhookId": "content-brain"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT key, value FROM app_settings WHERE key IN ('ai_model', 'ai_base_url', 'ai_system_prompt') ORDER BY key;",
+        "options": {}
+      },
+      "id": "load-settings",
+      "name": "⚙️ Настройки из БД",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [440, 300],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('⚙️ Настройки из БД').all().map(i => i.json);\nconst settingsMap = {};\nfor (const r of (Array.isArray(rows[0]) ? rows[0] : rows)) {\n  if (r.key) settingsMap[r.key] = r.value;\n}\nconst input = $('📥 Webhook').first().json;\nconst body = input.body || input;\nreturn [{ json: {\n  ai_base_url: settingsMap.ai_base_url || 'https://gptunnel.ru/v1',\n  ai_model: settingsMap.ai_model || 'gpt-4o',\n  system_prompt: body.system_prompt || settingsMap.ai_system_prompt || 'Ты — креативный маркетолог.',\n  count: body.count || 3,\n  product_name: body.product_name || '',\n  niche: body.niche || '',\n  extra_instructions: body.extra_instructions || ''\n}}];"
+      },
+      "id": "prepare-config",
+      "name": "🔧 Подготовка конфига",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json;\nconst systemPrompt = cfg.system_prompt + '\\n\\nТы — опытный контент-стратег и маркетолог, специализирующийся на создании вирусного короткого видеоконтента для маркетплейсов и соцсетей (Wildberries, Ozon, VK Клипы, YouTube Shorts, TikTok, Reels).\\n\\nТвоя задача — генерировать детальные, продуманные и уникальные идеи для коротких вертикальных видео (15-60 сек).\\n\\nТребования к каждой идее:\\n- Цепляющий заголовок, который останавливает скролл (до 60 символов)\\n- Чёткая концепция с конкретным сценарным приёмом: до/после, распаковка, лайфхак, сравнение, сторителлинг, шоковый-факт, ASMR, таймлапс, юмор\\n- Подробное описание визуального ряда: конкретные кадры, ракурсы, переходы, цветовая палитра\\n- Целевая аудитория с возрастом, полом, интересами\\n- Тональность, подходящая для аудитории\\n\\nКаждая идея должна использовать РАЗНЫЙ сценарный приём!\\n\\nОтвечай СТРОГО в JSON:\\n{\\n  \"ideas\": [\\n    {\\n      \"title\": \"Цепляющий заголовок (до 60 символов)\",\\n      \"category\": \"обзор | лайфхак | до-после | распаковка | сравнение | сторителлинг | юмор | образование | ASMR\",\\n      \"concept\": \"Подробная концепция видео на 3-5 предложений\",\\n      \"visual_description\": \"Детальный визуальный ряд: 1) Хук-кадр (0-3 сек). 2) Основная часть. 3) Кульминация. 4) Финал — CTA\",\\n      \"target_audience\": \"Пол, возраст 18-35, интересы\",\\n      \"tone\": \"энергичный | спокойный | юмористический | экспертный | вдохновляющий\"\\n    }\\n  ]\\n}';\nlet userMsg = `Сгенерируй ${cfg.count} уникальных идей для вертикальных коротких видео (15-60 сек). Каждая идея должна использовать РАЗНЫЙ сценарный приём.`;\nif (cfg.product_name) userMsg += `\\nПродукт: ${cfg.product_name}.`;\nif (cfg.niche) userMsg += `\\nНиша: ${cfg.niche}.`;\nif (cfg.extra_instructions) userMsg += `\\nДополнительно: ${cfg.extra_instructions}`;\nuserMsg += '\\nВажно: каждая идея самодостаточная — достаточно деталей для сценария и видеопромпта.';\nreturn [{ json: {\n  url: cfg.ai_base_url + '/chat/completions',\n  body: JSON.stringify({\n    model: cfg.ai_model,\n    temperature: 0.92,\n    max_tokens: 4000,\n    response_format: { type: 'json_object' },\n    messages: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: userMsg }\n    ]\n  })\n}}];"
+      },
+      "id": "build-ideas-body",
+      "name": "🏗️ Тело запроса идей",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 90000 }
+      },
+      "id": "generate-ideas",
+      "name": "🧠 Генерация идей",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1160, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst body = response.body || response;\nlet parsed;\ntry {\n  const content = body.choices[0].message.content;\n  parsed = JSON.parse(content);\n} catch (e) {\n  throw new Error('AI ideas parse error: ' + e.message);\n}\nconst ideas = parsed.ideas || [];\nif (ideas.length === 0) throw new Error('AI returned empty ideas list');\nreturn ideas.map(idea => ({ json: { ...idea } }));"
+      },
+      "id": "parse-ideas",
+      "name": "📋 Парсинг идей",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO content_ideas (title, category, concept, visual_description, target_audience, tone, status)\nVALUES (\n'{{ ($json.title || \"\").toString().split(\"'\").join(\"''\") }}',\n'{{ ($json.category || \"\").toString().split(\"'\").join(\"''\") }}',\n'{{ ($json.concept || \"\").toString().split(\"'\").join(\"''\") }}',\n'{{ ($json.visual_description || \"\").toString().split(\"'\").join(\"''\") }}',\n'{{ ($json.target_audience || \"\").toString().split(\"'\").join(\"''\") }}',\n'{{ ($json.tone || \"\").toString().split(\"'\").join(\"''\") }}',\n'draft'\n)\nRETURNING id, title, category, concept, visual_description, target_audience, tone, status, created_at;",
+        "options": {}
+      },
+      "id": "save-idea",
+      "name": "💾 Сохранить идею",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1640, 300],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('🔧 Подготовка конфига').first().json;\nreturn $input.all().map(item => ({\n  json: {\n    idea_id: item.json.id,\n    title: item.json.title,\n    concept: item.json.concept,\n    visual_description: item.json.visual_description || '',\n    target_audience: item.json.target_audience || '',\n    tone: item.json.tone || '',\n    category: item.json.category || '',\n    ai_base_url: config.ai_base_url,\n    ai_model: config.ai_model\n  }\n}));"
+      },
+      "id": "prepare-script-context",
+      "name": "🔗 Контекст для сценария",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = 'Ты — профессиональный сценарист коротких вирусных видео для маркетплейсов и соцсетей.\\n\\nТребования к сценарию:\\n- Первые 2-3 сек: МОЩНЫЙ хук (вопрос, шокирующий факт, провокация)\\n- Далее: раскрытие темы с нарастающим интересом\\n- Кульминация: ключевое раскрытие / вау-момент\\n- Финал: призыв к действию\\n- Язык: живой, разговорный, без канцеляризмов\\n- Длина: 80-150 слов (35-55 сек озвучки)\\n- Каждая фраза = отдельный блок для субтитров\\n\\nОтвечай СТРОГО в JSON:\\n{\\n  \"script_text\": \"Полный текст сценария для озвучки\",\\n  \"hook\": \"Хук — первая фраза\",\\n  \"cta\": \"Призыв к действию\",\\n  \"word_count\": 95,\\n  \"duration_hint\": 40,\\n  \"timing_marks\": [\\n    { \"time\": 0, \"text\": \"Хук\" },\\n    { \"time\": 3, \"text\": \"Раскрытие 1\" },\\n    { \"time\": 10, \"text\": \"Раскрытие 2\" },\\n    { \"time\": 20, \"text\": \"Кульминация\" },\\n    { \"time\": 30, \"text\": \"CTA\" }\\n  ]\\n}';\nreturn $input.all().map(item => {\n  const ctx = item.json;\n  const userMsg = `Напиши сценарий озвучки для короткого вертикального видео.\\n\\nИдея: ${ctx.title}\\nКатегория: ${ctx.category}\\nКонцепция: ${ctx.concept}\\nТональность: ${ctx.tone}\\nЦелевая аудитория: ${ctx.target_audience}\\nОписание визуала: ${ctx.visual_description}\\n\\nВажно:\\n1. Сценарий точно соответствует описанному визуальному ряду\\n2. Хук в первые 2-3 секунды\\n3. Адаптируй стиль под аудиторию и тональность`;\n  return { json: {\n    url: ctx.ai_base_url + '/chat/completions',\n    body: JSON.stringify({\n      model: ctx.ai_model,\n      temperature: 0.75,\n      max_tokens: 3000,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: userMsg }\n      ]\n    })\n  }};\n});"
+      },
+      "id": "build-script-body",
+      "name": "🏗️ Тело запроса сценария",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 90000 }
+      },
+      "id": "generate-script",
+      "name": "📝 Генерация сценария",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2360, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctxAll = $('🔗 Контекст для сценария').all();\nreturn $input.all().map((item, idx) => {\n  const body = item.json.body || item.json;\n  let parsed;\n  try {\n    const content = body.choices[0].message.content;\n    parsed = JSON.parse(content);\n  } catch (e) {\n    throw new Error('Script parse error at index ' + idx + ': ' + e.message);\n  }\n  const myCtx = (ctxAll[idx] || ctxAll[0]).json;\n  return { json: {\n    ...parsed,\n    idea_id: myCtx.idea_id,\n    title: myCtx.title,\n    concept: myCtx.concept,\n    visual_description: myCtx.visual_description,\n    target_audience: myCtx.target_audience,\n    tone: myCtx.tone,\n    category: myCtx.category,\n    ai_base_url: myCtx.ai_base_url,\n    ai_model: myCtx.ai_model\n  }};\n});"
+      },
+      "id": "parse-script",
+      "name": "📋 Парсинг сценария",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2600, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO voice_scripts (idea_id, script_text, word_count, duration_hint, timing_marks, status)\nVALUES (\n{{ $json.idea_id }},\n'{{ ($json.script_text || \"\").toString().split(\"'\").join(\"''\") }}',\n{{ $json.word_count || 0 }},\n{{ $json.duration_hint || 0 }},\n'{{ JSON.stringify($json.timing_marks || []).split(\"'\").join(\"''\") }}'::jsonb,\n'draft'\n)\nRETURNING id, idea_id, script_text, word_count, duration_hint, status;",
+        "options": {}
+      },
+      "id": "save-script",
+      "name": "💾 Сохранить сценарий",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2840, 300],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctxAll = $('🔗 Контекст для сценария').all();\nconst scriptAll = $('📋 Парсинг сценария').all();\nreturn $input.all().map((item, idx) => {\n  const scriptSaved = item.json;\n  const myCtx = (ctxAll[idx] || ctxAll[0]).json;\n  const myScript = (scriptAll[idx] || scriptAll[0]).json;\n  return { json: {\n    idea_id: myCtx.idea_id,\n    script_id: scriptSaved.id,\n    title: myCtx.title,\n    concept: myCtx.concept,\n    visual_description: myCtx.visual_description,\n    target_audience: myCtx.target_audience,\n    tone: myCtx.tone,\n    category: myCtx.category,\n    script_text: myScript.script_text || '',\n    hook: myScript.hook || '',\n    timing_marks: myScript.timing_marks || [],\n    ai_base_url: myCtx.ai_base_url,\n    ai_model: myCtx.ai_model\n  }};\n});"
+      },
+      "id": "prepare-video-prompt-context",
+      "name": "🔗 Контекст для видео-промпта",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3080, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = 'Ты — профессиональный режиссёр и визуальный продюсер, специализирующийся на AI-видеогенерации (Minimax, Runway ML, Kling AI, Sora, Pika).\\n\\nТребования к промпту:\\n- Промпт на АНГЛИЙСКОМ языке\\n- Каждая сцена описана детально: камера (pan, zoom, dolly, static, orbital), освещение (soft, dramatic, natural, neon), цвета, объекты, текстуры\\n- Стиль: cinematic, product-shot, lifestyle, flat-lay, stop-motion, animation, hyper-realistic\\n- Синхронизация с таймингами озвучки\\n- Переходы: cut, fade, zoom-in, morph, swipe, whip-pan\\n- Первая сцена — визуальный хук (2 сек)\\n- Формат: 9:16\\n\\nОтвечай СТРОГО в JSON:\\n{\\n  \"prompt_text\": \"Main video generation prompt in English. One detailed paragraph.\",\\n  \"scene_descriptions\": [\\n    {\\n      \"order\": 1,\\n      \"duration\": 3,\\n      \"description\": \"Detailed scene description in English\",\\n      \"camera_movement\": \"static | pan-left | zoom-in | dolly | orbital\",\\n      \"transition\": \"cut | fade | zoom | morph | swipe\"\\n    }\\n  ],\\n  \"style_reference\": \"cinematic | product-shot | lifestyle | animation\",\\n  \"aspect_ratio\": \"9:16\",\\n  \"mood\": \"Dynamic | Calm | Exciting | Professional\",\\n  \"color_palette\": \"Color palette description\"\\n}';\nreturn $input.all().map(item => {\n  const ctx = item.json;\n  const userMsg = `Создай промпт для AI генерации вертикального видео 9:16.\\n\\nИдея: ${ctx.title}\\nКатегория: ${ctx.category}\\nКонцепция: ${ctx.concept}\\nТональность: ${ctx.tone}\\nЦелевая аудитория: ${ctx.target_audience}\\nОписание визуала из идеи: ${ctx.visual_description}\\n\\nСценарий озвучки:\\n${ctx.script_text}\\n\\nХук: ${ctx.hook}\\n\\nТайминги: ${JSON.stringify(ctx.timing_marks)}\\n\\nВажно:\\n1. Промпт и описания сцен — на АНГЛИЙСКОМ\\n2. Каждая сцена соответствует фразе из сценария\\n3. Первая сцена (0-3 сек) — яркий визуальный хук\\n4. Формат: vertical 9:16`;\n  return { json: {\n    url: ctx.ai_base_url + '/chat/completions',\n    body: JSON.stringify({\n      model: ctx.ai_model,\n      temperature: 0.8,\n      max_tokens: 3000,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: userMsg }\n      ]\n    })\n  }};\n});"
+      },
+      "id": "build-video-prompt-body",
+      "name": "🏗️ Тело запроса видео-промпта",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 90000 }
+      },
+      "id": "generate-video-prompt",
+      "name": "🎬 Генерация видео-промпта",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3560, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctxAll = $('🔗 Контекст для видео-промпта').all();\nreturn $input.all().map((item, idx) => {\n  const body = item.json.body || item.json;\n  let parsed;\n  try {\n    const content = body.choices[0].message.content;\n    parsed = JSON.parse(content);\n  } catch (e) {\n    throw new Error('Video prompt parse error at index ' + idx + ': ' + e.message);\n  }\n  const myCtx = (ctxAll[idx] || ctxAll[0]).json;\n  return { json: {\n    ...parsed,\n    idea_id: myCtx.idea_id,\n    script_id: myCtx.script_id\n  }};\n});"
+      },
+      "id": "parse-video-prompt",
+      "name": "📋 Парсинг видео-промпта",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3800, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO video_prompts (idea_id, prompt_text, scene_descriptions, style_reference, status)\nVALUES (\n{{ $json.idea_id }},\n'{{ ($json.prompt_text || \"\").toString().split(\"'\").join(\"''\") }}',\n'{{ JSON.stringify($json.scene_descriptions || []).split(\"'\").join(\"''\") }}'::jsonb,\n'{{ ($json.style_reference || \"\").toString().split(\"'\").join(\"''\") }}',\n'draft'\n)\nRETURNING id, idea_id, prompt_text, style_reference, status;",
+        "options": {}
+      },
+      "id": "save-video-prompt",
+      "name": "💾 Сохранить видео-промпт",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4040, 300],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/content-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"idea_id\": {{ $json.idea_id }},\n  \"video_prompt_id\": {{ $json.id }},\n  \"status\": \"ready\"\n}",
+        "options": { "timeout": 10000 },
+        "onError": "continueRegularOutput"
+      },
+      "id": "callback",
+      "name": "📡 Callback → Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4280, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ideas = $('💾 Сохранить идею').all().map(i => i.json);\nconst scripts = $('💾 Сохранить сценарий').all().map(i => i.json);\nconst prompts = $('💾 Сохранить видео-промпт').all().map(i => i.json);\nreturn [{\n  json: {\n    success: true,\n    count: ideas.length,\n    ideas: ideas.map((idea, idx) => ({\n      idea: idea,\n      voice_script: scripts[idx] || null,\n      video_prompt: prompts[idx] || null\n    }))\n  }\n}];"
+      },
+      "id": "response",
+      "name": "📤 Ответ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4520, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 9 * * 1-5" }]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "⏰ По расписанию",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 520],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { count: 3, system_prompt: '', product_name: '', niche: '', extra_instructions: '' } }];"
+      },
+      "id": "cron-defaults",
+      "name": "Cron параметры",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/log-error",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow_name\": \"content-brain\",\n  \"error_message\": \"{{ $json.error?.message || 'Unknown error' }}\",\n  \"node_name\": \"{{ $json.error?.node || '' }}\"\n}",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "error-handler",
+      "name": "❌ Лог ошибки",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 520]
+    }
+  ],
+  "connections": {
+    "📥 Webhook": { "main": [[{ "node": "⚙️ Настройки из БД", "type": "main", "index": 0 }]] },
+    "⚙️ Настройки из БД": { "main": [[{ "node": "🔧 Подготовка конфига", "type": "main", "index": 0 }]] },
+    "🔧 Подготовка конфига": { "main": [[{ "node": "🏗️ Тело запроса идей", "type": "main", "index": 0 }]] },
+    "🏗️ Тело запроса идей": { "main": [[{ "node": "🧠 Генерация идей", "type": "main", "index": 0 }]] },
+    "🧠 Генерация идей": { "main": [[{ "node": "📋 Парсинг идей", "type": "main", "index": 0 }]] },
+    "📋 Парсинг идей": { "main": [[{ "node": "💾 Сохранить идею", "type": "main", "index": 0 }]] },
+    "💾 Сохранить идею": { "main": [[{ "node": "🔗 Контекст для сценария", "type": "main", "index": 0 }]] },
+    "🔗 Контекст для сценария": { "main": [[{ "node": "🏗️ Тело запроса сценария", "type": "main", "index": 0 }]] },
+    "🏗️ Тело запроса сценария": { "main": [[{ "node": "📝 Генерация сценария", "type": "main", "index": 0 }]] },
+    "📝 Генерация сценария": { "main": [[{ "node": "📋 Парсинг сценария", "type": "main", "index": 0 }]] },
+    "📋 Парсинг сценария": { "main": [[{ "node": "💾 Сохранить сценарий", "type": "main", "index": 0 }]] },
+    "💾 Сохранить сценарий": { "main": [[{ "node": "🔗 Контекст для видео-промпта", "type": "main", "index": 0 }]] },
+    "🔗 Контекст для видео-промпта": { "main": [[{ "node": "🏗️ Тело запроса видео-промпта", "type": "main", "index": 0 }]] },
+    "🏗️ Тело запроса видео-промпта": { "main": [[{ "node": "🎬 Генерация видео-промпта", "type": "main", "index": 0 }]] },
+    "🎬 Генерация видео-промпта": { "main": [[{ "node": "📋 Парсинг видео-промпта", "type": "main", "index": 0 }]] },
+    "📋 Парсинг видео-промпта": { "main": [[{ "node": "💾 Сохранить видео-промпт", "type": "main", "index": 0 }]] },
+    "💾 Сохранить видео-промпт": { "main": [[{ "node": "📡 Callback → Dashboard", "type": "main", "index": 0 }]] },
+    "📡 Callback → Dashboard": { "main": [[{ "node": "📤 Ответ", "type": "main", "index": 0 }]] },
+    "⏰ По расписанию": { "main": [[{ "node": "Cron параметры", "type": "main", "index": 0 }]] },
+    "Cron параметры": { "main": [[{ "node": "⚙️ Настройки из БД", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": []
+}

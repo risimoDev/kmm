@@ -1,0 +1,234 @@
+{
+  "name": "04 — Генератор карточек товара",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "product-card",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-card",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "product-card"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst product_name = body.product_name;\nconst image_url = body.image_url;\nconst marketplace = body.marketplace || 'WB';\n\nif (!product_name) throw new Error('product_name is required');\nif (!image_url) throw new Error('image_url is required');\n\nreturn [{ json: {\n  product_name: product_name,\n  image_url: image_url,\n  marketplace: marketplace,\n  artikuls: body.artikuls || [],\n  product_description: body.product_description || '',\n  target_audience: body.target_audience || '',\n  key_features: body.key_features || '',\n  style: body.style || 'modern',\n  color_scheme: body.color_scheme || 'auto',\n  include_price: body.include_price || false,\n  price: body.price || '',\n  include_badge: body.include_badge || false,\n  badge_text: body.badge_text || '',\n  extra_instructions: body.extra_instructions || '',\n  session_id: body.session_id || null,\n  callback_url: body.callback_url || ''\n}}];"
+      },
+      "id": "validate-card",
+      "name": "🔍 Валидация",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"message\": \"Product card generation started\", \"product_name\": \"{{ $json.product_name }}\" }",
+        "options": {}
+      },
+      "id": "respond-card",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT key, value FROM app_settings WHERE category IN ('ai', 'branding');",
+        "options": {}
+      },
+      "id": "load-settings-card",
+      "name": "⚙️ Настройки",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const settings = {};\nfor (const row of $input.all()) {\n  settings[row.json.key] = row.json.value;\n}\nconst params = $('🔍 Валидация').first().json;\n\nconst systemPrompt = settings.ai_system_prompt || 'Ты — профессиональный дизайнер карточек товаров для маркетплейсов.';\nconst model = settings.ai_model || 'gpt-4o';\nconst baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';\nconst authPrefix = settings.ai_auth_prefix || '';\n\nreturn [{ json: { ...params, systemPrompt, model, baseUrl, authPrefix } }];"
+      },
+      "id": "prepare-config-card",
+      "name": "🔧 Конфиг",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\n\nconst userPrompt = `Проанализируй изображение товара и создай подробный JSON с данными для карточки товара.\n\nТовар: ${ctx.product_name}\nМаркетплейс: ${ctx.marketplace}\nОписание от продавца: ${ctx.product_description || 'нет'}\nЦелевая аудитория: ${ctx.target_audience || 'широкая'}\nКлючевые особенности: ${ctx.key_features || 'определи по фото'}\nСтиль дизайна: ${ctx.style}\nЦветовая схема: ${ctx.color_scheme}\nДополнительные инструкции: ${ctx.extra_instructions || 'нет'}\n\nНА ОСНОВЕ ФОТО ТОВАРА определи:\n1. Категорию товара\n2. Основные визуальные характеристики (цвет, форма, материал)\n3. УТП (уникальное торговое предложение)\n4. Эмоциональные триггеры для покупателя\n\nСоздай данные для ПРОДАЮЩЕЙ карточки. Ответ строго JSON:\n{\n  \"main_title\": \"Яркий заголовок (3-5 слов, привлекающий внимание)\",\n  \"subtitle\": \"Подзаголовок с ключевой выгодой\",\n  \"bullet_points\": [\"5-7 коротких УТП/преимуществ с emoji\"],\n  \"cta_text\": \"Призыв к действию\",\n  \"seo_title\": \"SEO-заголовок для карточки\",\n  \"seo_description\": \"SEO-описание 150-200 символов\",\n  \"search_keywords\": [\"10-15 ключевых слов для поиска\"],\n  \"category_suggestion\": \"Рекомендуемая категория на маркетплейсе\",\n  \"color_palette\": [\"#hex1\", \"#hex2\", \"#hex3\"],\n  \"visual_style_notes\": \"Рекомендации по визуальному оформлению\",\n  \"rich_content_blocks\": [\n    {\n      \"type\": \"hero\",\n      \"heading\": \"Главный блок с крупным фото\",\n      \"text\": \"Описание для hero-блока\"\n    },\n    {\n      \"type\": \"features\",\n      \"heading\": \"Преимущества\",\n      \"items\": [\"Пункт 1\", \"Пункт 2\", \"Пункт 3\"]\n    },\n    {\n      \"type\": \"usage\",\n      \"heading\": \"Как использовать\",\n      \"steps\": [\"Шаг 1\", \"Шаг 2\", \"Шаг 3\"]\n    },\n    {\n      \"type\": \"specs\",\n      \"heading\": \"Характеристики\",\n      \"items\": {\"Материал\": \"значение\", \"Размер\": \"значение\"}\n    }\n  ],\n  \"infographic_prompts\": [\n    \"Промпт для генерации инфографики слайда 1 (детальное описание что нарисовать)\",\n    \"Промпт для генерации инфографики слайда 2\",\n    \"Промпт для генерации инфографики слайда 3\"\n  ],\n  \"a_plus_content\": {\n    \"brand_story\": \"История бренда / миссия (2-3 предложения)\",\n    \"comparison_table\": {\"columns\": [\"Наш товар\", \"Аналоги\"], \"rows\": [[\"Преимущество 1\", \"Нет\"]]}\n  }\n}`;\n\nconst messages = [\n  { role: 'system', content: ctx.systemPrompt },\n  {\n    role: 'user',\n    content: [\n      { type: 'text', text: userPrompt },\n      { type: 'image_url', image_url: { url: ctx.image_url, detail: 'high' } }\n    ]\n  }\n];\n\nconst requestBody = JSON.stringify({\n  model: ctx.model,\n  messages: messages,\n  max_tokens: 4000,\n  temperature: 0.7\n});\n\nconst url = ctx.baseUrl.replace(/\\/+$/, '') + '/chat/completions';\nconst authHeader = ctx.authPrefix ? ctx.authPrefix + $env.AI_API_KEY : $env.AI_API_KEY;\n\nreturn [{ json: { url, body: requestBody, authHeader, ...ctx } }];"
+      },
+      "id": "build-analysis-body",
+      "name": "🏗️ Запрос анализа фото",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-ai-analysis",
+      "name": "🧠 AI анализ фото",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1460, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst prevCtx = $('🏗️ Запрос анализа фото').first().json;\n\nlet content = '';\ntry {\n  content = response.choices[0].message.content;\n} catch (e) {\n  throw new Error('AI не вернул ответ: ' + JSON.stringify(response));\n}\n\n// Извлечь JSON из ответа\nlet cardData;\ntry {\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    cardData = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('JSON не найден в ответе');\n  }\n} catch (e) {\n  throw new Error('Ошибка парсинга JSON карточки: ' + e.message + ' | Raw: ' + content.substring(0, 500));\n}\n\nreturn [{ json: {\n  product_name: prevCtx.product_name,\n  image_url: prevCtx.image_url,\n  marketplace: prevCtx.marketplace,\n  artikuls: prevCtx.artikuls,\n  session_id: prevCtx.session_id,\n  callback_url: prevCtx.callback_url,\n  style: prevCtx.style,\n  color_scheme: prevCtx.color_scheme,\n  include_price: prevCtx.include_price,\n  price: prevCtx.price,\n  include_badge: prevCtx.include_badge,\n  badge_text: prevCtx.badge_text,\n  card_data: cardData,\n  raw_ai_response: content\n}}];"
+      },
+      "id": "parse-analysis",
+      "name": "📋 Парсинг анализа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO product_cards (\n  product_name, image_url, marketplace, artikuls,\n  main_title, subtitle, bullet_points, cta_text,\n  seo_title, seo_description, search_keywords,\n  category_suggestion, color_palette, visual_style_notes,\n  rich_content_blocks, infographic_prompts, a_plus_content,\n  style, color_scheme, status\n) VALUES (\n  '{{ $json.product_name.split(\"'\").join(\"''\") }}',\n  '{{ $json.image_url.split(\"'\").join(\"''\") }}',\n  '{{ $json.marketplace }}',\n  '{{ JSON.stringify($json.artikuls).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ $json.card_data.main_title.split(\"'\").join(\"''\") }}',\n  '{{ ($json.card_data.subtitle || \"\").split(\"'\").join(\"''\") }}',\n  '{{ JSON.stringify($json.card_data.bullet_points || []).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ ($json.card_data.cta_text || \"\").split(\"'\").join(\"''\") }}',\n  '{{ ($json.card_data.seo_title || \"\").split(\"'\").join(\"''\") }}',\n  '{{ ($json.card_data.seo_description || \"\").split(\"'\").join(\"''\") }}',\n  '{{ JSON.stringify($json.card_data.search_keywords || []).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ ($json.card_data.category_suggestion || \"\").split(\"'\").join(\"''\") }}',\n  '{{ JSON.stringify($json.card_data.color_palette || []).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ ($json.card_data.visual_style_notes || \"\").split(\"'\").join(\"''\") }}',\n  '{{ JSON.stringify($json.card_data.rich_content_blocks || []).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ JSON.stringify($json.card_data.infographic_prompts || []).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ JSON.stringify($json.card_data.a_plus_content || {}).split(\"'\").join(\"''\") }}'::jsonb,\n  '{{ $json.style }}',\n  '{{ $json.color_scheme }}',\n  'generated'\n) RETURNING *;",
+        "options": {}
+      },
+      "id": "save-card",
+      "name": "💾 Сохранить карточку",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1980, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/card-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"card_id\": {{ $json.id }},\n  \"product_name\": \"{{ $('📋 Парсинг анализа').first().json.product_name }}\",\n  \"status\": \"generated\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "callback-card",
+      "name": "📡 Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2240, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $('💾 Сохранить карточку').first().json;\nreturn [{ json: { success: true, card_id: saved.id, product_name: saved.product_name } }];"
+      },
+      "id": "final-output-card",
+      "name": "📤 Результат",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 560]
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [
+        [
+          { "node": "🔍 Валидация", "type": "main", "index": 0 },
+          { "node": "✅ Ответ 200", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔍 Валидация": {
+      "main": [
+        [
+          { "node": "⚙️ Настройки", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "⚙️ Настройки": {
+      "main": [
+        [
+          { "node": "🔧 Конфиг", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔧 Конфиг": {
+      "main": [
+        [
+          { "node": "🏗️ Запрос анализа фото", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🏗️ Запрос анализа фото": {
+      "main": [
+        [
+          { "node": "🧠 AI анализ фото", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🧠 AI анализ фото": {
+      "main": [
+        [
+          { "node": "📋 Парсинг анализа", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📋 Парсинг анализа": {
+      "main": [
+        [
+          { "node": "💾 Сохранить карточку", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "💾 Сохранить карточку": {
+      "main": [
+        [
+          { "node": "📡 Callback", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📡 Callback": {
+      "main": [
+        [
+          { "node": "📤 Результат", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

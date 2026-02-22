@@ -1,0 +1,531 @@
+{
+  "name": "02 — Видео-фабрика",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-factory",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "video-factory"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'minimax',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
+      },
+      "id": "validate-input",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"session_id\": {{ $json.session_id }}, \"message\": \"Pipeline started\" }",
+        "options": {}
+      },
+      "id": "respond-immediately",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions, vp.style_reference,\n       ci.title, ci.concept, ci.visual_description\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "load-data",
+      "name": "📂 Загрузка данных",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 560],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nreturn [{ json: {\n  ...params,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  scene_descriptions: dbData.scene_descriptions || [],\n  style_reference: dbData.style_reference || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+      },
+      "id": "merge-data",
+      "name": "🔗 Объединение данных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'tts', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "update-step-tts",
+      "name": "📌 Шаг → TTS",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1180, 560],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.openai.com/v1/audio/speech",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"tts-1\",\n  \"input\": \"{{ $('🔗 Объединение данных').first().json.script_text }}\",\n  \"voice\": \"{{ $('🔗 Объединение данных').first().json.tts_voice || 'alloy' }}\",\n  \"speed\": {{ $('🔗 Объединение данных').first().json.tts_speed || 1.0 }},\n  \"response_format\": \"mp3\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "tts-generate",
+      "name": "🔊 TTS генерация",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1420, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "TTS_CREDENTIAL_ID",
+          "name": "TTS Provider (OpenAI / ElevenLabs)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $('🔗 Объединение данных').first().json.session_id;\nconst binaryData = $input.first().binary;\n\nif (!binaryData || !binaryData.data) {\n  throw new Error('TTS не вернул аудиофайл');\n}\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    voice_file_name: `voice_${sessionId}.mp3`,\n    ...$('🔗 Объединение данных').first().json\n  },\n  binary: binaryData\n}];"
+      },
+      "id": "process-tts",
+      "name": "🎵 Обработка TTS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1660, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'video_generation', voice_file_url = '/output/voice_{{ $json.session_id }}.mp3', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "update-step-video",
+      "name": "📌 Шаг → Видео",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1900, 560],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimaxi.chat/v1/video_generation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"video-01\",\n  \"prompt\": \"{{ $('🔗 Объединение данных').first().json.prompt_text }}\",\n  \"first_frame_image\": \"{{ $('🔗 Объединение данных').first().json.product_image_url || '' }}\"\n}",
+        "options": { "timeout": 300000 }
+      },
+      "id": "video-generate",
+      "name": "🎥 Генерация видео (Minimax)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2140, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MINIMAX_CREDENTIAL_ID",
+          "name": "Minimax Video API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.body || $json;\nconst taskId = response.task_id;\n\nif (!taskId) {\n  throw new Error('Minimax не вернул task_id: ' + JSON.stringify(response));\n}\n\nreturn [{ json: {\n  task_id: taskId,\n  session_id: $('🔗 Объединение данных').first().json.session_id,\n  poll_count: 0\n}}];"
+      },
+      "id": "extract-task-id",
+      "name": "🔑 Извлечь task_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2380, 560]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "wait-poll",
+      "name": "⏳ Ждать 15 сек",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2620, 560]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.minimaxi.chat/v1/query/video_generation?task_id={{ $json.task_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": { "timeout": 30000 }
+      },
+      "id": "poll-video",
+      "name": "🔄 Проверить статус",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MINIMAX_CREDENTIAL_ID",
+          "name": "Minimax Video API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "video-ready",
+              "leftValue": "={{ $json.status || $json.body?.status }}",
+              "rightValue": "Success",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-video-status",
+      "name": "✅ Видео готово?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3100, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst pollCount = (prev.poll_count || 0) + 1;\n\nif (pollCount > 40) {\n  throw new Error('Таймаут генерации видео: 40 попыток (10 мин)');\n}\n\nreturn [{ json: {\n  task_id: prev.task_id || $('🔑 Извлечь task_id').first().json.task_id,\n  session_id: prev.session_id || $('🔑 Извлечь task_id').first().json.session_id,\n  poll_count: pollCount\n}}];"
+      },
+      "id": "increment-poll",
+      "name": "⏳ Ещё не готово",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3340, 760]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.body || $json;\nconst videoUrl = response.file_id || response.video_url || '';\n\nif (!videoUrl) {\n  throw new Error('Minimax не вернул URL видео');\n}\n\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\n\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: videoUrl,\n  ...$('🔗 Объединение данных').first().json\n}}];"
+      },
+      "id": "extract-video-url",
+      "name": "🎬 URL видео",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3340, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'montage', raw_video_url = '{{ $json.raw_video_url }}', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "update-step-montage",
+      "name": "📌 Шаг → Монтаж",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3580, 400],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Генерация SRT субтитров из timing_marks\nconst data = $('🔗 Объединение данных').first().json;\nconst sessionId = data.session_id;\nconst timingMarks = data.timing_marks || [];\n\nif (timingMarks.length === 0) {\n  const words = (data.script_text || '').split(/\\s+/);\n  const chunkSize = 6;\n  let srt = '';\n  let idx = 1;\n  for (let i = 0; i < words.length; i += chunkSize) {\n    const chunk = words.slice(i, i + chunkSize).join(' ');\n    const startSec = Math.floor(i / chunkSize) * 3;\n    const endSec = startSec + 3;\n    srt += `${idx}\\n${fmtSRT(startSec)} --> ${fmtSRT(endSec)}\\n${chunk}\\n\\n`;\n    idx++;\n  }\n  return [{ json: { session_id: sessionId, srt_content: srt } }];\n}\n\nlet srt = '';\nfor (let i = 0; i < timingMarks.length; i++) {\n  const mark = timingMarks[i];\n  const nextMark = timingMarks[i + 1];\n  srt += `${i + 1}\\n${fmtSRT(mark.time)} --> ${fmtSRT(nextMark ? nextMark.time : mark.time + 3)}\\n${mark.text}\\n\\n`;\n}\n\nreturn [{ json: { session_id: sessionId, srt_content: srt } }];\n\nfunction fmtSRT(sec) {\n  const h = String(Math.floor(sec / 3600)).padStart(2, '0');\n  const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');\n  const s = String(Math.floor(sec % 60)).padStart(2, '0');\n  return `${h}:${m}:${s},000`;\n}"
+      },
+      "id": "generate-srt",
+      "name": "📝 Субтитры SRT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3580, 600]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{{ $json.srt_content }}' > /home/node/output/subs_{{ $json.session_id }}.srt",
+        "options": {}
+      },
+      "id": "save-srt",
+      "name": "💾 Сохранить SRT",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3820, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('🎬 URL видео').first().json;\nconst sessionId = data.session_id;\n\nlet cmd = 'ffmpeg -y';\ncmd += ` -i /home/node/output/raw_${sessionId}.mp4`;\ncmd += ` -i /home/node/output/voice_${sessionId}.mp3`;\n\nlet filters = [];\nfilters.push('[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[base]');\n\nconst sf = data.subtitle_font || 'Arial';\nconst ss = data.subtitle_size || 42;\nconst so = data.subtitle_outline || 2;\nfilters.push(`[base]subtitles=/home/node/output/subs_${sessionId}.srt:force_style='FontName=${sf},FontSize=${ss},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=${so},Alignment=2'[subbed]`);\n\nlet lastLabel = 'subbed';\n\nif (data.watermark_url) {\n  cmd += ` -i /home/node/output/watermark_${sessionId}.png`;\n  const pos = data.watermark_position || 'top-right';\n  let x = 'W-w-20', y = '20';\n  if (pos === 'top-left') { x = '20'; y = '20'; }\n  else if (pos === 'bottom-left') { x = '20'; y = 'H-h-20'; }\n  else if (pos === 'bottom-right') { x = 'W-w-20'; y = 'H-h-20'; }\n  const opacity = data.watermark_opacity || 0.7;\n  filters.push(`[2:v]format=rgba,colorchannelmixer=aa=${opacity}[wm]`);\n  filters.push(`[${lastLabel}][wm]overlay=${x}:${y}[watermarked]`);\n  lastLabel = 'watermarked';\n}\n\nif (data.show_artikul && data.artikul) {\n  filters.push(`[${lastLabel}]drawtext=text='${data.artikul}':fontsize=36:fontcolor=white:borderw=2:bordercolor=black:x=20:y=H-h-60[final]`);\n  lastLabel = 'final';\n}\n\ncmd += ` -filter_complex \"${filters.join(';')}\" -map \"[${lastLabel}]\" -map 1:a`;\ncmd += ' -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -shortest';\ncmd += ` /home/node/output/final_${sessionId}.mp4`;\n\nreturn [{ json: { session_id: sessionId, ffmpeg_cmd: cmd } }];"
+      },
+      "id": "build-ffmpeg",
+      "name": "🎞️ Сборка FFmpeg",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4060, 400]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ffmpeg_cmd }}",
+        "options": { "timeout": 300000 }
+      },
+      "id": "run-ffmpeg",
+      "name": "⚡ FFmpeg монтаж",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [4300, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET \n  status = 'ready_for_review',\n  current_step = 'review',\n  final_video_url = '/output/final_{{ $('🎞️ Сборка FFmpeg').first().json.session_id }}.mp4',\n  updated_at = NOW()\nWHERE id = {{ $('🎞️ Сборка FFmpeg').first().json.session_id }};",
+        "options": {}
+      },
+      "id": "save-final",
+      "name": "💾 Сохранить результат",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4540, 400],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/video-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_id\": {{ $('🎞️ Сборка FFmpeg').first().json.session_id }},\n  \"final_video_url\": \"/output/final_{{ $('🎞️ Сборка FFmpeg').first().json.session_id }}.mp4\",\n  \"status\": \"ready_for_review\"\n}",
+        "options": {}
+      },
+      "id": "callback-dashboard",
+      "name": "📡 Callback → Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4780, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"ЗАМЕНИТЕ_НА_ВАШ_CHAT_ID\",\n  \"text\": \"🎬 Видео готово к проверке!\\n\\nСессия: #{{ $('🎞️ Сборка FFmpeg').first().json.session_id }}\\n\\n👉 http://dashboard:3001/videos/{{ $('🎞️ Сборка FFmpeg').first().json.session_id }}\",\n  \"parse_mode\": \"HTML\"\n}",
+        "options": {}
+      },
+      "id": "notify-telegram",
+      "name": "📬 Telegram уведомление",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5020, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/log-error",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow_name\": \"video-factory\",\n  \"session_id\": {{ $json.session_id || 0 }},\n  \"error_message\": \"{{ $json.error?.message || 'Unknown error' }}\",\n  \"node_name\": \"{{ $json.error?.node || '' }}\"\n}",
+        "options": {}
+      },
+      "id": "error-handler",
+      "name": "❌ Лог ошибки",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2140, 800]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'error', error_message = '{{ $json.error?.message || \"Unknown\" }}', error_step = '{{ $json.error?.node || '' }}', updated_at = NOW() WHERE id = {{ $json.session_id || 0 }};",
+        "options": {}
+      },
+      "id": "mark-error",
+      "name": "⚠️ Пометить ошибку",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2380, 800],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [
+        [{ "node": "🔍 Валидация входа", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔍 Валидация входа": {
+      "main": [
+        [
+          { "node": "✅ Ответ 200", "type": "main", "index": 0 },
+          { "node": "📂 Загрузка данных", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📂 Загрузка данных": {
+      "main": [
+        [{ "node": "🔗 Объединение данных", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔗 Объединение данных": {
+      "main": [
+        [{ "node": "📌 Шаг → TTS", "type": "main", "index": 0 }]
+      ]
+    },
+    "📌 Шаг → TTS": {
+      "main": [
+        [{ "node": "🔊 TTS генерация", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔊 TTS генерация": {
+      "main": [
+        [{ "node": "🎵 Обработка TTS", "type": "main", "index": 0 }]
+      ]
+    },
+    "🎵 Обработка TTS": {
+      "main": [
+        [{ "node": "📌 Шаг → Видео", "type": "main", "index": 0 }]
+      ]
+    },
+    "📌 Шаг → Видео": {
+      "main": [
+        [{ "node": "🎥 Генерация видео (Minimax)", "type": "main", "index": 0 }]
+      ]
+    },
+    "🎥 Генерация видео (Minimax)": {
+      "main": [
+        [{ "node": "🔑 Извлечь task_id", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔑 Извлечь task_id": {
+      "main": [
+        [{ "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }]
+      ]
+    },
+    "⏳ Ждать 15 сек": {
+      "main": [
+        [{ "node": "🔄 Проверить статус", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔄 Проверить статус": {
+      "main": [
+        [{ "node": "✅ Видео готово?", "type": "main", "index": 0 }]
+      ]
+    },
+    "✅ Видео готово?": {
+      "main": [
+        [{ "node": "🎬 URL видео", "type": "main", "index": 0 }],
+        [{ "node": "⏳ Ещё не готово", "type": "main", "index": 0 }]
+      ]
+    },
+    "⏳ Ещё не готово": {
+      "main": [
+        [{ "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }]
+      ]
+    },
+    "🎬 URL видео": {
+      "main": [
+        [{ "node": "📌 Шаг → Монтаж", "type": "main", "index": 0 }]
+      ]
+    },
+    "📌 Шаг → Монтаж": {
+      "main": [
+        [
+          { "node": "🎞️ Сборка FFmpeg", "type": "main", "index": 0 },
+          { "node": "📝 Субтитры SRT", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📝 Субтитры SRT": {
+      "main": [
+        [{ "node": "💾 Сохранить SRT", "type": "main", "index": 0 }]
+      ]
+    },
+    "💾 Сохранить SRT": {
+      "main": [
+        [{ "node": "🎞️ Сборка FFmpeg", "type": "main", "index": 0 }]
+      ]
+    },
+    "🎞️ Сборка FFmpeg": {
+      "main": [
+        [{ "node": "⚡ FFmpeg монтаж", "type": "main", "index": 0 }]
+      ]
+    },
+    "⚡ FFmpeg монтаж": {
+      "main": [
+        [{ "node": "💾 Сохранить результат", "type": "main", "index": 0 }]
+      ]
+    },
+    "💾 Сохранить результат": {
+      "main": [
+        [{ "node": "📡 Callback → Dashboard", "type": "main", "index": 0 }]
+      ]
+    },
+    "📡 Callback → Dashboard": {
+      "main": [
+        [{ "node": "📬 Telegram уведомление", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [{ "name": "content-factory" }],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "2"
+}

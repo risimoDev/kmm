@@ -1,0 +1,412 @@
+{
+  "name": "03 — Публикация",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publisher",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "publisher"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  channels: body.channels || ['telegram'],\n  telegram_chat_id: body.telegram_chat_id || '',\n  vk_group_id: body.vk_group_id || '',\n  publish_time: body.publish_time || '',\n  caption_override: body.caption_override || ''\n}}];"
+      },
+      "id": "validate-input",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"session_id\": {{ $json.session_id }}, \"message\": \"Publishing started\" }",
+        "options": {}
+      },
+      "id": "respond-immediately",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'publishing', current_step = 'preparing', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT ps.*, ci.title, ci.concept, ci.hook, ci.hashtags,\n       vs.script_text\nFROM pipeline_sessions ps\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nWHERE ps.id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "load-session",
+      "name": "📂 Загрузка сессии",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 560],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT key, value FROM app_settings WHERE key IN ('ai_model', 'ai_base_url', 'ai_system_prompt');",
+        "options": {}
+      },
+      "id": "load-settings",
+      "name": "⚙️ Настройки из БД",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 760],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('📂 Загрузка сессии').first().json;\nconst params = $('🔍 Валидация входа').first().json;\nconst settingsRows = $('⚙️ Настройки из БД').all().map(i => i.json);\n\nconst settings = {};\nfor (const row of settingsRows) {\n  settings[row.key] = row.value;\n}\n\nreturn [{ json: {\n  ...params,\n  title: session.title || '',\n  concept: session.concept || '',\n  hook: session.hook || '',\n  hashtags: session.hashtags || [],\n  script_text: session.script_text || '',\n  final_video_url: session.final_video_url || '',\n  ai_model: settings.ai_model || 'gpt-4o-mini',\n  ai_base_url: (settings.ai_base_url || 'https://api.openai.com/v1').replace(/\\/$/, ''),\n  ai_system_prompt: settings.ai_system_prompt || 'Ты — эксперт по маркетингу в социальных сетях.'\n}}];"
+      },
+      "id": "prepare-data",
+      "name": "🔧 Подготовка данных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst captionOverride = data.caption_override;\n\nif (captionOverride) {\n  return [{ json: { ...data, generated_caption: captionOverride, skip_ai: true }}];\n}\n\nreturn [{ json: { ...data, skip_ai: false }}];"
+      },
+      "id": "check-caption-override",
+      "name": "📋 Проверка caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 560]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "skip-ai",
+              "leftValue": "={{ $json.skip_ai }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-skip-ai",
+      "name": "↩️ Пропустить AI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1420, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('🔧 Подготовка данных').first().json.ai_base_url }}/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $('🔧 Подготовка данных').first().json.ai_model }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"{{ $('🔧 Подготовка данных').first().json.ai_system_prompt }}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Напиши привлекательный пост-описание для видео в социальных сетях.\\n\\nТема: {{ $('🔧 Подготовка данных').first().json.title }}\\nКонцепция: {{ $('🔧 Подготовка данных').first().json.concept }}\\nХук: {{ $('🔧 Подготовка данных').first().json.hook }}\\n\\nТребования:\\n1. 2-3 предложения максимум\\n2. Эмодзи для привлечения внимания\\n3. Призыв к действию\\n4. Хэштеги: {{ JSON.stringify($('🔧 Подготовка данных').first().json.hashtags) }}\\n\\nВерни ТОЛЬКО текст поста, без markdown.\"\n    }\n  ],\n  \"temperature\": 0.8,\n  \"max_tokens\": 500\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "ai-generate-caption",
+      "name": "🧠 AI → Описание",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 760],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AI_CREDENTIAL_ID",
+          "name": "AI Provider (GPTunnel / OpenAI / OpenRouter)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\nconst content = response.choices?.[0]?.message?.content || 'Новое видео! Смотрите по ссылке 👆';\nconst prevData = $('🔧 Подготовка данных').first().json;\n\nreturn [{ json: {\n  ...prevData,\n  generated_caption: content.trim()\n}}];"
+      },
+      "id": "parse-caption",
+      "name": "📝 Парсинг описания",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 760]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst channels = data.channels || ['telegram'];\n\nconst items = channels.map(ch => ({\n  json: {\n    ...data,\n    channel: ch\n  }\n}));\n\nreturn items;"
+      },
+      "id": "split-channels",
+      "name": "🔀 Разделить каналы",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2140, 560]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "is-telegram",
+              "leftValue": "={{ $json.channel }}",
+              "rightValue": "telegram",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-channel",
+      "name": "📡 Роутинг канала",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2380, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.telegram_bot_token || 'BOT_TOKEN' }}/sendVideo",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $json.telegram_chat_id }}" },
+            { "name": "video", "value": "={{ $json.final_video_url }}" },
+            { "name": "caption", "value": "={{ $json.generated_caption }}" },
+            { "name": "parse_mode", "value": "HTML" }
+          ]
+        },
+        "options": { "timeout": 120000 }
+      },
+      "id": "publish-telegram",
+      "name": "📬 Telegram публикация",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2620, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vk.com/method/video.save",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"group_id\": \"{{ $json.vk_group_id }}\",\n  \"name\": \"{{ $('🔧 Подготовка данных').first().json.title }}\",\n  \"description\": \"{{ $json.generated_caption }}\",\n  \"wallpost\": 1,\n  \"v\": \"5.199\"\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "publish-vk",
+      "name": "📘 VK публикация",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2620, 720],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VK_CREDENTIAL_ID",
+          "name": "VK API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst channel = data.channel;\nconst response = $json;\n\nlet success = false;\nlet externalId = '';\nlet externalUrl = '';\n\nif (channel === 'telegram') {\n  success = !!response.ok || !!response.result;\n  externalId = String(response.result?.message_id || '');\n  externalUrl = '';\n} else if (channel === 'vk') {\n  success = !!response.response;\n  externalId = String(response.response?.video_id || '');\n  externalUrl = response.response?.video_url || '';\n}\n\nreturn [{ json: {\n  session_id: data.session_id,\n  channel: channel,\n  success: success,\n  external_id: externalId,\n  external_url: externalUrl,\n  caption: data.generated_caption\n}}];"
+      },
+      "id": "parse-publish-result",
+      "name": "📊 Результат публикации",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO publications (session_id, channel, status, external_id, external_url, caption, published_at)\nVALUES ({{ $json.session_id }}, '{{ $json.channel }}', '{{ $json.success ? \"published\" : \"failed\" }}', '{{ $json.external_id }}', '{{ $json.external_url }}', '{{ $json.caption }}', NOW());",
+        "options": {}
+      },
+      "id": "save-publication",
+      "name": "💾 Сохранить публикацию",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3100, 560],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'published', current_step = 'done', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "finalize-session",
+      "name": "✅ Завершение сессии",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3340, 560],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Content Factory DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/session-update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_id\": {{ $json.session_id }},\n  \"status\": \"published\",\n  \"current_step\": \"done\"\n}",
+        "options": {}
+      },
+      "id": "callback-dashboard",
+      "name": "📡 Callback → Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3580, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/log-error",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow_name\": \"publisher\",\n  \"session_id\": {{ $json.session_id || 0 }},\n  \"error_message\": \"{{ $json.error?.message || 'Unknown error' }}\",\n  \"node_name\": \"{{ $json.error?.node || '' }}\"\n}",
+        "options": {}
+      },
+      "id": "error-handler",
+      "name": "❌ Лог ошибки",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 960]
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [
+        [{ "node": "🔍 Валидация входа", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔍 Валидация входа": {
+      "main": [
+        [
+          { "node": "✅ Ответ 200", "type": "main", "index": 0 },
+          { "node": "📂 Загрузка сессии", "type": "main", "index": 0 },
+          { "node": "⚙️ Настройки из БД", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📂 Загрузка сессии": {
+      "main": [
+        [{ "node": "🔧 Подготовка данных", "type": "main", "index": 0 }]
+      ]
+    },
+    "⚙️ Настройки из БД": {
+      "main": [
+        [{ "node": "🔧 Подготовка данных", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔧 Подготовка данных": {
+      "main": [
+        [{ "node": "📋 Проверка caption", "type": "main", "index": 0 }]
+      ]
+    },
+    "📋 Проверка caption": {
+      "main": [
+        [{ "node": "↩️ Пропустить AI?", "type": "main", "index": 0 }]
+      ]
+    },
+    "↩️ Пропустить AI?": {
+      "main": [
+        [{ "node": "🔀 Разделить каналы", "type": "main", "index": 0 }],
+        [{ "node": "🧠 AI → Описание", "type": "main", "index": 0 }]
+      ]
+    },
+    "🧠 AI → Описание": {
+      "main": [
+        [{ "node": "📝 Парсинг описания", "type": "main", "index": 0 }]
+      ]
+    },
+    "📝 Парсинг описания": {
+      "main": [
+        [{ "node": "🔀 Разделить каналы", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔀 Разделить каналы": {
+      "main": [
+        [{ "node": "📡 Роутинг канала", "type": "main", "index": 0 }]
+      ]
+    },
+    "📡 Роутинг канала": {
+      "main": [
+        [{ "node": "📬 Telegram публикация", "type": "main", "index": 0 }],
+        [{ "node": "📘 VK публикация", "type": "main", "index": 0 }]
+      ]
+    },
+    "📬 Telegram публикация": {
+      "main": [
+        [{ "node": "📊 Результат публикации", "type": "main", "index": 0 }]
+      ]
+    },
+    "📘 VK публикация": {
+      "main": [
+        [{ "node": "📊 Результат публикации", "type": "main", "index": 0 }]
+      ]
+    },
+    "📊 Результат публикации": {
+      "main": [
+        [{ "node": "💾 Сохранить публикацию", "type": "main", "index": 0 }]
+      ]
+    },
+    "💾 Сохранить публикацию": {
+      "main": [
+        [{ "node": "✅ Завершение сессии", "type": "main", "index": 0 }]
+      ]
+    },
+    "✅ Завершение сессии": {
+      "main": [
+        [{ "node": "📡 Callback → Dashboard", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [{ "name": "content-factory" }],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "2"
+}

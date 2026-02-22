@@ -1,0 +1,335 @@
+{
+  "name": "02a — Видео-фабрика (обычное)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-factory",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-vf",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "video-factory"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'minimax',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
+      },
+      "id": "validate-vf",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"session_id\": {{ $json.session_id }}, \"message\": \"Video pipeline started\" }",
+        "options": {}
+      },
+      "id": "respond-vf",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions, vp.style_reference,\n       ci.title, ci.concept, ci.visual_description\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "load-data-vf",
+      "name": "📂 Загрузка данных",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nreturn [{ json: {\n  ...params,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  scene_descriptions: dbData.scene_descriptions || [],\n  style_reference: dbData.style_reference || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+      },
+      "id": "merge-vf",
+      "name": "🔗 Объединение данных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'tts', updated_at = NOW() WHERE id = {{ $json.session_id }};\nINSERT INTO pipeline_steps (session_id, step_name, step_order, status, started_at)\nVALUES ({{ $json.session_id }}, 'tts', 1, 'running', NOW())\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "id": "step-tts-vf",
+      "name": "📌 Шаг → TTS",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1180, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nconst baseUrl = 'https://gptunnel.ru/v1';\nconst url = baseUrl.replace(/\\/+$/, '') + '/audio/speech';\n\nconst body = JSON.stringify({\n  model: 'tts-1',\n  input: ctx.script_text,\n  voice: ctx.tts_voice || 'alloy',\n  speed: ctx.tts_speed || 1.0,\n  response_format: 'mp3'\n});\n\nreturn [{ json: { url, body, session_id: ctx.session_id } }];"
+      },
+      "id": "build-tts-vf",
+      "name": "🏗️ TTS запрос",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "tts-call-vf",
+      "name": "🔊 TTS генерация",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $('🔗 Объединение данных').first().json.session_id;\nreturn [{\n  json: {\n    session_id: sessionId,\n    voice_file_name: `voice_${sessionId}.mp3`,\n    ...$('🔗 Объединение данных').first().json\n  }\n}];"
+      },
+      "id": "process-tts-vf",
+      "name": "🎵 Обработка TTS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'video_generation', voice_file_url = '/output/voice_{{ $json.session_id }}.mp3', updated_at = NOW() WHERE id = {{ $json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW() WHERE session_id = {{ $json.session_id }} AND step_name = 'tts';\nINSERT INTO pipeline_steps (session_id, step_name, step_order, status, started_at)\nVALUES ({{ $json.session_id }}, 'video_generation', 2, 'running', NOW())\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "id": "step-video-vf",
+      "name": "📌 Шаг → Видео",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2140, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\n// Build a detailed video generation prompt\nconst videoPrompt = ctx.prompt_text || `Create a professional vertical video (9:16) showcasing: ${ctx.title}. ${ctx.visual_description || ctx.concept || ''}`;\n\nconst body = JSON.stringify({\n  model: 'video-01',\n  prompt: videoPrompt,\n  first_frame_image: ctx.product_image_url || undefined\n});\n\nreturn [{ json: { body, session_id: ctx.session_id } }];"
+      },
+      "id": "build-video-req-vf",
+      "name": "🏗️ Видео запрос",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2380, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimaxi.chat/v1/video_generation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 300000 }
+      },
+      "id": "video-gen-vf",
+      "name": "🎥 Генерация видео",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2620, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst taskId = response.task_id;\nif (!taskId) throw new Error('Video provider did not return task_id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  task_id: taskId,\n  session_id: $('🔗 Объединение данных').first().json.session_id,\n  poll_count: 0\n}}];"
+      },
+      "id": "extract-tid-vf",
+      "name": "🔑 Извлечь task_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, 560]
+    },
+    {
+      "parameters": { "amount": 15, "unit": "seconds" },
+      "id": "wait-vf",
+      "name": "⏳ Ждать 15 сек",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [3100, 560]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.minimaxi.chat/v1/query/video_generation?task_id={{ $json.task_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": { "timeout": 30000 }
+      },
+      "id": "poll-vf",
+      "name": "🔄 Проверить статус",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3340, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "vr", "leftValue": "={{ $json.status || $json.body?.status }}", "rightValue": "Success", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      },
+      "id": "check-vf",
+      "name": "✅ Готово?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3580, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst pollCount = (prev.poll_count || 0) + 1;\nif (pollCount > 40) throw new Error('Video generation timeout: 40 polls (10 min)');\nreturn [{ json: { task_id: prev.task_id || $('🔑 Извлечь task_id').first().json.task_id, session_id: prev.session_id || $('🔑 Извлечь task_id').first().json.session_id, poll_count: pollCount } }];"
+      },
+      "id": "retry-vf",
+      "name": "⏳ Ещё не готово",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3820, 760]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst videoUrl = response.file_id || response.video_url || '';\nif (!videoUrl) throw new Error('Video provider did not return video URL');\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\nreturn [{ json: { session_id: sessionId, raw_video_url: videoUrl, ...$('🔗 Объединение данных').first().json } }];"
+      },
+      "id": "got-url-vf",
+      "name": "🎬 URL видео",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3820, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'montage', raw_video_url = '{{ $json.raw_video_url.split(\"'\").join(\"''\") }}', updated_at = NOW() WHERE id = {{ $json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW() WHERE session_id = {{ $json.session_id }} AND step_name = 'video_generation';\nINSERT INTO pipeline_steps (session_id, step_name, step_order, status, started_at)\nVALUES ({{ $json.session_id }}, 'montage', 3, 'running', NOW())\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "id": "step-montage-vf",
+      "name": "📌 Шаг → Монтаж",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4060, 400],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'ready_for_review', current_step = 'review', final_video_url = raw_video_url, updated_at = NOW() WHERE id = {{ $json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW() WHERE session_id = {{ $json.session_id }} AND step_name = 'montage';",
+        "options": {}
+      },
+      "id": "finalize-vf",
+      "name": "💾 Финализация",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4300, 400],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/video-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_id\": {{ $('🎬 URL видео').first().json.session_id }},\n  \"status\": \"ready_for_review\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "cb-vf",
+      "name": "📡 Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4540, 400],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "📥 Webhook": { "main": [[{ "node": "🔍 Валидация входа", "type": "main", "index": 0 }]] },
+    "🔍 Валидация входа": { "main": [[{ "node": "✅ Ответ 200", "type": "main", "index": 0 }, { "node": "📂 Загрузка данных", "type": "main", "index": 0 }]] },
+    "📂 Загрузка данных": { "main": [[{ "node": "🔗 Объединение данных", "type": "main", "index": 0 }]] },
+    "🔗 Объединение данных": { "main": [[{ "node": "📌 Шаг → TTS", "type": "main", "index": 0 }]] },
+    "📌 Шаг → TTS": { "main": [[{ "node": "🏗️ TTS запрос", "type": "main", "index": 0 }]] },
+    "🏗️ TTS запрос": { "main": [[{ "node": "🔊 TTS генерация", "type": "main", "index": 0 }]] },
+    "🔊 TTS генерация": { "main": [[{ "node": "🎵 Обработка TTS", "type": "main", "index": 0 }]] },
+    "🎵 Обработка TTS": { "main": [[{ "node": "📌 Шаг → Видео", "type": "main", "index": 0 }]] },
+    "📌 Шаг → Видео": { "main": [[{ "node": "🏗️ Видео запрос", "type": "main", "index": 0 }]] },
+    "🏗️ Видео запрос": { "main": [[{ "node": "🎥 Генерация видео", "type": "main", "index": 0 }]] },
+    "🎥 Генерация видео": { "main": [[{ "node": "🔑 Извлечь task_id", "type": "main", "index": 0 }]] },
+    "🔑 Извлечь task_id": { "main": [[{ "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }]] },
+    "⏳ Ждать 15 сек": { "main": [[{ "node": "🔄 Проверить статус", "type": "main", "index": 0 }]] },
+    "🔄 Проверить статус": { "main": [[{ "node": "✅ Готово?", "type": "main", "index": 0 }]] },
+    "✅ Готово?": { "main": [[{ "node": "🎬 URL видео", "type": "main", "index": 0 }], [{ "node": "⏳ Ещё не готово", "type": "main", "index": 0 }]] },
+    "⏳ Ещё не готово": { "main": [[{ "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }]] },
+    "🎬 URL видео": { "main": [[{ "node": "📌 Шаг → Монтаж", "type": "main", "index": 0 }]] },
+    "📌 Шаг → Монтаж": { "main": [[{ "node": "💾 Финализация", "type": "main", "index": 0 }]] },
+    "💾 Финализация": { "main": [[{ "node": "📡 Callback", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": []
+}
