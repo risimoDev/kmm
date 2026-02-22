@@ -84,14 +84,11 @@ if ! command -v git &>/dev/null; then
 fi
 log_ok "Git: $(git --version | awk '{print $3}')"
 
-# Certbot (для SSL)
-if ! command -v certbot &>/dev/null; then
-  log_info "Certbot не найден. Устанавливаю..."
-  apt-get update -qq && apt-get install -y -qq certbot
-  log_ok "Certbot установлен"
-else
-  log_ok "Certbot: $(certbot --version 2>&1 | grep -oP '\d+\.\d+\.\d+')"
+# OpenSSL (для самоподписанного сертификата)
+if ! command -v openssl &>/dev/null; then
+  apt-get update -qq && apt-get install -y -qq openssl
 fi
+log_ok "OpenSSL: $(openssl version | awk '{print $2}')"
 
 # ═══════════════════════════════════════
 # 2. СБОР НАСТРОЕК
@@ -272,49 +269,28 @@ else
 fi
 
 # ═══════════════════════════════════════
-# 3. НАСТРОЙКА SSL
+# 3. НАСТРОЙКА SSL (самоподписанный)
 # ═══════════════════════════════════════
-log_step "3/7 Настройка SSL (Let's Encrypt)"
+log_step "3/7 SSL — самоподписанный сертификат"
 
 SSL_DIR="$PROJECT_DIR/nginx/ssl"
 mkdir -p "$SSL_DIR"
 
 if [ -f "$SSL_DIR/fullchain.pem" ] && [ -f "$SSL_DIR/privkey.pem" ]; then
-  log_ok "SSL сертификаты уже существуют"
+  log_ok "SSL сертификаты уже существуют ($(openssl x509 -noout -subject -in "$SSL_DIR/fullchain.pem" 2>/dev/null | grep -oP 'CN\s*=\s*\K[^,/]+' || echo '?'))"
 else
-  log_info "Получаю SSL сертификат для $DOMAIN..."
-
-  # Остановить nginx если запущен на 80 порту
-  systemctl stop nginx 2>/dev/null || true
-  docker stop content-factory-nginx 2>/dev/null || true
-
-  certbot certonly --standalone \
-    --non-interactive \
-    --agree-tos \
-    --email "admin@${DOMAIN}" \
-    -d "$DOMAIN" \
-    --preferred-challenges http || {
-      log_warn "Не удалось получить SSL автоматически."
-      log_warn "Убедитесь что домен $DOMAIN указывает на этот сервер (A-запись)."
-      log_warn "Порт 80 должен быть свободен."
-      log_info "Можно получить вручную позже: certbot certonly --standalone -d $DOMAIN"
-      # Создаём самоподписанный для запуска
-      log_info "Создаю самоподписанный сертификат для запуска..."
-      openssl req -x509 -nodes -days 365 \
-        -newkey rsa:2048 \
-        -keyout "$SSL_DIR/privkey.pem" \
-        -out "$SSL_DIR/fullchain.pem" \
-        -subj "/CN=$DOMAIN" 2>/dev/null
-      log_warn "Используется самоподписанный сертификат (замените на Let's Encrypt!)"
-    }
-
-  # Копируем сертификаты Let's Encrypt
-  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$SSL_DIR/fullchain.pem"
-    cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$SSL_DIR/privkey.pem"
-    log_ok "SSL сертификат получен"
-  fi
+  log_info "Создаю самоподписанный сертификат для $DOMAIN..."
+  openssl req -x509 -nodes -days 365 \
+    -newkey rsa:2048 \
+    -keyout "$SSL_DIR/privkey.pem" \
+    -out   "$SSL_DIR/fullchain.pem" \
+    -subj  "/CN=$DOMAIN" 2>/dev/null
+  log_ok "Самоподписанный сертификат создан"
 fi
+
+log_warn "Используется самоподписанный сертификат."
+log_info "Для получения бесплатного Let's Encrypt сертификата запустите после установки:"
+log_info "  sudo ./scripts/setup-ssl.sh"
 
 # ═══════════════════════════════════════
 # 4. НАСТРОЙКА NGINX
@@ -437,24 +413,7 @@ CRON_LINE="0 3 * * * $BACKUP_SCRIPT >> $PROJECT_DIR/backups/cron.log 2>&1"
 (crontab -u "$REAL_USER" -l 2>/dev/null | grep -v "cron-backup.sh"; echo "$CRON_LINE") | crontab -u "$REAL_USER" -
 log_ok "Автоматические бэкапы: ежедневно в 03:00 (хранение 14 дней)"
 
-# ═══════════════════════════════════════
-# RENEW SSL CRON
-# ═══════════════════════════════════════
-SSL_RENEW_SCRIPT="$PROJECT_DIR/scripts/renew-ssl.sh"
-cat > "$SSL_RENEW_SCRIPT" << SSLEOF
-#!/bin/bash
-# Обновление SSL сертификата
-certbot renew --quiet --deploy-hook "
-  cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem ${SSL_DIR}/fullchain.pem
-  cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem ${SSL_DIR}/privkey.pem
-  docker restart content-factory-nginx
-"
-SSLEOF
-chmod +x "$SSL_RENEW_SCRIPT"
-
-SSL_CRON="0 2 1,15 * * $SSL_RENEW_SCRIPT >> $PROJECT_DIR/backups/ssl-renew.log 2>&1"
-(crontab -u root -l 2>/dev/null | grep -v "renew-ssl.sh"; echo "$SSL_CRON") | crontab -
-log_ok "SSL авто-обновление: 1 и 15 числа каждого месяца"
+# Примечание: cron для авто-обновления SSL создаётся скриптом setup-ssl.sh
 
 # ═══════════════════════════════════════
 # UFW FIREWALL
@@ -488,6 +447,7 @@ echo -e "    Статус:      ${CYAN}docker compose ps${NC}"
 echo -e "    Рестарт:     ${CYAN}docker compose restart${NC}"
 echo -e "    Бэкап:       ${CYAN}./scripts/cron-backup.sh${NC}"
 echo -e "    Обновление:  ${CYAN}./scripts/deploy.sh${NC}"
+echo -e "    SSL (Let's Encrypt): ${CYAN}sudo ./scripts/setup-ssl.sh${NC}"
 echo
 echo -e "  ${YELLOW}Пароли сохранены в .env (chmod 600)${NC}"
 echo -e "  ${YELLOW}Не забудьте активировать workflows в N8N!${NC}"
