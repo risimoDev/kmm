@@ -1,0 +1,1 @@
+SELECT key, category FROM app_settings ORDER BY category, key;

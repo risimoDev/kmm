@@ -1,0 +1,1 @@
+SELECT key, label, octet_length(label) as bytes, length(label) as chars FROM app_settings WHERE key = 'ai_system_prompt';

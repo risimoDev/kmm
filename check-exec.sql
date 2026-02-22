@@ -1,0 +1,1 @@
+SELECT substring(data::text, 1, 3000) FROM execution_data WHERE "executionId" = '29';

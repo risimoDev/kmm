@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: "content-factory"
+    environment: "production"
+
+# Алерты
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Правила алертов
+rule_files:
+  # - "alerts/*.yml"
+
+# Источники метрик
+scrape_configs:
+  # N8N метрики
+  - job_name: "n8n"
+    static_configs:
+      - targets: ["n8n:5678"]
+    metrics_path: "/metrics"
+    scrape_interval: 30s
+
+  # PostgreSQL метрики (если включен postgres_exporter)
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+    scrape_interval: 30s
+
+  # Redis метрики (если включен redis_exporter)
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+    scrape_interval: 30s
+
+  # Node exporter (метрики системы)
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    scrape_interval: 30s
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

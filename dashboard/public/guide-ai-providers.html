@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🇷🇺 Подключение AI-провайдеров — Контент Завод</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg2: #1a1d27;
+      --bg3: #252836;
+      --bg4: #2e3348;
+      --border: #2e3348;
+      --text: #e4e4e7;
+      --text2: #9ca3af;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --blue: #3b82f6;
+      --orange: #f97316;
+      --cyan: #06b6d4;
+      --pink: #ec4899;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ─── Header ─── */
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+      padding: 60px 24px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 30% 50%, rgba(99,102,241,0.15) 0%, transparent 60%),
+                  radial-gradient(circle at 70% 50%, rgba(236,72,153,0.1) 0%, transparent 60%);
+    }
+    .hero h1 { font-size: 36px; margin-bottom: 12px; position: relative; z-index: 1; }
+    .hero p { color: var(--text2); font-size: 18px; max-width: 600px; margin: 0 auto; position: relative; z-index: 1; }
+    .hero .back-link {
+      position: absolute; top: 20px; left: 24px;
+      color: var(--accent2); font-size: 14px; z-index: 2;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .hero .back-link:hover { color: #fff; }
+
+    /* ─── Layout ─── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ─── TOC ─── */
+    .toc {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin: 32px 0;
+    }
+    .toc h3 { font-size: 16px; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .toc ol { padding-left: 20px; }
+    .toc li { margin: 6px 0; }
+    .toc a { color: var(--accent2); font-size: 15px; }
+
+    /* ─── Section ─── */
+    .section { margin: 48px 0; }
+    .section h2 {
+      font-size: 26px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section h3 { font-size: 20px; margin: 28px 0 12px; }
+    .section h4 { font-size: 16px; margin: 20px 0 8px; color: var(--accent2); }
+    .section p { margin: 10px 0; color: var(--text); }
+
+    /* ─── Provider Card ─── */
+    .provider-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin: 20px 0;
+      transition: border-color 0.2s;
+    }
+    .provider-card:hover { border-color: var(--accent); }
+    .provider-card .card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .provider-card .card-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .provider-card .card-header h3 { margin: 0; font-size: 20px; }
+    .provider-card .card-header .badge {
+      font-size: 11px; padding: 3px 10px; border-radius: 20px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .badge-compat { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-partial { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .badge-nocompat { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge-rec { background: rgba(99,102,241,0.2); color: var(--accent2); }
+    .badge-video { background: rgba(6,182,212,0.15); color: var(--cyan); }
+
+    /* ─── Info Grid ─── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px 16px;
+      font-size: 14px;
+    }
+    .info-grid .label { color: var(--text2); font-weight: 500; }
+    .info-grid .value { color: var(--text); }
+    .info-grid code {
+      background: var(--bg3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 13px;
+      color: var(--cyan);
+    }
+
+    /* ─── Steps ─── */
+    .steps { margin: 20px 0; counter-reset: step; }
+    .step {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 12px 0;
+      position: relative;
+      padding-left: 64px;
+      counter-increment: step;
+    }
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      left: 20px; top: 20px;
+      width: 32px; height: 32px;
+      background: var(--accent);
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+    }
+    .step h4 { margin: 0 0 8px; font-size: 16px; color: var(--text); }
+    .step p { margin: 4px 0; font-size: 14px; color: var(--text2); }
+    .step code {
+      background: var(--bg3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 13px;
+      color: var(--green);
+    }
+
+    /* ─── Code Block ─── */
+    pre {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--cyan);
+    }
+    code {
+      background: var(--bg3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 13px;
+      color: var(--cyan);
+    }
+
+    /* ─── Alert ─── */
+    .alert {
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .alert .alert-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+    .alert-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); }
+    .alert-warn { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); }
+    .alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); }
+    .alert-danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+
+    /* ─── Comparison Table ─── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: var(--bg3);
+      color: var(--text2);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    tr:hover td { background: rgba(99,102,241,0.04); }
+
+    /* ─── Tabs ─── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      background: var(--bg3);
+      border-radius: 8px;
+      padding: 4px;
+      margin: 16px 0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .tab-btn.active { background: var(--accent); color: white; }
+    .tab-btn:hover:not(.active) { color: var(--text); background: var(--bg4); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ─── Screenshot Placeholder ─── */
+    .screenshot {
+      background: var(--bg3);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+      color: var(--text2);
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .screenshot .icon { font-size: 48px; margin-bottom: 8px; }
+
+    /* ─── FAQ ─── */
+    .faq-item {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 12px 0;
+      overflow: hidden;
+    }
+    .faq-q {
+      padding: 16px 20px;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-q:hover { background: var(--bg3); }
+    .faq-q .arrow { transition: transform 0.2s; color: var(--text2); }
+    .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
+    .faq-a {
+      padding: 0 20px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s, padding 0.3s;
+      color: var(--text2);
+      font-size: 14px;
+    }
+    .faq-item.open .faq-a { max-height: 300px; padding: 0 20px 16px; }
+
+    /* ─── Flow Diagram ─── */
+    .flow-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .flow-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .flow-arrow { color: var(--accent2); font-size: 20px; }
+
+    /* ─── Footer ─── */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--text2);
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+      margin-top: 60px;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 26px; }
+      .info-grid { grid-template-columns: 1fr; }
+      .provider-card { padding: 20px; }
+      .step { padding-left: 56px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<div class="hero">
+  <a href="/" class="back-link">← Вернуться в Dashboard</a>
+  <h1>🇷🇺 Подключение AI-провайдеров</h1>
+  <p>Подробный гайд по подключению российских агрегаторов, иностранных AI, видео-генераторов и TTS</p>
+</div>
+
+<div class="container">
+
+  <!-- ═══════════ TOC ═══════════ -->
+  <div class="toc">
+    <h3>📑 Содержание</h3>
+    <ol>
+      <li><a href="#what-is">Что такое AI-агрегатор и зачем он нужен</a></li>
+      <li><a href="#text-ai">Текстовые AI (LLM) — агрегаторы</a></li>
+      <li><a href="#video-ai">Видео-генераторы (HeyGen, Minimax, A2E)</a></li>
+      <li><a href="#tts-ai">Озвучка (TTS) — OpenAI, ElevenLabs</a></li>
+      <li><a href="#setup-cred">Пошаговая настройка Credentials</a></li>
+      <li><a href="#setup-db">Настройка через Dashboard (app_settings)</a></li>
+      <li><a href="#non-standard">Нестандартные API (YandexGPT, GigaChat)</a></li>
+      <li><a href="#switching">Переключение между провайдерами</a></li>
+      <li><a href="#prices">Сравнение цен</a></li>
+      <li><a href="#faq">Частые вопросы</a></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════ SECTION 1: What is? ═══════════ -->
+  <div class="section" id="what-is">
+    <h2>💡 Что такое AI-агрегатор?</h2>
+    <p>AI-агрегатор — это <strong>русский сервис-посредник</strong>, через который вы используете ChatGPT, Claude, Gemini и другие зарубежные нейросети <strong>без VPN, без иностранных карт</strong>.</p>
+
+    <div class="flow-diagram">
+      <div class="flow-box">🧑 Вы</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" style="border-color: var(--accent);">🇷🇺 Агрегатор</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">🤖 ChatGPT / Claude / Gemini</div>
+    </div>
+
+    <div class="alert alert-info">
+      <div class="alert-icon">ℹ️</div>
+      <div>
+        <strong>Как это работает:</strong> Агрегатор принимает ваш запрос по стандартному OpenAI API, пересылает его в нейросеть, и возвращает ответ. Для N8N workflow это выглядит как обычный OpenAI — нужно только поменять URL и ключ.
+      </div>
+    </div>
+
+    <p><strong>Преимущества:</strong></p>
+    <ul style="padding-left: 20px; line-height: 2;">
+      <li>✅ Оплата рублями (Юмани, карты РФ, СБП)</li>
+      <li>✅ Не нужен VPN</li>
+      <li>✅ Единый ключ для десятков моделей</li>
+      <li>✅ 100% совместимость с нашими workflow</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ SECTION 2: Text AI ═══════════ -->
+  <div class="section" id="text-ai">
+    <h2>🧠 Текстовые AI (LLM) — Агрегаторы</h2>
+    <p>Используются для генерации идей, сценариев, описаний и промптов (workflow 01 и 03).</p>
+
+    <!-- GPTunnel -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#6366f1,#818cf8);">🚀</div>
+        <div>
+          <h3>GPTunnel</h3>
+          <span class="badge badge-compat">OpenAI-совместимый</span>
+          <span class="badge badge-rec">⭐ Рекомендуем</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://gptunnel.ru" target="_blank">gptunnel.ru</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://gptunnel.ru/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>sk-gpt-xxxx</code></div>
+        <div class="label">Модели</div><div class="value">GPT-4o, GPT-4o-mini, GPT-3.5, Claude 3.5 Sonnet, Claude 3 Opus, Gemini 1.5 Pro</div>
+        <div class="label">Оплата</div><div class="value">💳 Карты РФ, Юмани, СБП</div>
+        <div class="label">TTS поддержка</div><div class="value">✅ Да — <code>/v1/audio/speech</code></div>
+        <div class="label">DALL-E</div><div class="value">✅ Да — <code>/v1/images/generations</code></div>
+      </div>
+      <div class="alert alert-success" style="margin-top:16px;">
+        <div class="alert-icon">✅</div>
+        <div><strong>Настройка в N8N:</strong><br>
+          Credential Header: <code>Authorization: Bearer sk-gpt-ваш-ключ</code><br>
+          Dashboard → ai_base_url: <code>https://gptunnel.ru/v1</code><br>
+          Dashboard → ai_model: <code>gpt-4o-mini</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- ProxyAPI -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#3b82f6,#60a5fa);">🔌</div>
+        <div>
+          <h3>ProxyAPI</h3>
+          <span class="badge badge-compat">OpenAI-совместимый</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://proxyapi.ru" target="_blank">proxyapi.ru</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://api.proxyapi.ru/openai/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>sk-xxx</code></div>
+        <div class="label">Модели</div><div class="value">GPT-4o, GPT-4o-mini, DALL-E 3, Whisper, TTS</div>
+        <div class="label">Оплата</div><div class="value">💳 Карты РФ, Юмани</div>
+        <div class="label">Особенности</div><div class="value">Полный проксинг всех OpenAI эндпоинтов</div>
+      </div>
+    </div>
+
+    <!-- OpenRouter -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#f97316,#fb923c);">🌐</div>
+        <div>
+          <h3>OpenRouter</h3>
+          <span class="badge badge-compat">OpenAI-совместимый</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://openrouter.ai" target="_blank">openrouter.ai</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://openrouter.ai/api/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>sk-or-v1-xxx</code></div>
+        <div class="label">Модели</div><div class="value">200+ моделей: GPT-4o, Claude 3.5, Llama 3.1, Mixtral, Gemini, DeepSeek</div>
+        <div class="label">Оплата</div><div class="value">💳 Криптовалюта, иностранные карты</div>
+        <div class="label">Особенности</div><div class="value">Есть бесплатные модели (Llama, Mistral)</div>
+      </div>
+    </div>
+
+    <!-- Vsegpt -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#22c55e,#4ade80);">🇷🇺</div>
+        <div>
+          <h3>Vsegpt</h3>
+          <span class="badge badge-compat">OpenAI-совместимый</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://vsegpt.ru" target="_blank">vsegpt.ru</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://api.vsegpt.ru/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>sk-xxx</code></div>
+        <div class="label">Модели</div><div class="value">GPT-4o, Claude, Mistral, Llama</div>
+        <div class="label">Оплата</div><div class="value">💳 Рубли</div>
+      </div>
+    </div>
+
+    <!-- YandexGPT -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#ef4444,#f87171);">Я</div>
+        <div>
+          <h3>YandexGPT</h3>
+          <span class="badge badge-nocompat">❌ Свой формат API</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://cloud.yandex.ru/services/yandexgpt" target="_blank">cloud.yandex.ru</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://llm.api.cloud.yandex.net/foundationModels/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value">IAM-токен или API-ключ</div>
+        <div class="label">Модели</div><div class="value">YandexGPT Pro, YandexGPT Lite</div>
+        <div class="label">Оплата</div><div class="value">💳 Рубли, Yandex Cloud</div>
+      </div>
+      <div class="alert alert-warn" style="margin-top:12px;">
+        <div class="alert-icon">⚠️</div>
+        <div>НЕ OpenAI-совместимый. Нужна специальная настройка HTTP Request нод. <a href="#non-standard">Подробнее →</a></div>
+      </div>
+    </div>
+
+    <!-- GigaChat -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a);">🟢</div>
+        <div>
+          <h3>GigaChat (Сбер)</h3>
+          <span class="badge badge-partial">⚡ Частично совместим</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://developers.sber.ru/portal/products/gigachat" target="_blank">developers.sber.ru</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://gigachat.devices.sberbank.ru/api/v1</code></div>
+        <div class="label">Авторизация</div><div class="value">OAuth2 (scope: GIGACHAT_API_PERS)</div>
+        <div class="label">Модели</div><div class="value">GigaChat, GigaChat-Plus, GigaChat-Pro</div>
+        <div class="label">Оплата</div><div class="value">💳 Рубли, есть бесплатный тариф</div>
+      </div>
+      <div class="alert alert-warn" style="margin-top:12px;">
+        <div class="alert-icon">⚠️</div>
+        <div>Использует OAuth авторизацию. Формат ответа похож на OpenAI, но нужен отдельный шаг получения токена. <a href="#non-standard">Подробнее →</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 3: Video AI ═══════════ -->
+  <div class="section" id="video-ai">
+    <h2>🎬 Видео-генераторы</h2>
+    <p>Используются для генерации видеоклипов из текста/изображений (workflow 02).</p>
+
+    <!-- HeyGen -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);">🧑‍🎤</div>
+        <div>
+          <h3>HeyGen</h3>
+          <span class="badge badge-video">Видео с аватарами</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://heygen.com" target="_blank">heygen.com</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://api.heygen.com/v2</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>xxx-xxx-xxx</code> (API Key)</div>
+        <div class="label">Что делает</div><div class="value">Видео с говорящими аватарами (реальные лица или 3D), lip-sync, перевод</div>
+        <div class="label">Оплата</div><div class="value">💳 Иностранные карты, от $24/мес (Creator план)</div>
+        <div class="label">Бесплатно</div><div class="value">1 минута видео для теста</div>
+      </div>
+
+      <h4 style="margin-top:20px;">📋 Основные эндпоинты HeyGen API v2</h4>
+      <table>
+        <thead><tr><th>Эндпоинт</th><th>Метод</th><th>Описание</th></tr></thead>
+        <tbody>
+          <tr><td><code>/v2/video/generate</code></td><td>POST</td><td>Создать видео с аватаром</td></tr>
+          <tr><td><code>/v1/video_status.get</code></td><td>GET</td><td>Проверить статус генерации</td></tr>
+          <tr><td><code>/v2/avatars</code></td><td>GET</td><td>Список доступных аватаров</td></tr>
+          <tr><td><code>/v2/voices</code></td><td>GET</td><td>Список доступных голосов</td></tr>
+          <tr><td><code>/v1/talking_photo</code></td><td>POST</td><td>Оживить фото (lip-sync)</td></tr>
+        </tbody>
+      </table>
+
+      <h4>🔐 Настройка Credential в N8N</h4>
+      <div class="steps">
+        <div class="step">
+          <h4>Создайте Header Auth credential</h4>
+          <p>N8N → Settings → Credentials → <strong>Header Auth</strong></p>
+          <p>Header Name: <code>X-Api-Key</code></p>
+          <p>Header Value: <code>ваш-heygen-api-ключ</code></p>
+          <p>Имя: <code>HeyGen API</code></p>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        <div class="alert-icon">💡</div>
+        <div>
+          <strong>Обратите внимание:</strong> HeyGen использует заголовок <code>X-Api-Key</code>, а НЕ <code>Authorization: Bearer</code>. Это важно при создании credential!
+        </div>
+      </div>
+
+      <h4>📝 Пример: Создание видео с аватаром</h4>
+      <pre>{
+  "method": "POST",
+  "url": "https://api.heygen.com/v2/video/generate",
+  "body": {
+    "video_inputs": [{
+      "character": {
+        "type": "avatar",
+        "avatar_id": "Daisy-inskirt-20220818",
+        "avatar_style": "normal"
+      },
+      "voice": {
+        "type": "text",
+        "input_text": "Привет! Это видео создано автоматически.",
+        "voice_id": "ru_female_1"
+      },
+      "background": {
+        "type": "color",
+        "value": "#f0f0f0"
+      }
+    }],
+    "dimension": {
+      "width": 1080,
+      "height": 1920
+    }
+  }
+}</pre>
+
+      <h4>🔄 Проверка статуса (полинг)</h4>
+      <pre>GET https://api.heygen.com/v1/video_status.get?video_id=ВАШ_VIDEO_ID
+
+// Ответ:
+{
+  "data": {
+    "status": "completed",  // processing | completed | failed
+    "video_url": "https://...",
+    "duration": 15.2
+  }
+}</pre>
+    </div>
+
+    <!-- Minimax -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);">🎥</div>
+        <div>
+          <h3>Minimax</h3>
+          <span class="badge badge-video">Видео из текста/фото</span>
+          <span class="badge badge-rec">⭐ Используется по умолчанию</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://www.minimaxi.com" target="_blank">minimaxi.com</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://api.minimaxi.chat/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>eyJhbG...</code> (JWT token)</div>
+        <div class="label">Что делает</div><div class="value">Генерация видео из текстового промпта или изображения (модель video-01)</div>
+        <div class="label">Оплата</div><div class="value">💳 Кредиты, иностранные карты</div>
+      </div>
+
+      <h4>🔐 Credential в N8N</h4>
+      <p>Header Name: <code>Authorization</code>, Value: <code>Bearer ваш-minimax-ключ</code></p>
+
+      <h4>📝 Пример: Генерация видео</h4>
+      <pre>POST https://api.minimaxi.chat/v1/video_generation
+{
+  "model": "video-01",
+  "prompt": "Красивый товар на белом фоне, вращается, мягкий свет",
+  "first_frame_image": "https://url-вашего-изображения.jpg"  // опционально
+}
+
+// Ответ: { "task_id": "xxx" }
+// Потом: GET /v1/query/video_generation?task_id=xxx</pre>
+    </div>
+
+    <!-- video.a2e.ai -->
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#ec4899,#f472b6);">✨</div>
+        <div>
+          <h3>video.a2e.ai</h3>
+          <span class="badge badge-video">Видео из текста/фото</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://video.a2e.ai" target="_blank">video.a2e.ai</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://api.a2e.ai/v1</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>a2e-xxx</code> (API Key)</div>
+        <div class="label">Что делает</div><div class="value">AI-генерация видео из текста или изображения, стилизация, видео-шаблоны</div>
+        <div class="label">Оплата</div><div class="value">💳 Карты РФ, рубли</div>
+        <div class="label">Особенности</div><div class="value">Российский сервис, серверы в РФ, без VPN</div>
+      </div>
+
+      <h4>🔐 Credential в N8N</h4>
+      <div class="steps">
+        <div class="step">
+          <h4>Зарегистрируйтесь на video.a2e.ai</h4>
+          <p>Перейдите на <a href="https://video.a2e.ai" target="_blank">video.a2e.ai</a> и создайте аккаунт</p>
+        </div>
+        <div class="step">
+          <h4>Получите API-ключ</h4>
+          <p>В личном кабинете → раздел <strong>API</strong> → сгенерируйте ключ</p>
+        </div>
+        <div class="step">
+          <h4>Создайте credential в N8N</h4>
+          <p>Тип: <strong>Header Auth</strong></p>
+          <p>Header Name: <code>Authorization</code></p>
+          <p>Header Value: <code>Bearer a2e-ваш-ключ</code></p>
+          <p>Имя: <code>A2E Video API</code></p>
+        </div>
+      </div>
+
+      <h4>📝 Пример: Генерация видео</h4>
+      <pre>POST https://api.a2e.ai/v1/video/generate
+{
+  "prompt": "Продающее видео: товар крупным планом, динамичный свет",
+  "style": "cinematic",
+  "aspect_ratio": "9:16",
+  "duration": 10
+}
+
+// Ответ: { "task_id": "xxx", "status": "processing" }
+// Полинг: GET https://api.a2e.ai/v1/video/status?task_id=xxx
+// Ответ: { "status": "completed", "video_url": "https://..." }</pre>
+
+      <div class="alert alert-info">
+        <div class="alert-icon">🇷🇺</div>
+        <div><strong>Плюс:</strong> A2E — российский сервис, не требует VPN и принимает рублёвые карты. Отличная альтернатива Minimax для пользователей из РФ.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 4: TTS ═══════════ -->
+  <div class="section" id="tts-ai">
+    <h2>🔊 Озвучка (TTS)</h2>
+    <p>Text-to-Speech используется в workflow 02 для озвучки сценария.</p>
+
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#10b981,#34d399);">🗣️</div>
+        <div>
+          <h3>OpenAI TTS</h3>
+          <span class="badge badge-rec">⭐ По умолчанию</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">API URL</div><div class="value"><code>https://api.openai.com/v1/audio/speech</code></div>
+        <div class="label">Модели</div><div class="value"><code>tts-1</code> (быстрая), <code>tts-1-hd</code> (качественная)</div>
+        <div class="label">Голоса</div><div class="value"><code>alloy</code>, <code>echo</code>, <code>fable</code>, <code>onyx</code>, <code>nova</code>, <code>shimmer</code></div>
+        <div class="label">Форматы</div><div class="value">mp3, opus, aac, flac, wav, pcm</div>
+        <div class="label">Макс. длина</div><div class="value">4096 символов за запрос</div>
+      </div>
+      <div class="alert alert-info" style="margin-top:12px;">
+        <div class="alert-icon">💡</div>
+        <div>OpenAI TTS доступен через GPTunnel и ProxyAPI! Используйте URL агрегатора вместо <code>api.openai.com</code>.</div>
+      </div>
+
+      <h4>Настройки в Dashboard</h4>
+      <table>
+        <thead><tr><th>Ключ в app_settings</th><th>Описание</th><th>Пример</th></tr></thead>
+        <tbody>
+          <tr><td><code>tts_provider</code></td><td>Провайдер озвучки</td><td><code>openai</code></td></tr>
+          <tr><td><code>tts_voice</code></td><td>Идентификатор голоса</td><td><code>alloy</code></td></tr>
+          <tr><td><code>tts_speed</code></td><td>Скорость (0.25 — 4.0)</td><td><code>1.0</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="provider-card">
+      <div class="card-header">
+        <div class="card-icon" style="background:linear-gradient(135deg,#f97316,#fb923c);">🎙</div>
+        <div>
+          <h3>ElevenLabs</h3>
+          <span class="badge badge-video">Продвинутое TTS</span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="label">Сайт</div><div class="value"><a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a></div>
+        <div class="label">API URL</div><div class="value"><code>https://api.elevenlabs.io/v1/text-to-speech/{voice_id}</code></div>
+        <div class="label">Формат ключа</div><div class="value"><code>xi-xxx</code></div>
+        <div class="label">Особенности</div><div class="value">Клонирование голоса, эмоции, 29+ языков, русский</div>
+        <div class="label">Оплата</div><div class="value">💳 Иностранные карты, от $5/мес</div>
+        <div class="label">Бесплатно</div><div class="value">10,000 символов/мес</div>
+      </div>
+      <h4>Credential:</h4>
+      <p>Header Name: <code>xi-api-key</code>, Value: <code>ваш-elevenlabs-ключ</code></p>
+      <pre>POST https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM
+{
+  "text": "Привет! Это озвучка от ElevenLabs.",
+  "model_id": "eleven_multilingual_v2",
+  "voice_settings": {
+    "stability": 0.5,
+    "similarity_boost": 0.75
+  }
+}
+// Ответ: audio/mpeg binary (mp3 файл)</pre>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 5: Setup Credentials ═══════════ -->
+  <div class="section" id="setup-cred">
+    <h2>🔐 Пошаговая настройка Credentials в N8N</h2>
+
+    <div class="alert alert-warn">
+      <div class="alert-icon">🔒</div>
+      <div><strong>Почему через Credentials, а не .env?</strong><br>N8N шифрует credentials с помощью <code>N8N_ENCRYPTION_KEY</code>. API-ключи в <code>.env</code> хранятся в открытом виде — это небезопасно!</div>
+    </div>
+
+    <h3>Credential 1: PostgreSQL (база данных)</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Откройте N8N</h4>
+        <p>Перейдите на <code>http://ваш-сервер:5678</code></p>
+      </div>
+      <div class="step">
+        <h4>Создайте credential</h4>
+        <p><strong>Settings → Credentials → Add Credential</strong></p>
+        <p>Тип: <strong>Postgres</strong></p>
+      </div>
+      <div class="step">
+        <h4>Заполните поля</h4>
+        <table>
+          <tr><td><strong>Host</strong></td><td><code>postgres</code> (имя сервиса в Docker)</td></tr>
+          <tr><td><strong>Port</strong></td><td><code>5432</code></td></tr>
+          <tr><td><strong>Database</strong></td><td>Значение <code>DB_POSTGRESDB_DATABASE</code> из .env</td></tr>
+          <tr><td><strong>User</strong></td><td>Значение <code>DB_POSTGRESDB_USER</code> из .env</td></tr>
+          <tr><td><strong>Password</strong></td><td>Значение <code>DB_POSTGRESDB_PASSWORD</code> из .env</td></tr>
+        </table>
+      </div>
+      <div class="step">
+        <h4>Сохраните</h4>
+        <p>Имя: <code>Content Factory DB</code> → нажмите <strong>Save</strong></p>
+        <p>Нажмите <strong>Test</strong> для проверки соединения.</p>
+      </div>
+    </div>
+
+    <h3>Credential 2: AI Provider (Header Auth)</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Add Credential → Header Auth</h4>
+        <p>Тип: <strong>Header Auth</strong></p>
+      </div>
+      <div class="step">
+        <h4>Заполните Authorization</h4>
+        <p>Header Name: <code>Authorization</code></p>
+        <p>Header Value: <code>Bearer ВСТАВЬТЕ_ВАШ_КЛЮЧ_СЮДА</code></p>
+        <table>
+          <tr><td>GPTunnel</td><td><code>Bearer sk-gpt-xxx</code></td></tr>
+          <tr><td>ProxyAPI</td><td><code>Bearer sk-xxx</code></td></tr>
+          <tr><td>OpenRouter</td><td><code>Bearer sk-or-v1-xxx</code></td></tr>
+          <tr><td>OpenAI</td><td><code>Bearer sk-xxx</code></td></tr>
+        </table>
+      </div>
+      <div class="step">
+        <h4>Сохраните</h4>
+        <p>Имя: <code>AI Provider (GPTunnel / OpenAI / OpenRouter)</code></p>
+      </div>
+    </div>
+
+    <h3>Credential 3: TTS Provider</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Header Auth для TTS</h4>
+        <p>Header Name: <code>Authorization</code></p>
+        <p>Header Value: <code>Bearer ваш-openai-ключ</code></p>
+        <p>Имя: <code>TTS Provider (OpenAI / ElevenLabs)</code></p>
+      </div>
+    </div>
+
+    <h3>Credential 4: Minimax Video</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Header Auth для Minimax</h4>
+        <p>Header Name: <code>Authorization</code></p>
+        <p>Header Value: <code>Bearer ваш-minimax-jwt-токен</code></p>
+        <p>Имя: <code>Minimax Video API</code></p>
+      </div>
+    </div>
+
+    <h3>Credential 5: HeyGen (опционально)</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Header Auth для HeyGen</h4>
+        <p>Header Name: <code>X-Api-Key</code></p>
+        <p>Header Value: <code>ваш-heygen-api-ключ</code></p>
+        <p>Имя: <code>HeyGen API</code></p>
+      </div>
+    </div>
+
+    <h3>Credential 6: A2E Video (опционально)</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Header Auth для A2E</h4>
+        <p>Header Name: <code>Authorization</code></p>
+        <p>Header Value: <code>Bearer a2e-ваш-ключ</code></p>
+        <p>Имя: <code>A2E Video API</code></p>
+      </div>
+    </div>
+
+    <h3>Credential 7: Telegram Bot</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Встроенный тип Telegram</h4>
+        <p>Или Header Auth с пустым именем (токен передаётся в URL)</p>
+        <p>Имя: <code>Telegram Bot</code></p>
+      </div>
+    </div>
+
+    <h3>Credential 8: VK API</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Header Auth для VK</h4>
+        <p>Header Name: <code>Authorization</code></p>
+        <p>Header Value: <code>Bearer ваш-vk-токен</code></p>
+        <p>Имя: <code>VK API Token</code></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 6: Dashboard Settings ═══════════ -->
+  <div class="section" id="setup-db">
+    <h2>⚙️ Настройка через Dashboard (app_settings)</h2>
+    <p>Настройки модели, URL и промпта хранятся в базе данных. Workflow при запуске автоматически читают их.</p>
+
+    <table>
+      <thead><tr><th>Ключ</th><th>Категория</th><th>Описание</th><th>Пример</th></tr></thead>
+      <tbody>
+        <tr><td><code>ai_model</code></td><td>🧠 AI</td><td>Модель для генерации текста</td><td><code>gpt-4o-mini</code></td></tr>
+        <tr><td><code>ai_base_url</code></td><td>🧠 AI</td><td>Базовый URL API</td><td><code>https://gptunnel.ru/v1</code></td></tr>
+        <tr><td><code>ai_system_prompt</code></td><td>🧠 AI</td><td>Системный промпт</td><td><code>Ты — эксперт по маркетингу...</code></td></tr>
+        <tr><td><code>tts_provider</code></td><td>🔊 TTS</td><td>Провайдер озвучки</td><td><code>openai</code></td></tr>
+        <tr><td><code>tts_voice</code></td><td>🔊 TTS</td><td>Голос</td><td><code>alloy</code></td></tr>
+        <tr><td><code>tts_speed</code></td><td>🔊 TTS</td><td>Скорость</td><td><code>1.0</code></td></tr>
+        <tr><td><code>video_provider</code></td><td>🎥 Видео</td><td>Провайдер видео</td><td><code>minimax</code></td></tr>
+        <tr><td><code>subtitle_font</code></td><td>📝 Субтитры</td><td>Шрифт субтитров</td><td><code>Arial</code></td></tr>
+        <tr><td><code>subtitle_size</code></td><td>📝 Субтитры</td><td>Размер шрифта</td><td><code>42</code></td></tr>
+        <tr><td><code>subtitle_color</code></td><td>📝 Субтитры</td><td>Цвет</td><td><code>white</code></td></tr>
+        <tr><td><code>subtitle_outline</code></td><td>📝 Субтитры</td><td>Толщина обводки</td><td><code>2</code></td></tr>
+        <tr><td><code>watermark_url</code></td><td>💧 Водяной знак</td><td>URL картинки</td><td><code>/output/logo.png</code></td></tr>
+        <tr><td><code>watermark_position</code></td><td>💧 Водяной знак</td><td>Позиция</td><td><code>top-right</code></td></tr>
+        <tr><td><code>watermark_opacity</code></td><td>💧 Водяной знак</td><td>Прозрачность (0-1)</td><td><code>0.7</code></td></tr>
+        <tr><td><code>auto_generate_enabled</code></td><td>⏰ Расписание</td><td>Автогенерация</td><td><code>false</code></td></tr>
+        <tr><td><code>auto_generate_cron</code></td><td>⏰ Расписание</td><td>Cron-расписание</td><td><code>0 9 * * 1-5</code></td></tr>
+        <tr><td><code>auto_generate_count</code></td><td>⏰ Расписание</td><td>Кол-во за запуск</td><td><code>3</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="alert alert-success">
+      <div class="alert-icon">🎯</div>
+      <div><strong>Как менять:</strong> Dashboard → <strong>Настройки</strong> → найдите нужную категорию → измените значение → <strong>Сохранить</strong></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 7: Non-standard ═══════════ -->
+  <div class="section" id="non-standard">
+    <h2>🔌 Нестандартные API</h2>
+    <p>Если AI не совместим с OpenAI, нужен специальный HTTP Request нод.</p>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab(this, 'tab-yandex')">YandexGPT</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-gigachat')">GigaChat</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-heygen-detail')">HeyGen (видео)</button>
+    </div>
+
+    <div id="tab-yandex" class="tab-content active">
+      <h4>Credential:</h4>
+      <p>Header Name: <code>Authorization</code>, Value: <code>Api-Key ВАШ_YANDEX_API_KEY</code></p>
+      <p><em>Или IAM-токен:</em> <code>Bearer ВАШ_IAM_ТОКЕН</code></p>
+
+      <h4>HTTP Request нод:</h4>
+      <pre>POST https://llm.api.cloud.yandex.net/foundationModels/v1/completion
+
+{
+  "modelUri": "gpt://ВАШ_FOLDER_ID/yandexgpt/latest",
+  "completionOptions": {
+    "stream": false,
+    "temperature": 0.7,
+    "maxTokens": 2000
+  },
+  "messages": [
+    { "role": "system", "text": "Ваш системный промпт" },
+    { "role": "user", "text": "Ваш запрос" }
+  ]
+}</pre>
+
+      <h4>Парсинг ответа (Code нода):</h4>
+      <pre>const response = $json;
+const text = response.result?.alternatives?.[0]?.message?.text || '';
+return [{ json: { content: text } }];</pre>
+    </div>
+
+    <div id="tab-gigachat" class="tab-content">
+      <h4>Шаг 1: Получите OAuth токен</h4>
+      <pre>POST https://ngw.devices.sberbank.ru:9443/api/v2/oauth
+
+Headers:
+  Authorization: Basic ВАШ_AUTH_DATA_BASE64
+  RqUID: уникальный-uuid
+  Content-Type: application/x-www-form-urlencoded
+
+Body: scope=GIGACHAT_API_PERS
+
+// Ответ: { "access_token": "xxx", "expires_at": 1234567890 }</pre>
+
+      <h4>Шаг 2: Запрос к GigaChat</h4>
+      <pre>POST https://gigachat.devices.sberbank.ru/api/v1/chat/completions
+
+Headers:
+  Authorization: Bearer ПОЛУЧЕННЫЙ_ACCESS_TOKEN
+
+{
+  "model": "GigaChat",
+  "messages": [
+    { "role": "user", "content": "Ваш запрос" }
+  ]
+}
+
+// Формат ответа похож на OpenAI!</pre>
+
+      <div class="alert alert-info">
+        <div class="alert-icon">💡</div>
+        <div>Токен GigaChat живёт 30 минут. Для автоматизации создайте отдельный workflow, который обновляет токен по расписанию и сохраняет в <code>app_settings</code>.</div>
+      </div>
+    </div>
+
+    <div id="tab-heygen-detail" class="tab-content">
+      <h4>Полный пайплайн HeyGen в N8N:</h4>
+      <div class="flow-diagram">
+        <div class="flow-box">📥 Webhook</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">🧑‍🎤 HeyGen Generate</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">⏳ Wait 30s</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">🔄 Poll Status</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">✅ Download</div>
+      </div>
+
+      <h4>Нод 1: Создание видео</h4>
+      <pre>POST https://api.heygen.com/v2/video/generate
+Credential: HeyGen API (X-Api-Key)
+
+{
+  "video_inputs": [{
+    "character": {
+      "type": "avatar",
+      "avatar_id": "Angela-inblackskirt-20220820",
+      "avatar_style": "normal"
+    },
+    "voice": {
+      "type": "text",
+      "input_text": "{{ $json.script_text }}",
+      "voice_id": "ru_female_1"
+    }
+  }],
+  "dimension": { "width": 1080, "height": 1920 }
+}</pre>
+
+      <h4>Нод 2: Полинг статуса</h4>
+      <pre>GET https://api.heygen.com/v1/video_status.get?video_id={{ $json.data.video_id }}
+Credential: HeyGen API (X-Api-Key)
+
+// Когда status === "completed":
+// $json.data.video_url → ссылка на скачивание</pre>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 8: Switching ═══════════ -->
+  <div class="section" id="switching">
+    <h2>🔀 Переключение между провайдерами</h2>
+
+    <div class="provider-card">
+      <h4>Способ 1: Поменять URL в Dashboard (быстрый)</h4>
+      <p>Просто измените <code>ai_base_url</code> и <code>ai_model</code> в Настройках. Все workflow подхватят автоматически.</p>
+    </div>
+
+    <div class="provider-card">
+      <h4>Способ 2: Несколько Credentials</h4>
+      <p>Создайте отдельный credential для каждого провайдера (<code>GPTunnel API</code>, <code>OpenRouter API</code>, <code>OpenAI Direct</code>). В workflow переключите credential на нужный.</p>
+    </div>
+
+    <div class="provider-card">
+      <h4>Способ 3: Разные провайдеры для разных задач</h4>
+      <table>
+        <tr><td>Workflow 01 (идеи)</td><td>→</td><td>GPTunnel (дешёвый gpt-4o-mini)</td></tr>
+        <tr><td>Workflow 02 (TTS)</td><td>→</td><td>OpenAI Direct (качественное tts-1-hd)</td></tr>
+        <tr><td>Workflow 02 (видео)</td><td>→</td><td>Minimax или HeyGen</td></tr>
+        <tr><td>Workflow 03 (описания)</td><td>→</td><td>OpenRouter (Claude 3.5 для лучших текстов)</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 9: Prices ═══════════ -->
+  <div class="section" id="prices">
+    <h2>💰 Сравнение цен</h2>
+
+    <h3>Текстовые AI (за 1M токенов: вход / выход)</h3>
+    <table>
+      <thead><tr><th>Провайдер</th><th>GPT-4o-mini</th><th>GPT-4o</th><th>Claude 3.5 Sonnet</th></tr></thead>
+      <tbody>
+        <tr><td>OpenAI напрямую</td><td>$0.15 / $0.60</td><td>$2.50 / $10.00</td><td>—</td></tr>
+        <tr><td>GPTunnel</td><td>~₽15 / ₽60</td><td>~₽250 / ₽1000</td><td>~₽300 / ₽1500</td></tr>
+        <tr><td>ProxyAPI</td><td>~₽15 / ₽60</td><td>~₽250 / ₽1000</td><td>—</td></tr>
+        <tr><td>OpenRouter</td><td>$0.15 / $0.60</td><td>$2.50 / $10.00</td><td>$3.00 / $15.00</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Видео-генерация (за 1 видео ~10 сек)</h3>
+    <table>
+      <thead><tr><th>Провайдер</th><th>Цена</th><th>Качество</th><th>Скорость</th></tr></thead>
+      <tbody>
+        <tr><td>Minimax (video-01)</td><td>~$0.05</td><td>⭐⭐⭐</td><td>~2-5 мин</td></tr>
+        <tr><td>HeyGen (аватар)</td><td>~$0.50</td><td>⭐⭐⭐⭐⭐</td><td>~5-10 мин</td></tr>
+        <tr><td>A2E Video</td><td>~₽5-20</td><td>⭐⭐⭐</td><td>~3-7 мин</td></tr>
+      </tbody>
+    </table>
+
+    <h3>TTS (за 1000 символов)</h3>
+    <table>
+      <thead><tr><th>Провайдер</th><th>Цена</th><th>Качество</th><th>Русский</th></tr></thead>
+      <tbody>
+        <tr><td>OpenAI TTS-1</td><td>$0.015</td><td>⭐⭐⭐</td><td>✅ Хороший</td></tr>
+        <tr><td>OpenAI TTS-1-HD</td><td>$0.030</td><td>⭐⭐⭐⭐</td><td>✅ Отличный</td></tr>
+        <tr><td>ElevenLabs</td><td>~$0.030</td><td>⭐⭐⭐⭐⭐</td><td>✅ Превосходный</td></tr>
+      </tbody>
+    </table>
+
+    <div class="alert alert-info">
+      <div class="alert-icon">📊</div>
+      <div>Цены актуальны на начало 2025. Проверяйте на сайтах провайдеров — они часто меняются.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 10: FAQ ═══════════ -->
+  <div class="section" id="faq">
+    <h2>❓ Частые вопросы</h2>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>Можно ли использовать бесплатные модели?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">Да! OpenRouter предоставляет бесплатные модели (Llama 3.1, Mistral, Gemma). Просто измените <code>ai_model</code> в настройках Dashboard на название бесплатной модели.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>Работает ли TTS через агрегаторы?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">TTS (<code>/v1/audio/speech</code>) проксируют GPTunnel и ProxyAPI. Используйте URL агрегатора вместо <code>api.openai.com</code>. Проверяйте документацию конкретного агрегатора.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>Как проверить, что credential работает?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">В N8N: откройте credential → нажмите <strong>Test</strong>. Или откройте workflow → нажмите <strong>Test Workflow</strong> → отправьте тестовый запрос → проверьте результат каждой ноды.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>Можно ли использовать HeyGen вместо Minimax?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">Да! Замените ноды Minimax в workflow 02 на HeyGen ноды. HeyGen даёт видео с говорящими аватарами — более профессиональный результат, но дороже.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>Что делать если один агрегатор перестал работать?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">Просто поменяйте <code>ai_base_url</code> на другой агрегатор и переключите credential. Формат API одинаковый — workflow продолжит работать.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>Где хранятся API-ключи?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">Внутри N8N, зашифрованные с помощью <code>N8N_ENCRYPTION_KEY</code>. Они НЕ хранятся в <code>.env</code> файле и НЕ передаются в workflow как переменные окружения.</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  🏭 Контент Завод — Подключение AI-провайдеров<br>
+  <a href="/">← Вернуться в Dashboard</a> &nbsp;|&nbsp; <a href="/guide-workflow-dev">Гайд по Workflow →</a>
+</footer>
+
+<script>
+function switchTab(btn, tabId) {
+  btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const parent = btn.closest('.section');
+  parent.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+}
+</script>
+
+</body>
+</html>

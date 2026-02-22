@@ -1,0 +1,1 @@
+SELECT substring(data::text, 1, 4000) FROM execution_data WHERE "executionId" = (SELECT max(id) FROM execution_entity);

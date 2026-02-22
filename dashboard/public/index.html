@@ -1,0 +1,2524 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Контент Завод</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23818cf8' stroke-width='2'><path d='M2 20V8l7-3v5l7-3v5l6-3v11H2z'/></svg>">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg2: #1a1d27;
+      --bg3: #252836;
+      --border: #2e3348;
+      --text: #e4e4e7;
+      --text2: #9ca3af;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --blue: #3b82f6;
+      --radius: 10px;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    a { color: var(--accent2); text-decoration: none; }
+    button { cursor:pointer; font-family:inherit; font-size:14px; }
+    input,select,textarea { font-family:inherit; font-size:14px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:8px 12px; outline:none; }
+    input:focus,select:focus,textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* Auth Screen */
+    .auth-screen { display:flex; justify-content:center; align-items:center; min-height:100vh; }
+    .auth-box { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:40px; width:380px; text-align:center; }
+    .auth-box h1 { font-size:28px; margin-bottom:8px; }
+    .auth-box p { color:var(--text2); margin-bottom:24px; }
+    .auth-box input { width:100%; margin-bottom:12px; }
+    .auth-box .btn { width:100%; }
+
+    /* Layout */
+    .app { display:none; }
+    .app.active { display:flex; min-height:100vh; }
+    .sidebar { width:220px; background:var(--bg2); border-right:1px solid var(--border); padding:16px 0; display:flex; flex-direction:column; position:fixed; height:100vh; overflow-y:auto; }
+    .sidebar .logo { padding:0 20px 20px; font-size:20px; font-weight:700; border-bottom:1px solid var(--border); margin-bottom:8px; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:10px 20px; color:var(--text2); cursor:pointer; transition:0.15s; font-size:14px; }
+    .nav-item:hover { background:var(--bg3); color:var(--text); }
+    .nav-item.active { color:var(--accent2); background:rgba(99,102,241,0.1); border-right:3px solid var(--accent); }
+    .nav-item .icon { width:20px; text-align:center; }
+    .sidebar-footer { margin-top:auto; padding:12px 20px; border-top:1px solid var(--border); }
+    .sidebar-footer .user-info { font-size:12px; color:var(--text2); }
+    .sidebar-footer .logout-btn { background:none; border:none; color:var(--red); font-size:13px; padding:4px 0; }
+
+    .main { margin-left:220px; flex:1; padding:24px; min-height:100vh; }
+    .page { display:none; }
+    .page.active { display:block; }
+
+    /* Components */
+    .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .page-header h2 { font-size:22px; }
+    .btn { padding:8px 16px; border-radius:6px; border:none; font-weight:500; transition:0.15s; }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-primary:hover { background:var(--accent2); }
+    .btn-success { background:var(--green); color:#fff; }
+    .btn-danger { background:var(--red); color:#fff; }
+    .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+    .btn-outline:hover { border-color:var(--accent); color:var(--accent2); }
+    .btn-sm { padding:5px 10px; font-size:12px; }
+    .btn-group { display:flex; gap:8px; }
+
+    .card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
+    .card h3 { font-size:16px; margin-bottom:12px; }
+    .stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px; }
+    .stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+    .stat-card .stat-value { font-size:28px; font-weight:700; margin:4px 0; }
+    .stat-card .stat-label { font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
+
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); font-size:13px; }
+    th { color:var(--text2); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; background:var(--bg3); }
+    tr:hover { background:rgba(99,102,241,0.04); }
+
+    .badge { display:inline-block; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+    .badge-draft { background:rgba(156,163,175,0.2); color:#9ca3af; }
+    .badge-approved { background:rgba(34,197,94,0.2); color:#22c55e; }
+    .badge-rejected { background:rgba(239,68,68,0.2); color:#ef4444; }
+    .badge-used { background:rgba(99,102,241,0.2); color:#818cf8; }
+    .badge-processing { background:rgba(234,179,8,0.2); color:#eab308; }
+    .badge-ready_for_review { background:rgba(59,130,246,0.2); color:#3b82f6; }
+    .badge-published { background:rgba(34,197,94,0.2); color:#22c55e; }
+    .badge-error { background:rgba(239,68,68,0.2); color:#ef4444; }
+    .badge-created { background:rgba(156,163,175,0.2); color:#9ca3af; }
+    .badge-cancelled { background:rgba(156,163,175,0.2); color:#6b7280; }
+    .badge-publishing { background:rgba(234,179,8,0.2); color:#eab308; }
+    .badge-generated { background:rgba(99,102,241,0.2); color:#818cf8; }
+    .badge-pending { background:rgba(234,179,8,0.2); color:#eab308; }
+
+    .filters { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+    .filters select, .filters input { min-width:140px; }
+
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; justify-content:center; align-items:center; }
+    .modal-overlay.active { display:flex; }
+    .modal { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:24px; width:600px; max-width:95vw; max-height:90vh; overflow-y:auto; }
+    .modal h3 { margin-bottom:16px; }
+    .modal .form-group { margin-bottom:14px; }
+    .modal .form-group label { display:block; font-size:13px; color:var(--text2); margin-bottom:4px; }
+    .modal .form-group input, .modal .form-group select, .modal .form-group textarea { width:100%; }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text2); }
+    .empty-state .icon { font-size:48px; margin-bottom:12px; }
+
+    .toast { position:fixed; bottom:20px; right:20px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:12px 20px; z-index:200; animation: slideIn 0.3s; }
+    .toast.success { border-color:var(--green); }
+    .toast.error { border-color:var(--red); }
+    @keyframes slideIn { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .detail-grid .full-width { grid-column:1/-1; }
+    .detail-field { margin-bottom:12px; }
+    .detail-field .label { font-size:12px; color:var(--text2); margin-bottom:2px; }
+    .detail-field .value { font-size:14px; word-break:break-word; }
+
+    .video-preview { width:100%; max-width:360px; border-radius:8px; background:#000; }
+    .progress-bar { height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; margin-top:8px; }
+    .progress-bar .fill { height:100%; background:var(--accent); transition:width 0.5s; }
+
+    .tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:16px; }
+    .tab { padding:10px 20px; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; font-size:14px; }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--accent2); border-bottom-color:var(--accent); }
+
+    /* ═══ SVG Icons ═══ */
+    .ico { display:inline-block; vertical-align:middle; flex-shrink:0; width:16px; height:16px; }
+    .ico svg { width:100%; height:100%; }
+    .nav-item .ico { width:18px; height:18px; margin-right:2px; }
+    .stat-card .ico { width:20px; height:20px; opacity:0.8; }
+    .logo .ico { width:22px; height:22px; }
+    .page-header .ico { width:20px; height:20px; }
+    .btn .ico { width:14px; height:14px; }
+    .ico-lg { width:48px; height:48px; }
+
+    /* ═══ Upload Widget ═══ */
+    .upload-zone { border:2px dashed var(--border); border-radius:10px; padding:20px; text-align:center; cursor:pointer; transition:all 0.25s; position:relative; background:var(--bg); }
+    .upload-zone:hover, .upload-zone.dragover { border-color:var(--accent); background:rgba(99,102,241,0.04); }
+    .upload-zone input[type="file"] { display:none; }
+    .upload-zone .upload-icon { margin-bottom:8px; }
+    .upload-zone .upload-icon .ico { width:32px; height:32px; color:var(--text2); }
+    .upload-zone:hover .upload-icon .ico { color:var(--accent); }
+    .upload-zone .upload-text { font-size:13px; color:var(--text2); }
+    .upload-zone .upload-text strong { color:var(--accent2); }
+    .upload-preview { margin-top:10px; position:relative; display:inline-block; }
+    .upload-preview img { max-width:180px; max-height:120px; border-radius:8px; border:1px solid var(--border); }
+    .upload-preview .remove-btn { position:absolute; top:-6px; right:-6px; width:20px; height:20px; background:var(--red); color:#fff; border:none; border-radius:50%; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; line-height:1; }
+    .upload-progress { margin-top:8px; }
+    .upload-or { display:flex; align-items:center; gap:10px; margin:10px 0; font-size:12px; color:var(--text2); }
+    .upload-or::before, .upload-or::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* ═══ Gallery Grid ═══ */
+    .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
+    .gallery-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; overflow:hidden; transition:all 0.2s; }
+    .gallery-card:hover { border-color:rgba(99,102,241,0.3); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.2); }
+    .gallery-card .g-preview { width:100%; height:160px; object-fit:cover; background:var(--bg3); display:flex; align-items:center; justify-content:center; }
+    .gallery-card .g-preview img { width:100%; height:100%; object-fit:cover; }
+    .gallery-card .g-preview video { width:100%; height:100%; object-fit:cover; }
+    .gallery-card .g-preview .g-placeholder { color:var(--text2); opacity:0.4; }
+    .gallery-card .g-preview .g-placeholder .ico { width:48px; height:48px; }
+    .gallery-card .g-body { padding:12px; }
+    .gallery-card .g-title { font-size:14px; font-weight:600; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .gallery-card .g-meta { font-size:12px; color:var(--text2); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .gallery-card .g-actions { padding:8px 12px; border-top:1px solid var(--border); display:flex; gap:6px; }
+    .gen-section { margin-bottom:24px; }
+    .gen-section-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .gen-section-header h3 { font-size:16px; display:flex; align-items:center; gap:6px; }
+    .gen-section-header .count { font-size:12px; color:var(--text2); background:var(--bg3); padding:2px 8px; border-radius:10px; }
+
+    /* ═══ UI/UX Enhancements ═══ */
+    .auth-screen { background: linear-gradient(135deg, #0f1117 0%, #1a1033 50%, #0f1117 100%); }
+    .auth-box { background:rgba(26,29,39,0.95); border-color:rgba(99,102,241,0.2); box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 80px rgba(99,102,241,0.06); backdrop-filter:blur(12px); }
+    .auth-box h1 { background:linear-gradient(135deg,#e4e4e7,#818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    .sidebar { background:linear-gradient(180deg,var(--bg2) 0%,#151823 100%); }
+    .logo { background:linear-gradient(135deg,#e4e4e7,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .nav-item { transition:all 0.2s ease; border-right:3px solid transparent; }
+    .nav-item:hover { background:rgba(99,102,241,0.08); transform:translateX(3px); }
+    .nav-item.active { background:rgba(99,102,241,0.12); border-right-color:var(--accent); box-shadow:inset 0 0 20px rgba(99,102,241,0.05); }
+
+    .stat-card { position:relative; overflow:hidden; transition:transform 0.2s,border-color 0.2s; }
+    .stat-card::after { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); opacity:0.8; }
+    .stat-card:hover { border-color:rgba(99,102,241,0.3); transform:translateY(-2px); }
+    .stat-card .stat-value { background:linear-gradient(135deg,#e4e4e7,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    .card { transition:border-color 0.2s; }
+    .card:hover { border-color:rgba(99,102,241,0.2); }
+
+    .btn { transition:all 0.2s ease; }
+    .btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(99,102,241,0.4); }
+    .btn-success:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(34,197,94,0.4); }
+    .btn-danger:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(239,68,68,0.3); }
+
+    .modal-overlay { backdrop-filter:blur(6px); background:rgba(0,0,0,0.65); }
+    .modal { box-shadow:0 16px 48px rgba(0,0,0,0.5); animation:modalIn 0.25s ease; }
+    @keyframes modalIn { from { transform:scale(0.95) translateY(10px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
+
+    .tab { transition:all 0.2s; border-radius:6px 6px 0 0; }
+    .tab:hover { color:var(--text); background:rgba(99,102,241,0.06); }
+    .tab.active { background:rgba(99,102,241,0.1); }
+
+    .page.active { animation:pageIn 0.25s ease; }
+    @keyframes pageIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+    .toast { box-shadow:0 8px 24px rgba(0,0,0,0.3); backdrop-filter:blur(8px); background:rgba(37,40,54,0.95); }
+    @keyframes slideIn { from { transform:translateX(120%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+    .settings-cat-content .form-group { padding:10px 12px; border-radius:8px; transition:background 0.15s; }
+    .settings-cat-content .form-group:hover { background:rgba(99,102,241,0.04); }
+
+    .test-result { display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:4px 10px; border-radius:6px; }
+    .test-result.success { background:rgba(34,197,94,0.1); color:var(--green); }
+    .test-result.error { background:rgba(239,68,68,0.1); color:var(--red); }
+    .test-result.loading { background:rgba(234,179,8,0.1); color:var(--yellow); }
+
+    .provider-info { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.15); margin-bottom:12px; font-size:12px; color:var(--text2); }
+    .provider-info strong { color:var(--accent2); }
+
+    .settings-actions { display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:var(--bg); }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    ::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+
+    /* Mobile hamburger */
+    .mobile-menu-btn { display:none; position:fixed; top:12px; left:12px; z-index:50; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-size:18px; cursor:pointer; }
+    .sidebar.mobile-open { display:flex; z-index:40; }
+
+    @media (max-width:768px) {
+      .sidebar { display:none; position:fixed; width:260px; }
+      .mobile-menu-btn { display:block; }
+      .main { margin-left:0; padding:16px; padding-top:52px; }
+      .detail-grid { grid-template-columns:1fr; }
+      .stats-grid { grid-template-columns:1fr 1fr; }
+      .page-header { flex-direction:column; align-items:flex-start; gap:10px; }
+      .filters { flex-direction:column; }
+      .tabs { overflow-x:auto; flex-wrap:nowrap; }
+      .tab { white-space:nowrap; font-size:13px; padding:8px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Auth Screen ═══ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-box">
+    <div style="margin-bottom:8px;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V8l7-3v5l7-3v5l6-3v11H2z"/></svg></div>
+    <h1>Контент Завод</h1>
+    <p style="margin-bottom:8px;">Платформа для производства контента</p>
+    <p style="color:var(--accent2);font-size:11px;margin-bottom:20px;">AI • Видео • Карточки • Публикация</p>
+    <input type="text" id="auth-login" placeholder="Логин" autocomplete="username">
+    <input type="password" id="auth-password" placeholder="Пароль" autocomplete="current-password">
+    <button class="btn btn-primary" onclick="doLogin()" id="auth-btn">Войти</button>
+    <p id="auth-error" style="color:var(--red);margin-top:12px;font-size:13px;display:none;"></p>
+  </div>
+</div>
+
+<!-- ═══ Main App ═══ -->
+<button class="mobile-menu-btn" id="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+<div id="app" class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M2 20V8l7-3v5l7-3v5l6-3v11H2z"/></svg> Контент Завод</div>
+    <div class="nav-item active" data-page="dashboard"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg></span> Дашборд</div>
+    <div class="nav-item" data-page="content"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.9V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.1A7 7 0 0 0 12 2z"/></svg></span> Контент-банк</div>
+    <div class="nav-item" data-page="create-video"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4z"/><path d="M4 11l3.5-5.5L11 11"/><path d="M11 11l3.5-5.5L18 11"/><path d="M4 11h16"/></svg></span> Создать видео</div>
+    <div class="nav-item" data-page="videos"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></span> Видео</div>
+    <div class="nav-item" data-page="cards"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Карточки товаров</div>
+    <div class="nav-item" data-page="generations"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Генерации</div>
+    <div class="nav-item" data-page="schedule"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Расписание</div>
+    <div class="nav-item" data-page="errors"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Ошибки</div>
+    <div class="nav-item" data-page="settings" id="nav-settings"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Настройки</div>
+    <div class="nav-item" data-page="users" id="nav-users" style="display:none;"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Пользователи</div>
+    <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
+    <a href="http://localhost:5678" target="_blank" class="nav-item" id="nav-n8n" style="display:none;text-decoration:none;color:var(--text2);font-size:13px;"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> N8N Автоматизации</a>
+    <a href="/guide-ai-providers.html" target="_blank" class="nav-item" id="nav-guide-ai" style="text-decoration:none;color:var(--text2);font-size:13px;"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span> Гайд AI</a>
+    <a href="/guide-workflow-dev.html" target="_blank" class="nav-item" id="nav-guide-workflow" style="text-decoration:none;color:var(--text2);font-size:13px;"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/></svg></span> Гайд Workflow</a>
+    <div class="sidebar-footer">
+      <div class="user-info" id="user-info"></div>
+      <button class="logout-btn" onclick="logout()">Выйти</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Dashboard -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header"><h2>Дашборд</h2></div>
+      <div class="stats-grid" id="dashboard-stats"></div>
+      <div class="card"><h3>Последние видео</h3><div id="dashboard-recent"></div></div>
+    </div>
+
+    <!-- Content Bank -->
+    <div id="page-content" class="page">
+      <div class="page-header">
+        <h2>Контент-банк</h2>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="openGenerateModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/></svg> Сгенерировать идеи</button>
+        </div>
+      </div>
+      <div class="filters">
+        <select id="content-filter-status" onchange="loadContent()">
+          <option value="">Все статусы</option>
+          <option value="draft">Черновик</option>
+          <option value="approved">Одобрено</option>
+          <option value="rejected">Отклонено</option>
+          <option value="used">Использовано</option>
+        </select>
+        <input type="text" id="content-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadContent()">
+      </div>
+      <div class="card"><table><thead><tr>
+        <th>ID</th><th>Заголовок</th><th>Категория</th><th>Статус</th><th>Сценарий</th><th>Промпт</th><th>Дата</th><th>Действия</th>
+      </tr></thead><tbody id="content-table"></tbody></table></div>
+    </div>
+
+    <!-- Create Video -->
+    <div id="page-create-video" class="page">
+      <div class="page-header"><h2>Создать видео</h2></div>
+      <div class="card">
+        <!-- Тип видео -->
+        <div class="form-group" style="margin-bottom:14px;">
+          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Тип видео</label>
+          <select id="cv-video-type" style="width:100%;" onchange="toggleVideoTypeFields()">
+            <option value="regular">Обычное видео (TTS + Minimax)</option>
+            <option value="gptunnel">GPTunnel видео (TTS + Veo-3)</option>
+            <option value="heygen">HeyGen аватар (говорящий аватар)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Выберите идею *</label>
+          <select id="cv-idea-select" style="width:100%;" onchange="loadIdeaDetails()">
+            <option value="">-- Выберите идею --</option>
+          </select>
+        </div>
+        <div id="cv-idea-details" style="display:none;margin-bottom:16px;">
+          <div class="detail-grid">
+            <div class="detail-field"><div class="label">Сценарий</div><div class="value" id="cv-script-text">—</div></div>
+            <div class="detail-field"><div class="label">Видео-промпт</div><div class="value" id="cv-prompt-text">—</div></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Название продукта</label>
+            <input type="text" id="cv-product-name" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Артикул</label>
+            <input type="text" id="cv-artikul" style="width:100%;">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Изображение продукта</label>
+            <div class="upload-zone" id="cv-upload-zone" onclick="document.getElementById('cv-upload-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleUpload(event.dataTransfer.files[0],'cv')">
+              <input type="file" id="cv-upload-input" accept="image/*" onchange="handleUpload(this.files[0],'cv')">
+              <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+              <div class="upload-text"><strong>Нажмите</strong> или перетащите фото</div>
+            </div>
+            <div id="cv-upload-preview" class="upload-preview" style="display:none;"></div>
+            <div id="cv-upload-progress" class="upload-progress" style="display:none;">
+              <div class="progress-bar"><div class="fill" id="cv-upload-fill" style="width:0%"></div></div>
+            </div>
+            <div class="upload-or">или вставьте ссылку</div>
+            <input type="text" id="cv-product-image" style="width:100%;" placeholder="https://...">
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">
+            <label><input type="checkbox" id="cv-show-artikul"> Показать артикул на видео</label>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <label><input type="checkbox" id="cv-auto-publish"> Автопубликация</label>
+        </div>
+        <!-- HeyGen поля (скрыты по умолчанию) -->
+        <div id="cv-heygen-fields" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
+          <h4 style="margin-bottom:10px;font-size:14px;">Настройки HeyGen аватара</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Avatar ID</label>
+              <input type="text" id="cv-heygen-avatar" style="width:100%;" placeholder="Из настроек или свой ID">
+            </div>
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Voice ID</label>
+              <input type="text" id="cv-heygen-voice" style="width:100%;" placeholder="Из настроек или свой ID">
+            </div>
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фон</label>
+              <input type="text" id="cv-heygen-bg" style="width:100%;" placeholder="#ffffff или URL изображения">
+            </div>
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Соотношение сторон</label>
+              <select id="cv-heygen-ratio" style="width:100%;">
+                <option value="16:9">16:9 (горизонтальное)</option>
+                <option value="9:16">9:16 (вертикальное / Shorts)</option>
+                <option value="1:1">1:1 (квадрат)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" onclick="createVideo()" id="cv-submit-btn">Запустить производство</button>
+        </div>
+        <div id="cv-progress" style="display:none;margin-top:16px;" class="card">
+          <h3>Прогресс</h3>
+          <div class="progress-bar"><div class="fill" id="cv-progress-fill" style="width:0%"></div></div>
+          <p id="cv-progress-text" style="margin-top:8px;font-size:13px;color:var(--text2);"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Videos -->
+    <div id="page-videos" class="page">
+      <div class="page-header"><h2>Видео</h2></div>
+      <div class="filters">
+        <select id="videos-filter-status" onchange="loadVideos()">
+          <option value="">Все статусы</option>
+          <option value="created">Создано</option>
+          <option value="processing">В работе</option>
+          <option value="ready_for_review">На ревью</option>
+          <option value="approved">Одобрено</option>
+          <option value="published">Опубликовано</option>
+          <option value="error">Ошибка</option>
+          <option value="cancelled">Отменено</option>
+        </select>
+        <input type="text" id="videos-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadVideos()">
+      </div>
+      <div class="card"><table><thead><tr>
+        <th>ID</th><th>Идея</th><th>Продукт</th><th>Шаг</th><th>Статус</th><th>Дата</th><th>Действия</th>
+      </tr></thead><tbody id="videos-table"></tbody></table></div>
+    </div>
+
+    <!-- Video Detail Modal (inline page) -->
+    <div id="page-video-detail" class="page">
+      <div class="page-header">
+        <h2>Видео #<span id="vd-id"></span></h2>
+        <div class="btn-group" id="vd-actions"></div>
+      </div>
+      <div class="detail-grid" id="vd-content"></div>
+    </div>
+
+    <!-- Product Cards -->
+    <div id="page-cards" class="page">
+      <div class="page-header">
+        <h2>Карточки товаров</h2>
+        <button class="btn btn-primary" onclick="openCardGenerateModal()">Генерировать карточку</button>
+      </div>
+      <div class="filters">
+        <select id="cards-filter-status" onchange="loadCards()">
+          <option value="">Все статусы</option>
+          <option value="pending">В обработке</option>
+          <option value="generated">Сгенерировано</option>
+          <option value="approved">Одобрено</option>
+          <option value="rejected">Отклонено</option>
+        </select>
+        <select id="cards-filter-marketplace" onchange="loadCards()">
+          <option value="">Все маркетплейсы</option>
+          <option value="WB">Wildberries</option>
+          <option value="Ozon">Ozon</option>
+          <option value="YM">Яндекс.Маркет</option>
+          <option value="Other">Другой</option>
+        </select>
+        <input type="text" id="cards-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadCards()">
+      </div>
+      <div class="card"><table><thead><tr>
+        <th>ID</th><th>Фото</th><th>Товар</th><th>Маркетплейс</th><th>Заголовок</th><th>Статус</th><th>Дата</th><th>Действия</th>
+      </tr></thead><tbody id="cards-table"></tbody></table></div>
+    </div>
+
+    <!-- Card Detail Page -->
+    <div id="page-card-detail" class="page">
+      <div class="page-header">
+        <h2>Карточка #<span id="cd-id"></span></h2>
+        <div class="btn-group" id="cd-actions"></div>
+      </div>
+      <div class="detail-grid" id="cd-content"></div>
+    </div>
+
+    <!-- Schedule -->
+    <div id="page-schedule" class="page">
+      <div class="page-header"><h2>Расписание</h2></div>
+      <div class="card">
+        <h3>Автоматическая генерация</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;">
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автогенерация</label>
+            <select id="sched-enabled" style="width:100%;">
+              <option value="false">Выключена</option>
+              <option value="true">Включена</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
+            <input type="text" id="sched-cron" value="0 9 * * 1-5" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Кол-во идей за раз</label>
+            <input type="number" id="sched-count" value="3" min="1" max="10" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Каналы по умолчанию</label>
+            <select id="sched-channels" multiple style="width:100%;height:80px;">
+              <option value="telegram">Telegram</option>
+              <option value="vk">VK</option>
+              <option value="youtube_shorts">YouTube Shorts</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="saveSchedule()">Сохранить</button>
+          <button class="btn btn-outline" onclick="runGenerateNow()">Запустить сейчас</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Errors -->
+    <div id="page-errors" class="page">
+      <div class="page-header"><h2>Ошибки</h2></div>
+      <div class="card"><table><thead><tr>
+        <th>ID</th><th>Workflow</th><th>Узел</th><th>Ошибка</th><th>Сессия</th><th>Дата</th>
+      </tr></thead><tbody id="errors-table"></tbody></table></div>
+    </div>
+
+    <!-- Settings -->
+    <div id="page-settings" class="page">
+      <div class="page-header">
+        <h2>Настройки</h2>
+        <div class="btn-group" id="settings-header-actions"></div>
+      </div>
+      <div class="tabs" id="settings-tabs" style="overflow-x:auto;"></div>
+      <div id="settings-content"></div>
+    </div>
+
+    <!-- Users Management (tech_admin only) -->
+    <div id="page-users" class="page">
+      <div class="page-header">
+        <h2>Пользователи</h2>
+        <button class="btn btn-primary" onclick="openCreateUserModal()">+ Создать аккаунт</button>
+      </div>
+
+      <!-- Env users info -->
+      <div class="card" id="env-users-section" style="margin-bottom:16px;">
+        <h3 style="margin-bottom:10px;">Аккаунты из .env (только чтение)</h3>
+        <small style="color:var(--text2);">Эти пользователи заданы в переменной окружения DASHBOARD_USERS. Изменить можно только в .env + перезапуск.</small>
+        <table style="margin-top:10px;"><thead><tr>
+          <th>Логин</th><th>Роль</th><th>Источник</th>
+        </tr></thead><tbody id="env-users-table"></tbody></table>
+      </div>
+
+      <!-- DB users -->
+      <div class="card">
+        <h3 style="margin-bottom:10px;">Аккаунты из БД (управляемые)</h3>
+        <table><thead><tr>
+          <th>ID</th><th>Логин</th><th>Имя</th><th>Роль</th><th>Активен</th><th>Посл. вход</th><th>Создан</th><th>Действия</th>
+        </tr></thead><tbody id="db-users-table"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Generations Gallery -->
+    <div id="page-generations" class="page">
+      <div class="page-header">
+        <h2>Генерации</h2>
+      </div>
+      <div class="tabs" id="gen-tabs">
+        <div class="tab active" data-gen-tab="videos">Видео</div>
+        <div class="tab" data-gen-tab="cards">Карточки</div>
+        <div class="tab" data-gen-tab="scripts">Сценарии</div>
+        <div class="tab" data-gen-tab="prompts">Промпты</div>
+        <div class="tab" data-gen-tab="media">Медиа-файлы</div>
+      </div>
+      <div id="gen-gallery-content">
+        <div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><p>Загрузка...</p></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Generate Ideas Modal -->
+<div class="modal-overlay" id="generate-modal">
+  <div class="modal">
+    <h3>Генерация идей</h3>
+    <div class="form-group">
+      <label>Количество идей</label>
+      <input type="number" id="gen-count" value="3" min="1" max="10">
+    </div>
+    <div class="form-group">
+      <label>Продукт (необязательно)</label>
+      <input type="text" id="gen-product">
+    </div>
+    <div class="form-group">
+      <label>Ниша (необязательно)</label>
+      <input type="text" id="gen-niche">
+    </div>
+    <div class="form-group">
+      <label>Доп. инструкции (необязательно)</label>
+      <textarea id="gen-extra"></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="closeModal('generate-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="generateIdeas()" id="gen-submit">Генерировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Idea Detail Modal -->
+<div class="modal-overlay" id="idea-modal">
+  <div class="modal" style="width:700px;">
+    <h3 id="idea-modal-title">Идея</h3>
+    <div class="tabs" style="margin-bottom:12px;">
+      <div class="tab active" data-idea-tab="idea">Идея</div>
+      <div class="tab" data-idea-tab="script">Сценарий</div>
+      <div class="tab" data-idea-tab="prompt">Видео-промпт</div>
+    </div>
+    <div id="idea-tab-idea" class="idea-tab-content">
+      <div class="form-group"><label>Заголовок</label><input type="text" id="idea-title" style="width:100%;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Категория</label><input type="text" id="idea-category" style="width:100%;"></div>
+        <div class="form-group"><label>Тональность</label><input type="text" id="idea-tone" style="width:100%;"></div>
+      </div>
+      <div class="form-group"><label>Концепция</label><textarea id="idea-concept" style="width:100%;"></textarea></div>
+      <div class="form-group"><label>Визуальное описание</label><textarea id="idea-visual" style="width:100%;"></textarea></div>
+      <div class="form-group"><label>Целевая аудитория</label><input type="text" id="idea-audience" style="width:100%;"></div>
+    </div>
+    <div id="idea-tab-script" class="idea-tab-content" style="display:none;">
+      <div class="form-group"><label>Текст сценария</label><textarea id="idea-script-text" style="width:100%;min-height:150px;"></textarea></div>
+      <div id="idea-script-info" style="font-size:12px;color:var(--text2);"></div>
+    </div>
+    <div id="idea-tab-prompt" class="idea-tab-content" style="display:none;">
+      <div class="form-group"><label>Промпт</label><textarea id="idea-prompt-text" style="width:100%;min-height:150px;"></textarea></div>
+      <div class="form-group"><label>Стиль</label><input type="text" id="idea-style-ref" style="width:100%;"></div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('idea-modal')">Закрыть</button>
+      <button class="btn btn-danger btn-sm" onclick="rejectIdea()" id="idea-reject-btn">Отклонить</button>
+      <button class="btn btn-success btn-sm" onclick="approveIdea()" id="idea-approve-btn">Одобрить</button>
+      <button class="btn btn-primary" onclick="saveIdea()" id="idea-save-btn">Сохранить</button>
+    </div>
+    <input type="hidden" id="idea-edit-id">
+    <input type="hidden" id="idea-script-id">
+    <input type="hidden" id="idea-prompt-id">
+  </div>
+</div>
+
+<!-- Publish Modal -->
+<div class="modal-overlay" id="publish-modal">
+  <div class="modal" style="width:450px;">
+    <h3>Публикация видео</h3>
+    <div class="form-group">
+      <label>Каналы</label>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+        <label><input type="checkbox" class="pub-channel" value="telegram" checked> Telegram</label>
+        <label><input type="checkbox" class="pub-channel" value="vk"> VK</label>
+        <label><input type="checkbox" class="pub-channel" value="youtube_shorts"> YouTube Shorts</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="pub-gen-caption" checked> Сгенерировать подпись через AI</label>
+    </div>
+    <div class="form-group" id="pub-caption-group">
+      <label>Своя подпись (необязательно)</label>
+      <textarea id="pub-caption"></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="closeModal('publish-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="publishVideo()" id="pub-submit">Опубликовать</button>
+    </div>
+    <input type="hidden" id="pub-session-id">
+  </div>
+</div>
+
+<!-- Generate Card Modal -->
+<div class="modal-overlay" id="card-generate-modal">
+  <div class="modal" style="width:650px;">
+    <h3>Генерация карточки товара</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Фото товара *</label>
+        <div class="upload-zone" id="cg-upload-zone" onclick="document.getElementById('cg-upload-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleUpload(event.dataTransfer.files[0],'cg')">
+          <input type="file" id="cg-upload-input" accept="image/*" onchange="handleUpload(this.files[0],'cg')">
+          <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+          <div class="upload-text"><strong>Нажмите</strong> или перетащите фото товара</div>
+        </div>
+        <div id="cg-upload-preview" class="upload-preview" style="display:none;"></div>
+        <div id="cg-upload-progress" class="upload-progress" style="display:none;">
+          <div class="progress-bar"><div class="fill" id="cg-upload-fill" style="width:0%"></div></div>
+        </div>
+        <div class="upload-or">или вставьте ссылку</div>
+        <input type="text" id="cg-image-url" placeholder="https://... (ссылка на фото товара)">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Название товара *</label>
+        <input type="text" id="cg-product-name" placeholder="Например: Кроссовки Nike Air Max 90">
+      </div>
+      <div class="form-group">
+        <label>Маркетплейс</label>
+        <select id="cg-marketplace" style="width:100%;">
+          <option value="WB">Wildberries</option>
+          <option value="Ozon">Ozon</option>
+          <option value="YM">Яндекс.Маркет</option>
+          <option value="Other">Другой</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Стиль</label>
+        <select id="cg-style" style="width:100%;">
+          <option value="modern">Современный</option>
+          <option value="minimal">Минимализм</option>
+          <option value="premium">Премиум</option>
+          <option value="bright">Яркий</option>
+          <option value="classic">Классический</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Цветовая схема</label>
+        <select id="cg-color-scheme" style="width:100%;">
+          <option value="auto">Авто (по фото)</option>
+          <option value="light">Светлая</option>
+          <option value="dark">Тёмная</option>
+          <option value="brand">Бренд</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Артикулы (через запятую)</label>
+        <input type="text" id="cg-artikuls" placeholder="WB-12345, OZ-67890">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Описание товара</label>
+        <textarea id="cg-description" placeholder="Краткое описание товара для AI-анализа"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Целевая аудитория</label>
+        <input type="text" id="cg-audience" placeholder="Женщины 25-45 лет">
+      </div>
+      <div class="form-group">
+        <label>Ключевые особенности</label>
+        <input type="text" id="cg-features" placeholder="Натуральная кожа, ортопедическая стелька">
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" id="cg-include-price"> Указать цену</label>
+        <input type="text" id="cg-price" placeholder="2990 руб." style="margin-top:4px;">
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" id="cg-include-badge"> Добавить бейдж</label>
+        <input type="text" id="cg-badge" placeholder="ХИТ ПРОДАЖ" style="margin-top:4px;">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Доп. инструкции для AI</label>
+        <textarea id="cg-extra" placeholder="Сделать акцент на экологичности..."></textarea>
+      </div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('card-generate-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="generateCard()" id="cg-submit">Генерировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal-overlay" id="create-user-modal">
+  <div class="modal" style="width:450px;">
+    <h3>Создать аккаунт</h3>
+    <div class="form-group">
+      <label>Логин *</label>
+      <input type="text" id="cu-login" placeholder="Минимум 3 символа">
+    </div>
+    <div class="form-group">
+      <label>Пароль *</label>
+      <input type="password" id="cu-password" placeholder="Минимум 6 символов">
+    </div>
+    <div class="form-group">
+      <label>Роль</label>
+      <select id="cu-role" style="width:100%;">
+        <option value="business_owner">Бизнес (business_owner)</option>
+        <option value="tech_admin">Тех. админ (tech_admin)</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label>Имя</label>
+        <input type="text" id="cu-first-name">
+      </div>
+      <div class="form-group">
+        <label>Фамилия</label>
+        <input type="text" id="cu-last-name">
+      </div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('create-user-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="createUser()" id="cu-submit">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="edit-user-modal">
+  <div class="modal" style="width:450px;">
+    <h3>Редактирование пользователя <span id="eu-title"></span></h3>
+    <input type="hidden" id="eu-id">
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" id="eu-login" disabled style="opacity:0.6;">
+    </div>
+    <div class="form-group">
+      <label>Роль</label>
+      <select id="eu-role" style="width:100%;">
+        <option value="business_owner">Бизнес (business_owner)</option>
+        <option value="tech_admin">Тех. админ (tech_admin)</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label>Имя</label>
+        <input type="text" id="eu-first-name">
+      </div>
+      <div class="form-group">
+        <label>Фамилия</label>
+        <input type="text" id="eu-last-name">
+      </div>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="eu-active" checked> Аккаунт активен</label>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px;">
+      <h4 style="font-size:14px;margin-bottom:8px;">Сменить пароль</h4>
+      <div class="form-group">
+        <label>Новый пароль (оставьте пустым чтобы не менять)</label>
+        <input type="password" id="eu-new-password" placeholder="Минимум 6 символов">
+      </div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('edit-user-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveUser()" id="eu-submit">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// SVG Icon System
+// ═══════════════════════════════════════════════════
+const _I = {
+  factory:'<path d="M2 20V8l7-3v5l7-3v5l6-3v11H2z"/>',
+  chart:'<rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/>',
+  lightbulb:'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.9V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.1A7 7 0 0 0 12 2z"/>',
+  clapperboard:'<path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4z"/><path d="M4 11l3.5-5.5L11 11"/><path d="M11 11l3.5-5.5L18 11"/><path d="M4 11h16"/><path d="M2 7h20a0 0 0 0 1 0 0v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z"/>',
+  video:'<path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+  package:'<path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  alertTriangle:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  zap:'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  bookOpen:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  graduationCap:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>',
+  robot:'<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/>',
+  trash:'<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  edit:'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  megaphone:'<path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  flask:'<path d="M9 2h6"/><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/>',
+  user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  fileText:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+  palette:'<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.02-.23-.27-.38-.62-.38-1.01 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.17-4.49-9-10-9z"/>',
+  send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+  smartphone:'<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+  mic:'<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>',
+  film:'<rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+  lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>',
+  key:'<path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
+  briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  upload:'<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+  grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  play:'<polygon points="5 3 19 12 5 21 5 3"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>',
+  menu:'<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
+  loader:'<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>',
+  arrowLeft:'<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+  externalLink:'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+  info:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  search:'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'
+};
+function ico(name,sz){
+  sz=sz||16;
+  const p=_I[name];
+  if(!p) return '';
+  return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ico">'+p+'</svg>';
+}
+
+// ═══════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════
+let token = localStorage.getItem('cf_token') || '';
+let currentUser = null;
+let socket = null;
+let currentPage = 'dashboard';
+
+// ═══════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════
+async function doLogin() {
+  const login = document.getElementById('auth-login').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+
+  if (!login || !password) { errEl.textContent = 'Введите логин и пароль'; errEl.style.display = 'block'; return; }
+
+  try {
+    document.getElementById('auth-btn').disabled = true;
+    const res = await api('POST', '/api/auth/login', { login, password });
+    if (res.ok) {
+      token = res.token;
+      localStorage.setItem('cf_token', token);
+      currentUser = res.user;
+      showApp();
+    } else {
+      errEl.textContent = res.error || 'Ошибка входа';
+      errEl.style.display = 'block';
+    }
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    document.getElementById('auth-btn').disabled = false;
+  }
+}
+
+function logout() {
+  token = '';
+  currentUser = null;
+  localStorage.removeItem('cf_token');
+  if (socket) socket.disconnect();
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function checkAuth() {
+  if (!token) return false;
+  try {
+    const res = await api('GET', '/api/auth/me');
+    if (res.ok) { currentUser = res.user; return true; }
+  } catch {}
+  return false;
+}
+
+// ═══════════════════════════════════════════════════
+// App Init
+// ═══════════════════════════════════════════════════
+async function init() {
+  if (await checkAuth()) {
+    showApp();
+  } else {
+    document.getElementById('auth-screen').style.display = 'flex';
+  }
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').classList.add('active');
+  document.getElementById('user-info').textContent = `${currentUser?.login || 'user'} (${currentUser?.role || ''})`;
+
+  // Init navigation
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      navigateTo(el.dataset.page);
+      // Close mobile menu
+      document.querySelector('.sidebar')?.classList.remove('mobile-open');
+    });
+  });
+
+  // Idea modal tabs
+  document.querySelectorAll('[data-idea-tab]').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('[data-idea-tab]').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.idea-tab-content').forEach(c => c.style.display = 'none');
+      el.classList.add('active');
+      document.getElementById(`idea-tab-${el.dataset.ideaTab}`).style.display = 'block';
+    });
+  });
+
+  // Role-based sidebar visibility
+  if (currentUser?.role === 'tech_admin') {
+    document.getElementById('nav-n8n').style.display = '';
+    document.getElementById('nav-users').style.display = '';
+  }
+  if (currentUser?.role === 'business_owner') {
+    document.getElementById('nav-guide-ai').style.display = 'none';
+    document.getElementById('nav-guide-workflow').style.display = 'none';
+  }
+
+  initWebSocket();
+  navigateTo('dashboard');
+}
+
+// ═══════════════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════════════
+function navigateTo(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const pageEl = document.getElementById(`page-${page}`);
+  if (pageEl) pageEl.classList.add('active');
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (navEl) navEl.classList.add('active');
+
+  // Load data
+  switch (page) {
+    case 'dashboard': loadDashboard(); break;
+    case 'content': loadContent(); break;
+    case 'create-video': loadCreateVideo(); break;
+    case 'videos': loadVideos(); break;
+    case 'cards': loadCards(); break;
+    case 'generations': loadGenerations(); break;
+    case 'schedule': loadSchedule(); break;
+    case 'errors': loadErrors(); break;
+    case 'settings': loadSettings(); break;
+    case 'users': loadUsers(); break;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// WebSocket
+// ═══════════════════════════════════════════════════
+function initWebSocket() {
+  socket = io({ path: '/ws', auth: { token } });
+  socket.on('connect', () => console.log('WS connected'));
+  socket.on('content-ready', () => { if (currentPage === 'content') loadContent(); toast('Новый контент сгенерирован!', 'success'); });
+  socket.on('video-ready', (data) => { if (currentPage === 'videos') loadVideos(); toast(`Видео #${data.session_id} готово к проверке!`, 'success'); });
+  socket.on('card-ready', (data) => { if (currentPage === 'cards') loadCards(); toast(`Карточка «${data.product_name || ''}» сгенерирована!`, 'success'); });
+  socket.on('session-update', () => { if (currentPage === 'videos') loadVideos(); if (currentPage === 'dashboard') loadDashboard(); });
+  socket.on('workflow-error', (data) => { toast(`Ошибка: ${data.errorMessage || data.error_message}`, 'error'); });
+}
+
+// ═══════════════════════════════════════════════════
+// Dashboard
+// ═══════════════════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const [analyticsRes, videosRes] = await Promise.all([
+      api('GET', '/api/analytics/summary'),
+      api('GET', '/api/videos?limit=5&order=DESC')
+    ]);
+
+    const s = analyticsRes.data || {};
+    document.getElementById('dashboard-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">${ico('lightbulb')} Идей</div><div class="stat-value">${s.total_ideas || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">${ico('clapperboard')} Видео</div><div class="stat-value">${s.total_sessions || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">${ico('eye')} На ревью</div><div class="stat-value">${s.review_count || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">${ico('check')} Опубликовано</div><div class="stat-value">${s.published_count || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">${ico('alertTriangle')} Ошибки</div><div class="stat-value">${s.error_count || 0}</div></div>
+    `;
+
+    const videos = videosRes.data || [];
+    if (videos.length === 0) {
+      document.getElementById('dashboard-recent').innerHTML = '<div class="empty-state"><p>Пока нет видео</p></div>';
+    } else {
+      document.getElementById('dashboard-recent').innerHTML = `<table><thead><tr><th>ID</th><th>Идея</th><th>Статус</th><th>Дата</th></tr></thead><tbody>${
+        videos.map(v => `<tr style="cursor:pointer" onclick="openVideoDetail(${v.id})">
+          <td>#${v.id}</td>
+          <td>${esc(v.idea_title || v.product_name || '—')}</td>
+          <td><span class="badge badge-${v.status}">${v.status}</span></td>
+          <td>${fmtDate(v.created_at)}</td>
+        </tr>`).join('')
+      }</tbody></table>`;
+    }
+  } catch (e) {
+    document.getElementById('dashboard-stats').innerHTML = `<div class="stat-card"><div class="stat-label">Ошибка загрузки</div><div class="stat-value">—</div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Content Bank
+// ═══════════════════════════════════════════════════
+async function loadContent() {
+  const status = document.getElementById('content-filter-status').value;
+  const search = document.getElementById('content-search').value;
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (search) params.set('search', search);
+
+  try {
+    const res = await api('GET', `/api/content/ideas?${params}`);
+    const items = res.data || [];
+    const tbody = document.getElementById('content-table');
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Нет идей. Сгенерируйте!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(i => `<tr>
+      <td>#${i.id}</td>
+      <td><a href="#" onclick="openIdeaDetail(${i.id});return false;">${esc(i.title || '—')}</a></td>
+      <td>${esc(i.category || '—')}</td>
+      <td><span class="badge badge-${i.status}">${i.status}</span></td>
+      <td>${i.script_id ? '<span class="badge badge-approved">✓</span>' : '—'}</td>
+      <td>${i.prompt_id ? '<span class="badge badge-approved">✓</span>' : '—'}</td>
+      <td>${fmtDate(i.created_at)}</td>
+      <td>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline" onclick="openIdeaDetail(${i.id})">${ico('edit')}</button>
+          ${i.status === 'approved' ? `<button class="btn btn-sm btn-primary" onclick="useIdea(${i.id})">${ico('clapperboard')}</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteIdea(${i.id})">${ico('trash')}</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  } catch (e) {
+    document.getElementById('content-table').innerHTML = `<tr><td colspan="8">Ошибка: ${e.message}</td></tr>`;
+  }
+}
+
+async function openIdeaDetail(id) {
+  try {
+    const res = await api('GET', `/api/content/ideas/${id}`);
+    const { idea, voice_script, video_prompt } = res.data;
+
+    document.getElementById('idea-edit-id').value = idea.id;
+    document.getElementById('idea-modal-title').textContent = `Идея #${idea.id}`;
+    document.getElementById('idea-title').value = idea.title || '';
+    document.getElementById('idea-category').value = idea.category || '';
+    document.getElementById('idea-tone').value = idea.tone || '';
+    document.getElementById('idea-concept').value = idea.concept || '';
+    document.getElementById('idea-visual').value = idea.visual_description || '';
+    document.getElementById('idea-audience').value = idea.target_audience || '';
+
+    if (voice_script) {
+      document.getElementById('idea-script-id').value = voice_script.id;
+      document.getElementById('idea-script-text').value = voice_script.script_text || '';
+      document.getElementById('idea-script-info').textContent = `Слов: ${voice_script.word_count || 0} | ~${voice_script.duration_hint || 0}с`;
+    } else {
+      document.getElementById('idea-script-id').value = '';
+      document.getElementById('idea-script-text').value = '';
+      document.getElementById('idea-script-info').textContent = 'Сценарий не сгенерирован';
+    }
+
+    if (video_prompt) {
+      document.getElementById('idea-prompt-id').value = video_prompt.id;
+      document.getElementById('idea-prompt-text').value = video_prompt.prompt_text || '';
+      document.getElementById('idea-style-ref').value = video_prompt.style_reference || '';
+    } else {
+      document.getElementById('idea-prompt-id').value = '';
+      document.getElementById('idea-prompt-text').value = '';
+      document.getElementById('idea-style-ref').value = '';
+    }
+
+    // Show/hide approve/reject buttons based on status
+    const canReview = idea.status === 'draft';
+    document.getElementById('idea-approve-btn').style.display = canReview ? '' : 'none';
+    document.getElementById('idea-reject-btn').style.display = canReview ? '' : 'none';
+
+    openModal('idea-modal');
+  } catch (e) {
+    toast('Ошибка загрузки идеи: ' + e.message, 'error');
+  }
+}
+
+async function saveIdea() {
+  const id = document.getElementById('idea-edit-id').value;
+  try {
+    await api('PUT', `/api/content/ideas/${id}`, {
+      title: document.getElementById('idea-title').value,
+      category: document.getElementById('idea-category').value,
+      tone: document.getElementById('idea-tone').value,
+      concept: document.getElementById('idea-concept').value,
+      visual_description: document.getElementById('idea-visual').value,
+      target_audience: document.getElementById('idea-audience').value
+    });
+
+    const scriptId = document.getElementById('idea-script-id').value;
+    if (scriptId) {
+      await api('PUT', `/api/content/scripts/${scriptId}`, {
+        script_text: document.getElementById('idea-script-text').value
+      });
+    }
+
+    const promptId = document.getElementById('idea-prompt-id').value;
+    if (promptId) {
+      await api('PUT', `/api/content/prompts/${promptId}`, {
+        prompt_text: document.getElementById('idea-prompt-text').value,
+        style_reference: document.getElementById('idea-style-ref').value
+      });
+    }
+
+    toast('Сохранено', 'success');
+    closeModal('idea-modal');
+    loadContent();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function approveIdea() {
+  const id = document.getElementById('idea-edit-id').value;
+  try {
+    await api('PUT', `/api/content/ideas/${id}`, { status: 'approved' });
+    const scriptId = document.getElementById('idea-script-id').value;
+    if (scriptId) await api('PUT', `/api/content/scripts/${scriptId}`, { status: 'approved' });
+    const promptId = document.getElementById('idea-prompt-id').value;
+    if (promptId) await api('PUT', `/api/content/prompts/${promptId}`, { status: 'approved' });
+
+    toast('Идея одобрена!', 'success');
+    closeModal('idea-modal');
+    loadContent();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function rejectIdea() {
+  const id = document.getElementById('idea-edit-id').value;
+  try {
+    await api('PUT', `/api/content/ideas/${id}`, { status: 'rejected' });
+    toast('Идея отклонена', 'success');
+    closeModal('idea-modal');
+    loadContent();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function deleteIdea(id) {
+  if (!confirm('Удалить идею и все связанные данные?')) return;
+  try {
+    await api('DELETE', `/api/content/ideas/${id}`);
+    toast('Удалено', 'success');
+    loadContent();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+function useIdea(id) {
+  // Navigate to create-video with idea pre-selected
+  navigateTo('create-video');
+  setTimeout(() => {
+    const sel = document.getElementById('cv-idea-select');
+    sel.value = id;
+    loadIdeaDetails();
+  }, 300);
+}
+
+// Generate ideas modal
+function openGenerateModal() { openModal('generate-modal'); }
+
+async function generateIdeas() {
+  const btn = document.getElementById('gen-submit');
+  btn.disabled = true;
+  btn.textContent = 'Генерация...';
+
+  try {
+    const res = await api('POST', '/api/content/generate', {
+      count: parseInt(document.getElementById('gen-count').value) || 3,
+      product_name: document.getElementById('gen-product').value,
+      niche: document.getElementById('gen-niche').value,
+      extra_instructions: document.getElementById('gen-extra').value
+    });
+
+    toast('Идеи сгенерированы!', 'success');
+    closeModal('generate-modal');
+    loadContent();
+  } catch (e) {
+    toast('Ошибка генерации: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Генерировать';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Create Video
+// ═══════════════════════════════════════════════════
+async function loadCreateVideo() {
+  try {
+    const res = await api('GET', '/api/content/ideas?status=approved&limit=100');
+    const ideas = res.data || [];
+    const sel = document.getElementById('cv-idea-select');
+    sel.innerHTML = '<option value="">-- Выберите идею --</option>' +
+      ideas.map(i => `<option value="${i.id}">${i.title} (${i.category || 'без категории'})</option>`).join('');
+  } catch (e) {
+    toast('Ошибка загрузки идей: ' + e.message, 'error');
+  }
+}
+
+async function loadIdeaDetails() {
+  const ideaId = document.getElementById('cv-idea-select').value;
+  const details = document.getElementById('cv-idea-details');
+  if (!ideaId) { details.style.display = 'none'; return; }
+
+  try {
+    const res = await api('GET', `/api/content/ideas/${ideaId}`);
+    const { voice_script, video_prompt } = res.data;
+    document.getElementById('cv-script-text').textContent = voice_script?.script_text || 'Нет сценария';
+    document.getElementById('cv-prompt-text').textContent = video_prompt?.prompt_text || 'Нет промпта';
+    details.style.display = 'block';
+  } catch {}
+}
+
+async function createVideo() {
+  const ideaId = document.getElementById('cv-idea-select').value;
+  if (!ideaId) { toast('Выберите идею', 'error'); return; }
+
+  const btn = document.getElementById('cv-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Запуск...';
+
+  try {
+    // Get script & prompt IDs
+    const ideaRes = await api('GET', `/api/content/ideas/${ideaId}`);
+    const { voice_script, video_prompt } = ideaRes.data;
+
+    const res = await api('POST', '/api/videos', {
+      idea_id: parseInt(ideaId),
+      voice_script_id: voice_script?.id || null,
+      video_prompt_id: video_prompt?.id || null,
+      product_name: document.getElementById('cv-product-name').value,
+      product_image_url: document.getElementById('cv-product-image').value,
+      artikul: document.getElementById('cv-artikul').value,
+      show_artikul: document.getElementById('cv-show-artikul').checked,
+      auto_publish: document.getElementById('cv-auto-publish').checked,
+      video_type: document.getElementById('cv-video-type').value,
+      heygen_avatar_id: document.getElementById('cv-heygen-avatar').value,
+      heygen_voice_id: document.getElementById('cv-heygen-voice').value,
+      heygen_background: document.getElementById('cv-heygen-bg').value,
+      heygen_ratio: document.getElementById('cv-heygen-ratio').value
+    });
+
+    toast(`Видео #${res.data.id} запущено в производство!`, 'success');
+
+    // Show progress
+    const progress = document.getElementById('cv-progress');
+    progress.style.display = 'block';
+    document.getElementById('cv-progress-text').textContent = `Сессия #${res.data.id}: обработка...`;
+    document.getElementById('cv-progress-fill').style.width = '10%';
+
+    // Watch progress via WS
+    if (socket) {
+      socket.on('step-update', (data) => {
+        if (data.sessionId == res.data.id) {
+          const pct = getStepProgress(data.stepName);
+          document.getElementById('cv-progress-fill').style.width = pct + '%';
+          document.getElementById('cv-progress-text').textContent = `Шаг: ${data.stepName} (${data.status})`;
+        }
+      });
+    }
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Запустить производство';
+  }
+}
+
+function getStepProgress(step) {
+  const steps = { created: 5, loading_data: 10, tts: 30, video_generation: 50, montage: 75, review: 90, done: 100 };
+  return steps[step] || 50;
+}
+
+// Toggle HeyGen fields
+function toggleVideoTypeFields() {
+  const type = document.getElementById('cv-video-type').value;
+  document.getElementById('cv-heygen-fields').style.display = type === 'heygen' ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// Product Cards
+// ═══════════════════════════════════════════════════
+async function loadCards() {
+  const status = document.getElementById('cards-filter-status').value;
+  const marketplace = document.getElementById('cards-filter-marketplace').value;
+  const search = document.getElementById('cards-search').value;
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (marketplace) params.set('marketplace', marketplace);
+  if (search) params.set('search', search);
+
+  try {
+    const res = await api('GET', `/api/cards?${params}`);
+    const items = res.data || [];
+    const tbody = document.getElementById('cards-table');
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Нет карточек. Генерируйте!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(c => `<tr>
+      <td>#${c.id}</td>
+      <td>${c.image_url ? `<img src="${esc(c.image_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '—'}</td>
+      <td>${esc(c.product_name || '—')}</td>
+      <td>${esc(c.marketplace || '—')}</td>
+      <td title="${esc(c.main_title || '')}">${esc((c.main_title || '—').substring(0, 50))}</td>
+      <td><span class="badge badge-${c.status}">${c.status}</span></td>
+      <td>${fmtDate(c.created_at)}</td>
+      <td>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline" onclick="openCardDetail(${c.id})">${ico('eye')}</button>
+          ${c.status === 'generated' ? `<button class="btn btn-sm btn-success" onclick="approveCard(${c.id})">✓</button><button class="btn btn-sm btn-danger" onclick="rejectCard(${c.id})">✗</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteCard(${c.id})">${ico('trash')}</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  } catch (e) {
+    document.getElementById('cards-table').innerHTML = `<tr><td colspan="8">Ошибка: ${e.message}</td></tr>`;
+  }
+}
+
+function openCardGenerateModal() { openModal('card-generate-modal'); }
+
+async function generateCard() {
+  const imageUrl = document.getElementById('cg-image-url').value.trim();
+  const productName = document.getElementById('cg-product-name').value.trim();
+
+  if (!imageUrl) { toast('Укажите URL фото товара', 'error'); return; }
+  if (!productName) { toast('Укажите название товара', 'error'); return; }
+
+  const btn = document.getElementById('cg-submit');
+  btn.disabled = true;
+  btn.textContent = 'Генерация...';
+
+  const artikulsRaw = document.getElementById('cg-artikuls').value.trim();
+  const artikuls = artikulsRaw ? artikulsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  try {
+    await api('POST', '/api/cards/generate', {
+      product_name: productName,
+      image_url: imageUrl,
+      marketplace: document.getElementById('cg-marketplace').value,
+      artikuls,
+      product_description: document.getElementById('cg-description').value,
+      target_audience: document.getElementById('cg-audience').value,
+      key_features: document.getElementById('cg-features').value,
+      style: document.getElementById('cg-style').value,
+      color_scheme: document.getElementById('cg-color-scheme').value,
+      include_price: document.getElementById('cg-include-price').checked,
+      price: document.getElementById('cg-price').value,
+      include_badge: document.getElementById('cg-include-badge').checked,
+      badge_text: document.getElementById('cg-badge').value,
+      extra_instructions: document.getElementById('cg-extra').value
+    });
+    toast('Генерация карточки запущена!', 'success');
+    closeModal('card-generate-modal');
+    setTimeout(() => loadCards(), 2000);
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Генерировать';
+  }
+}
+
+async function openCardDetail(id) {
+  try {
+    const res = await api('GET', `/api/cards/${id}`);
+    const c = res.data;
+
+    document.getElementById('cd-id').textContent = c.id;
+
+    // Actions
+    let actions = '';
+    if (c.status === 'generated') {
+      actions += `<button class="btn btn-success" onclick="approveCard(${c.id})">✓ Одобрить</button>`;
+      actions += `<button class="btn btn-danger" onclick="rejectCard(${c.id})">✗ Отклонить</button>`;
+    }
+    actions += `<button class="btn btn-outline" onclick="navigateTo('cards')">← Назад</button>`;
+    document.getElementById('cd-actions').innerHTML = actions;
+
+    let html = '';
+
+    // Фото и основная информация
+    html += `<div class="card"><h3>Товар</h3>
+      ${c.image_url ? `<img src="${esc(c.image_url)}" style="max-width:200px;border-radius:8px;margin-bottom:12px;">` : ''}
+      <div class="detail-field"><div class="label">Название</div><div class="value">${esc(c.product_name)}</div></div>
+      <div class="detail-field"><div class="label">Маркетплейс</div><div class="value">${esc(c.marketplace || '—')}</div></div>
+      <div class="detail-field"><div class="label">Артикулы</div><div class="value">${esc(c.artikuls ? JSON.stringify(c.artikuls) : '—')}</div></div>
+      <div class="detail-field"><div class="label">Статус</div><div class="value"><span class="badge badge-${c.status}">${c.status}</span></div></div>
+      <div class="detail-field"><div class="label">Создано</div><div class="value">${fmtDate(c.created_at)}</div></div>
+    </div>`;
+
+    // Заголовок и тексты
+    html += `<div class="card"><h3>AI-контент</h3>
+      <div class="detail-field"><div class="label">Заголовок</div><div class="value" style="font-size:16px;font-weight:600;">${esc(c.main_title || '—')}</div></div>
+      <div class="detail-field"><div class="label">Подзаголовок</div><div class="value">${esc(c.subtitle || '—')}</div></div>
+      <div class="detail-field"><div class="label">CTA</div><div class="value" style="color:var(--accent2);">${esc(c.cta_text || '—')}</div></div>
+    </div>`;
+
+    // Буллет-пойнты
+    if (c.bullet_points) {
+      const bullets = typeof c.bullet_points === 'string' ? JSON.parse(c.bullet_points) : c.bullet_points;
+      if (Array.isArray(bullets) && bullets.length > 0) {
+        html += `<div class="card full-width"><h3>Буллет-пойнты</h3><ul style="padding-left:20px;">`;
+        for (const b of bullets) { html += `<li style="margin-bottom:6px;">${esc(b)}</li>`; }
+        html += `</ul></div>`;
+      }
+    }
+
+    // SEO
+    html += `<div class="card"><h3>SEO</h3>
+      <div class="detail-field"><div class="label">SEO заголовок</div><div class="value">${esc(c.seo_title || '—')}</div></div>
+      <div class="detail-field"><div class="label">SEO описание</div><div class="value">${esc(c.seo_description || '—')}</div></div>
+      <div class="detail-field"><div class="label">Категория</div><div class="value">${esc(c.category_suggestion || '—')}</div></div>
+    </div>`;
+
+    // Ключевые слова
+    if (c.search_keywords) {
+      const kw = typeof c.search_keywords === 'string' ? JSON.parse(c.search_keywords) : c.search_keywords;
+      if (Array.isArray(kw) && kw.length > 0) {
+        html += `<div class="card"><h3>Поисковые запросы</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${kw.map(k => `<span style="background:var(--bg3);padding:4px 10px;border-radius:12px;font-size:12px;">${esc(k)}</span>`).join('')}
+          </div>
+        </div>`;
+      }
+    }
+
+    // Визуальные заметки
+    html += `<div class="card full-width"><h3>Визуал</h3>
+      <div class="detail-field"><div class="label">Цветовая палитра</div><div class="value">${esc(c.color_palette || '—')}</div></div>
+      <div class="detail-field"><div class="label">Визуальные заметки</div><div class="value">${esc(c.visual_style_notes || '—')}</div></div>
+      <div class="detail-field"><div class="label">Стиль</div><div class="value">${esc(c.style || '—')}</div></div>
+    </div>`;
+
+    // Rich content / A+ / Infographic
+    if (c.rich_content_blocks) {
+      html += `<div class="card full-width"><h3>Rich-контент</h3><pre style="white-space:pre-wrap;font-size:12px;background:var(--bg);padding:10px;border-radius:6px;">${esc(typeof c.rich_content_blocks === 'string' ? c.rich_content_blocks : JSON.stringify(c.rich_content_blocks, null, 2))}</pre></div>`;
+    }
+    if (c.a_plus_content) {
+      html += `<div class="card full-width"><h3>A+ контент</h3><pre style="white-space:pre-wrap;font-size:12px;background:var(--bg);padding:10px;border-radius:6px;">${esc(typeof c.a_plus_content === 'string' ? c.a_plus_content : JSON.stringify(c.a_plus_content, null, 2))}</pre></div>`;
+    }
+    if (c.infographic_prompts) {
+      html += `<div class="card full-width"><h3>Промпты для инфографики</h3><pre style="white-space:pre-wrap;font-size:12px;background:var(--bg);padding:10px;border-radius:6px;">${esc(typeof c.infographic_prompts === 'string' ? c.infographic_prompts : JSON.stringify(c.infographic_prompts, null, 2))}</pre></div>`;
+    }
+
+    document.getElementById('cd-content').innerHTML = html;
+
+    // Show page
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-card-detail').classList.add('active');
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function approveCard(id) {
+  try {
+    await api('PUT', `/api/cards/${id}/approve`);
+    toast('Карточка одобрена!', 'success');
+    if (currentPage === 'cards') loadCards();
+    else openCardDetail(id);
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function rejectCard(id) {
+  try {
+    await api('PUT', `/api/cards/${id}/reject`);
+    toast('Карточка отклонена', 'success');
+    if (currentPage === 'cards') loadCards();
+    else openCardDetail(id);
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function deleteCard(id) {
+  if (!confirm('Удалить карточку?')) return;
+  try {
+    await api('DELETE', `/api/cards/${id}`);
+    toast('Удалено', 'success');
+    loadCards();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// Videos
+// ═══════════════════════════════════════════════════
+async function loadVideos() {
+  const status = document.getElementById('videos-filter-status').value;
+  const search = document.getElementById('videos-search').value;
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (search) params.set('search', search);
+
+  try {
+    const res = await api('GET', `/api/videos?${params}`);
+    const items = res.data || [];
+    const tbody = document.getElementById('videos-table');
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Нет видео</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(v => `<tr>
+      <td>#${v.id}</td>
+      <td>${esc(v.idea_title || '—')}</td>
+      <td>${esc(v.product_name || '—')}</td>
+      <td>${esc(v.current_step || '—')}</td>
+      <td><span class="badge badge-${v.status}">${v.status}</span></td>
+      <td>${fmtDate(v.created_at)}</td>
+      <td>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline" onclick="openVideoDetail(${v.id})">${ico('eye')}</button>
+          ${v.status === 'ready_for_review' ? `<button class="btn btn-sm btn-success" onclick="approveVideo(${v.id})">✓</button><button class="btn btn-sm btn-danger" onclick="rejectVideo(${v.id})">✗</button>` : ''}
+          ${['approved','ready_for_review'].includes(v.status) ? `<button class="btn btn-sm btn-primary" onclick="openPublishModal(${v.id})">${ico('megaphone')}</button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+  } catch (e) {
+    document.getElementById('videos-table').innerHTML = `<tr><td colspan="7">Ошибка: ${e.message}</td></tr>`;
+  }
+}
+
+async function openVideoDetail(id) {
+  try {
+    const res = await api('GET', `/api/videos/${id}`);
+    const v = res.data;
+
+    document.getElementById('vd-id').textContent = v.id;
+
+    // Actions
+    let actions = '';
+    if (v.status === 'ready_for_review') {
+      actions += `<button class="btn btn-success" onclick="approveVideo(${v.id})">✓ Одобрить</button>`;
+      actions += `<button class="btn btn-danger" onclick="rejectVideo(${v.id})">✗ Отклонить</button>`;
+    }
+    if (['approved', 'ready_for_review'].includes(v.status)) {
+      actions += `<button class="btn btn-primary" onclick="openPublishModal(${v.id})">Опубликовать</button>`;
+    }
+    actions += `<button class="btn btn-outline" onclick="navigateTo('videos')">← Назад</button>`;
+    document.getElementById('vd-actions').innerHTML = actions;
+
+    // Content
+    let html = '';
+
+    // Video preview
+    if (v.final_video_url) {
+      html += `<div class="card full-width"><h3>Видео</h3><video class="video-preview" controls src="${v.final_video_url}"></video></div>`;
+    }
+
+    html += `<div class="card"><h3>Информация</h3>
+      <div class="detail-field"><div class="label">Статус</div><div class="value"><span class="badge badge-${v.status}">${v.status}</span></div></div>
+      <div class="detail-field"><div class="label">Текущий шаг</div><div class="value">${esc(v.current_step || '—')}</div></div>
+      <div class="detail-field"><div class="label">Продукт</div><div class="value">${esc(v.product_name || '—')}</div></div>
+      <div class="detail-field"><div class="label">Артикул</div><div class="value">${esc(v.artikul || '—')}</div></div>
+      <div class="detail-field"><div class="label">Создано</div><div class="value">${fmtDate(v.created_at)}</div></div>
+    </div>`;
+
+    html += `<div class="card"><h3>Контент</h3>
+      <div class="detail-field"><div class="label">Идея</div><div class="value">${esc(v.idea_title || v.concept || '—')}</div></div>
+      <div class="detail-field"><div class="label">Сценарий</div><div class="value">${esc(v.script_text || '—')}</div></div>
+      <div class="detail-field"><div class="label">Видео-промпт</div><div class="value">${esc(v.prompt_text || '—')}</div></div>
+    </div>`;
+
+    // Error info
+    if (v.error_message) {
+      html += `<div class="card full-width" style="border-color:var(--red);"><h3 style="color:var(--red);">Ошибка</h3>
+        <div class="detail-field"><div class="label">Шаг</div><div class="value">${esc(v.error_step || '—')}</div></div>
+        <div class="detail-field"><div class="label">Сообщение</div><div class="value">${esc(v.error_message)}</div></div>
+      </div>`;
+    }
+
+    // Steps
+    if (v.steps && v.steps.length > 0) {
+      html += `<div class="card full-width"><h3>Шаги</h3><table><thead><tr><th>#</th><th>Шаг</th><th>Статус</th><th>Длительность</th></tr></thead><tbody>`;
+      for (const s of v.steps) {
+        html += `<tr><td>${s.step_order}</td><td>${esc(s.step_name)}</td><td><span class="badge badge-${s.status}">${s.status}</span></td><td>${s.duration_ms ? (s.duration_ms/1000).toFixed(1)+'с' : '—'}</td></tr>`;
+      }
+      html += '</tbody></table></div>';
+    }
+
+    // Publications
+    if (v.publications && v.publications.length > 0) {
+      html += `<div class="card full-width"><h3>Публикации</h3><table><thead><tr><th>Платформа</th><th>Статус</th><th>Дата</th></tr></thead><tbody>`;
+      for (const p of v.publications) {
+        html += `<tr><td>${esc(p.platform)}</td><td><span class="badge badge-${p.status}">${p.status}</span></td><td>${fmtDate(p.published_at || p.created_at)}</td></tr>`;
+      }
+      html += '</tbody></table></div>';
+    }
+
+    document.getElementById('vd-content').innerHTML = html;
+
+    // Show page
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-video-detail').classList.add('active');
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function approveVideo(id) {
+  try {
+    await api('PUT', `/api/videos/${id}/approve`);
+    toast('Видео одобрено!', 'success');
+    if (currentPage === 'videos') loadVideos();
+    else openVideoDetail(id);
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function rejectVideo(id) {
+  const reason = prompt('Причина отклонения:');
+  if (reason === null) return;
+  try {
+    await api('PUT', `/api/videos/${id}/reject`, { reason });
+    toast('Видео отклонено', 'success');
+    if (currentPage === 'videos') loadVideos();
+    else openVideoDetail(id);
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// Publish
+function openPublishModal(sessionId) {
+  document.getElementById('pub-session-id').value = sessionId;
+  openModal('publish-modal');
+}
+
+async function publishVideo() {
+  const sessionId = document.getElementById('pub-session-id').value;
+  const channels = Array.from(document.querySelectorAll('.pub-channel:checked')).map(c => c.value);
+  if (channels.length === 0) { toast('Выберите хотя бы один канал', 'error'); return; }
+
+  const btn = document.getElementById('pub-submit');
+  btn.disabled = true;
+  btn.textContent = 'Публикация...';
+
+  try {
+    await api('POST', `/api/videos/${sessionId}/publish`, {
+      channels,
+      generate_caption: document.getElementById('pub-gen-caption').checked,
+      caption: document.getElementById('pub-caption').value
+    });
+    toast('Публикация запущена!', 'success');
+    closeModal('publish-modal');
+    loadVideos();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Опубликовать';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Schedule
+// ═══════════════════════════════════════════════════
+async function loadSchedule() {
+  try {
+    const res = await api('GET', '/api/schedule');
+    const d = res.data || {};
+    document.getElementById('sched-enabled').value = String(d.auto_generate_enabled || false);
+    document.getElementById('sched-cron').value = d.auto_generate_cron || '0 9 * * 1-5';
+    document.getElementById('sched-count').value = d.auto_generate_count || 3;
+
+    // Select channels
+    const channels = d.default_channels || ['telegram'];
+    document.querySelectorAll('#sched-channels option').forEach(opt => {
+      opt.selected = channels.includes(opt.value);
+    });
+  } catch (e) {
+    toast('Ошибка загрузки расписания: ' + e.message, 'error');
+  }
+}
+
+async function saveSchedule() {
+  try {
+    const channels = Array.from(document.getElementById('sched-channels').selectedOptions).map(o => o.value);
+    await api('PUT', '/api/schedule', {
+      auto_generate_enabled: document.getElementById('sched-enabled').value === 'true',
+      auto_generate_cron: document.getElementById('sched-cron').value,
+      auto_generate_count: parseInt(document.getElementById('sched-count').value),
+      default_channels: channels
+    });
+    toast('Расписание сохранено', 'success');
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function runGenerateNow() {
+  try {
+    toast('Запуск генерации...', 'success');
+    await api('POST', '/api/schedule/run-now', {
+      count: parseInt(document.getElementById('sched-count').value) || 3
+    });
+    toast('Идеи сгенерированы!', 'success');
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// Errors
+// ═══════════════════════════════════════════════════
+async function loadErrors() {
+  try {
+    const res = await api('GET', '/api/errors?limit=50');
+    const items = res.data || [];
+    const tbody = document.getElementById('errors-table');
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет ошибок</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(e => `<tr>
+      <td>#${e.id}</td>
+      <td>${esc(e.workflow_name || '—')}</td>
+      <td>${esc(e.node_name || '—')}</td>
+      <td title="${esc(e.error_message || '')}">${esc((e.error_message || '').substring(0, 80))}</td>
+      <td>${e.session_id ? '#' + e.session_id : '—'}</td>
+      <td>${fmtDate(e.created_at)}</td>
+    </tr>`).join('');
+  } catch (e) {
+    document.getElementById('errors-table').innerHTML = `<tr><td colspan="6">Ошибка: ${e.message}</td></tr>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Settings
+// ═══════════════════════════════════════════════════
+const SETTING_CAT_NAMES = {
+  ai: 'AI', tts: 'Озвучка', video: 'Видео', cards: 'Карточки',
+  subtitle: 'Субтитры', branding: 'Брендинг', heygen: 'HeyGen',
+  telegram: 'Telegram', vk: 'VK', schedule: 'Расписание'
+};
+
+const SETTING_CAT_INFO = {
+  ai:    'Настройки AI-провайдера для генерации контента. GPTunnel использует один API-ключ для всех сервисов.',
+  tts:   'Провайдер озвучки. GPTunnel TTS поддерживает русские голоса: ALEX, OLEG, DMITRY, VALERIA, SVETLANA и др.',
+  video: 'Провайдер видеогенерации. GPTunnel поддерживает модель Veo 3.1 от Google.',
+  cards: 'Генерация изображений для карточек товаров. GPTunnel: Imagen 3, Flux Dev, Seedream 3.',
+  heygen: 'HeyGen — платформа для создания видео с AI-аватарами.'
+};
+
+const PROVIDER_OPTIONS = {
+  tts_provider: [
+    { value: 'gptunnel', label: 'GPTunnel TTS (русские голоса)' },
+    { value: 'openai', label: 'OpenAI TTS' },
+    { value: 'elevenlabs', label: 'ElevenLabs' },
+    { value: 'azure', label: 'Azure TTS' }
+  ],
+  video_provider: [
+    { value: 'gptunnel', label: 'GPTunnel (Veo-3.1)' },
+    { value: 'minimax', label: 'Minimax' },
+    { value: 'runway', label: 'Runway' },
+    { value: 'kling', label: 'Kling' }
+  ],
+  card_image_provider: [
+    { value: 'gptunnel', label: 'GPTunnel Media' },
+    { value: 'openai', label: 'OpenAI DALL-E' }
+  ],
+  card_image_model: [
+    { value: 'google-imagen-3', label: 'Google Imagen 3 (рекомендуется)' },
+    { value: 'flux-dev', label: 'Flux Dev' },
+    { value: 'seedream-3', label: 'Seedream 3 (Edit / по фото)' }
+  ],
+  video_gptunnel_model: [
+    { value: 'glabs-veo-3-1', label: 'Veo 3.1 Quality' },
+    { value: 'glabs-veo-3-1-fast', label: 'Veo 3.1 Fast' }
+  ],
+  card_image_ar: [
+    { value: '1:1', label: '1:1 (квадрат)' },
+    { value: '9:16', label: '9:16 (вертикальный)' },
+    { value: '16:9', label: '16:9 (горизонтальный)' },
+    { value: '4:3', label: '4:3' }
+  ]
+};
+
+const CAT_TEST_BUTTONS = {
+  ai:      { label: 'Тест AI', fn: 'testAI()' },
+  tts:     { label: 'Тест TTS', fn: 'testGptunnelTTS()' },
+  video:   { label: 'Тест видео', fn: 'testGptunnelMedia("video")' },
+  cards:   { label: 'Тест изображений', fn: 'testGptunnelMedia("image")' },
+  telegram: { label: 'Тест бота', fn: 'testTelegram()' },
+  heygen:  { label: 'Тест HeyGen', fn: 'testHeygen()' }
+};
+
+async function loadSettings() {
+  try {
+    const res = await api('GET', '/api/settings');
+    const categories = res.data || {};
+
+    // Tabs
+    const tabsHtml = Object.keys(categories).map((cat, i) =>
+      `<div class="tab ${i === 0 ? 'active' : ''}" data-settings-cat="${cat}">${SETTING_CAT_NAMES[cat] || cat}</div>`
+    ).join('');
+    document.getElementById('settings-tabs').innerHTML = tabsHtml;
+
+    // Content
+    let contentHtml = '';
+    for (const [cat, items] of Object.entries(categories)) {
+      const isFirst = cat === Object.keys(categories)[0];
+      contentHtml += `<div class="settings-cat-content card" data-cat="${cat}" style="${isFirst ? '' : 'display:none'}">`;
+
+      // Category info banner
+      if (SETTING_CAT_INFO[cat]) {
+        contentHtml += `<div class="provider-info">${SETTING_CAT_INFO[cat]}</div>`;
+      }
+
+      for (const s of items) {
+        const readonly = currentUser?.role === 'business_owner' ? 'disabled' : '';
+        const inputType = s.is_secret ? 'password' : (s.type === 'number' ? 'number' : 'text');
+
+        contentHtml += `<div class="form-group" style="margin-bottom:14px;">
+          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:3px;font-weight:500;">${esc(s.label || s.key)}</label>
+          ${s.description ? `<small style="color:var(--text2);font-size:11px;display:block;margin-bottom:4px;opacity:0.8;">${esc(s.description)}</small>` : ''}`;
+
+        if (PROVIDER_OPTIONS[s.key]) {
+          // Render as select with known options
+          contentHtml += `<select data-key="${s.key}" class="setting-input" ${readonly} style="width:100%;">`;
+          for (const opt of PROVIDER_OPTIONS[s.key]) {
+            contentHtml += `<option value="${opt.value}" ${s.value === opt.value ? 'selected' : ''}>${opt.label}</option>`;
+          }
+          contentHtml += '</select>';
+        } else if (s.type === 'boolean') {
+          contentHtml += `<select data-key="${s.key}" class="setting-input" ${readonly} style="width:100%;">
+            <option value="true" ${s.value === 'true' ? 'selected' : ''}>Да</option>
+            <option value="false" ${s.value !== 'true' ? 'selected' : ''}>Нет</option>
+          </select>`;
+        } else {
+          contentHtml += `<input type="${inputType}" data-key="${s.key}" class="setting-input" value="${esc(s.value || '')}" ${readonly} style="width:100%;">`;
+        }
+
+        contentHtml += '</div>';
+      }
+
+      // GPTunnel voice loader for TTS category
+      if (cat === 'tts' && currentUser?.role === 'tech_admin') {
+        contentHtml += `<div style="margin-bottom:14px;">
+          <button class="btn btn-sm btn-outline" onclick="loadGptunnelVoices()">Загрузить список голосов GPTunnel</button>
+          <div id="gptunnel-voices-list" style="margin-top:8px;"></div>
+        </div>`;
+      }
+
+      if (currentUser?.role === 'tech_admin') {
+        const testBtn = CAT_TEST_BUTTONS[cat];
+        contentHtml += `<div class="settings-actions">
+          <button class="btn btn-primary" onclick="saveSettings('${cat}')">Сохранить</button>
+          ${testBtn ? `<button class="btn btn-sm btn-outline" onclick="${testBtn.fn}">${testBtn.label}</button>` : ''}
+          <span id="test-result-${cat}"></span>
+        </div>`;
+      }
+      contentHtml += '</div>';
+    }
+    document.getElementById('settings-content').innerHTML = contentHtml;
+
+    // Tab click handlers
+    document.querySelectorAll('[data-settings-cat]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-settings-cat]').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.settings-cat-content').forEach(c => c.style.display = 'none');
+        tab.classList.add('active');
+        document.querySelector(`.settings-cat-content[data-cat="${tab.dataset.settingsCat}"]`).style.display = 'block';
+      });
+    });
+  } catch (e) {
+    document.getElementById('settings-content').innerHTML = `<div class="card">Ошибка загрузки: ${e.message}</div>`;
+  }
+}
+
+async function saveSettings(category) {
+  const inputs = document.querySelectorAll(`.settings-cat-content[data-cat="${category}"] .setting-input`);
+  const settings = {};
+  inputs.forEach(inp => { settings[inp.dataset.key] = inp.value; });
+
+  try {
+    await api('PUT', '/api/settings', { settings });
+    toast('Настройки сохранены!', 'success');
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// ─── Тесты провайдеров ───
+function showTestResult(cat, html, type) {
+  const el = document.getElementById(`test-result-${cat}`);
+  if (el) el.innerHTML = `<span class="test-result ${type}">${html}</span>`;
+}
+
+async function testAI() {
+  showTestResult('ai', ico('loader') + ' Тестирование...', 'loading');
+  try {
+    const inputs = document.querySelectorAll('.settings-cat-content[data-cat="ai"] .setting-input');
+    const s = {};
+    inputs.forEach(inp => { s[inp.dataset.key] = inp.value; });
+
+    const res = await api('POST', '/api/settings/test-ai', {
+      apiKey: s.ai_api_key || '', baseUrl: s.ai_base_url || '',
+      model: s.ai_model || 'gpt-4o', authPrefix: s.ai_auth_prefix || ''
+    });
+    if (res.ok) {
+      showTestResult('ai', `${ico('check')} ${res.data.response} (${res.data.durationMs}мс, ${res.data.tokens} токенов)`, 'success');
+    } else {
+      showTestResult('ai', `${ico('x')} ${res.error}`, 'error');
+    }
+  } catch (e) { showTestResult('ai', `${ico('x')} ${e.message}`, 'error'); }
+}
+
+async function testGptunnelTTS() {
+  showTestResult('tts', ico('loader') + ' Тестирование GPTunnel TTS...', 'loading');
+  try {
+    const res = await api('POST', '/api/settings/test-gptunnel-tts');
+    if (res.ok) {
+      showTestResult('tts', `${ico('check')} TTS работает! Стоимость: $${res.data.cost?.toFixed(2) || '0'}, ${res.data.durationMs}мс`, 'success');
+    } else {
+      showTestResult('tts', `${ico('x')} ${res.error}`, 'error');
+    }
+  } catch (e) { showTestResult('tts', `${ico('x')} ${e.message}`, 'error'); }
+}
+
+async function testGptunnelMedia(type) {
+  const cat = type === 'video' ? 'video' : 'cards';
+  showTestResult(cat, ico('loader') + ' Тестирование GPTunnel Media...', 'loading');
+  try {
+    const model = type === 'video' ? 'glabs-veo-3-1' : 'google-imagen-3';
+    const res = await api('POST', '/api/settings/test-gptunnel-media', { model });
+    if (res.ok) {
+      showTestResult(cat, `${ico('check')} API работает! Задача: ${res.data.taskId} (${res.data.durationMs}мс)`, 'success');
+    } else {
+      showTestResult(cat, `${ico('x')} ${res.error}`, 'error');
+    }
+  } catch (e) { showTestResult(cat, `${ico('x')} ${e.message}`, 'error'); }
+}
+
+async function testTelegram() {
+  showTestResult('telegram', ico('loader') + ' Тестирование...', 'loading');
+  try {
+    const inputs = document.querySelectorAll('.settings-cat-content[data-cat="telegram"] .setting-input');
+    const s = {};
+    inputs.forEach(inp => { s[inp.dataset.key] = inp.value; });
+
+    const res = await api('POST', '/api/settings/test-telegram', {
+      botToken: s.telegram_bot_token || '', chatId: s.telegram_chat_id || ''
+    });
+    if (res.ok) {
+      showTestResult('telegram', `${ico('check')} @${res.data.botUsername} (${res.data.botName})${res.data.messageSent ? ' — сообщение отправлено!' : ''}`, 'success');
+    } else {
+      showTestResult('telegram', `${ico('x')} ${res.error}`, 'error');
+    }
+  } catch (e) { showTestResult('telegram', `${ico('x')} ${e.message}`, 'error'); }
+}
+
+async function testHeygen() {
+  showTestResult('heygen', ico('loader') + ' Тестирование...', 'loading');
+  try {
+    const inputs = document.querySelectorAll('.settings-cat-content[data-cat="heygen"] .setting-input');
+    const s = {};
+    inputs.forEach(inp => { s[inp.dataset.key] = inp.value; });
+
+    const res = await api('POST', '/api/settings/test-heygen', { apiKey: s.heygen_api_key || '' });
+    if (res.ok) {
+      showTestResult('heygen', `${ico('check')} Доступно аватаров: ${res.data.avatarsCount}`, 'success');
+    } else {
+      showTestResult('heygen', `${ico('x')} ${res.error}`, 'error');
+    }
+  } catch (e) { showTestResult('heygen', `${ico('x')} ${e.message}`, 'error'); }
+}
+
+async function loadGptunnelVoices() {
+  const container = document.getElementById('gptunnel-voices-list');
+  if (!container) return;
+  container.innerHTML = '<span style="color:var(--yellow);font-size:13px;">' + ico('loader') + ' Загрузка голосов...</span>';
+
+  try {
+    const res = await api('GET', '/api/settings/gptunnel-voices');
+    if (res.ok && Array.isArray(res.data)) {
+      const voices = res.data;
+      container.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;">
+          ${voices.map(v => `<div style="padding:6px 10px;background:var(--bg3);border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);transition:all 0.15s;"
+            onmouseover="this.style.borderColor='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border)'"
+            onclick="selectGptunnelVoice('${v.id}','${v.name}')"
+            title="Нажмите чтобы выбрать">
+            ${ico('mic')} <strong>${esc(v.name)}</strong><br><small style="color:var(--text2)">${v.id}</small>
+          </div>`).join('')}
+        </div>
+        <small style="color:var(--text2);margin-top:6px;display:block;">Нажмите на голос чтобы выбрать его.</small>`;
+    } else {
+      container.innerHTML = `<span style="color:var(--red);font-size:13px;">${ico('x')} ${res.error || 'Нет данных'}</span>`;
+    }
+  } catch (e) {
+    container.innerHTML = `<span style="color:var(--red);font-size:13px;">${ico('x')} ${e.message}</span>`;
+  }
+}
+
+function selectGptunnelVoice(id, name) {
+  const idInput = document.querySelector('[data-key="tts_gptunnel_voice_id"]');
+  const nameInput = document.querySelector('[data-key="tts_gptunnel_voice_name"]');
+  if (idInput) idInput.value = id;
+  if (nameInput) nameInput.value = name;
+  toast(`Выбран голос: ${name}`, 'success');
+}
+
+// ═══════════════════════════════════════════════════
+// Users Management (tech_admin only)
+// ═══════════════════════════════════════════════════
+async function loadUsers() {
+  try {
+    const res = await api('GET', '/api/users');
+    const dbUsers = res.data || [];
+    const envUsers = res.envUsers || [];
+
+    // Env users table
+    const envTbody = document.getElementById('env-users-table');
+    if (envUsers.length === 0) {
+      envTbody.innerHTML = '<tr><td colspan="3" class="empty-state">Нет env-пользователей</td></tr>';
+    } else {
+      envTbody.innerHTML = envUsers.map(u => `<tr>
+        <td><strong>${esc(u.login)}</strong></td>
+        <td><span class="badge badge-${u.role === 'tech_admin' ? 'approved' : 'used'}">${u.role}</span></td>
+        <td><span class="badge badge-created">.env</span></td>
+      </tr>`).join('');
+    }
+
+    // DB users table
+    const dbTbody = document.getElementById('db-users-table');
+    if (dbUsers.length === 0) {
+      dbTbody.innerHTML = '<tr><td colspan="8" class="empty-state">Нет аккаунтов в БД. Создайте первый!</td></tr>';
+    } else {
+      dbTbody.innerHTML = dbUsers.map(u => `<tr>
+        <td>#${u.id}</td>
+        <td><strong>${esc(u.login)}</strong></td>
+        <td>${esc(u.first_name || '')} ${esc(u.last_name || '')}</td>
+        <td><span class="badge badge-${u.role === 'tech_admin' ? 'approved' : 'used'}">${u.role}</span></td>
+        <td>${u.is_active
+          ? '<span class="badge badge-approved">Да</span>'
+          : '<span class="badge badge-rejected">Нет</span>'
+        }</td>
+        <td>${u.last_login ? fmtDate(u.last_login) : '—'}</td>
+        <td>${fmtDate(u.created_at)}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline" onclick="openEditUserModal(${u.id}, '${esc(u.login)}', '${esc(u.role)}', '${esc(u.first_name || '')}', '${esc(u.last_name || '')}', ${u.is_active})">${ico('edit')}</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id}, '${esc(u.login)}')">${ico('trash')}</button>
+          </div>
+        </td>
+      </tr>`).join('');
+    }
+  } catch (e) {
+    document.getElementById('db-users-table').innerHTML = `<tr><td colspan="8">Ошибка: ${e.message}</td></tr>`;
+  }
+}
+
+function openCreateUserModal() {
+  document.getElementById('cu-login').value = '';
+  document.getElementById('cu-password').value = '';
+  document.getElementById('cu-role').value = 'business_owner';
+  document.getElementById('cu-first-name').value = '';
+  document.getElementById('cu-last-name').value = '';
+  openModal('create-user-modal');
+}
+
+async function createUser() {
+  const login = document.getElementById('cu-login').value.trim();
+  const password = document.getElementById('cu-password').value;
+  const role = document.getElementById('cu-role').value;
+  const first_name = document.getElementById('cu-first-name').value.trim();
+  const last_name = document.getElementById('cu-last-name').value.trim();
+
+  if (!login || login.length < 3) { toast('Логин минимум 3 символа', 'error'); return; }
+  if (!password || password.length < 6) { toast('Пароль минимум 6 символов', 'error'); return; }
+
+  const btn = document.getElementById('cu-submit');
+  btn.disabled = true;
+  btn.textContent = 'Создание...';
+
+  try {
+    await api('POST', '/api/users', { login, password, role, first_name, last_name });
+    toast(`Аккаунт "${login}" создан!`, 'success');
+    closeModal('create-user-modal');
+    loadUsers();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Создать';
+  }
+}
+
+function openEditUserModal(id, login, role, firstName, lastName, isActive) {
+  document.getElementById('eu-id').value = id;
+  document.getElementById('eu-login').value = login;
+  document.getElementById('eu-title').textContent = login;
+  document.getElementById('eu-role').value = role;
+  document.getElementById('eu-first-name').value = firstName;
+  document.getElementById('eu-last-name').value = lastName;
+  document.getElementById('eu-active').checked = isActive;
+  document.getElementById('eu-new-password').value = '';
+  openModal('edit-user-modal');
+}
+
+async function saveUser() {
+  const id = document.getElementById('eu-id').value;
+  const role = document.getElementById('eu-role').value;
+  const first_name = document.getElementById('eu-first-name').value.trim();
+  const last_name = document.getElementById('eu-last-name').value.trim();
+  const is_active = document.getElementById('eu-active').checked;
+  const newPassword = document.getElementById('eu-new-password').value;
+
+  const btn = document.getElementById('eu-submit');
+  btn.disabled = true;
+  btn.textContent = 'Сохранение...';
+
+  try {
+    // Update user info
+    await api('PUT', `/api/users/${id}`, { role, first_name, last_name, is_active });
+
+    // Change password if provided
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        toast('Пароль минимум 6 символов', 'error');
+        return;
+      }
+      await api('PUT', `/api/users/${id}/password`, { password: newPassword });
+    }
+
+    toast('Пользователь обновлён!', 'success');
+    closeModal('edit-user-modal');
+    loadUsers();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Сохранить';
+  }
+}
+
+async function deleteUser(id, login) {
+  if (!confirm(`Удалить аккаунт "${login}"? Это действие необратимо.`)) return;
+  try {
+    await api('DELETE', `/api/users/${id}`);
+    toast(`Аккаунт "${login}" удалён`, 'success');
+    loadUsers();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════
+async function api(method, url, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+  if (body) opts.body = JSON.stringify(body);
+
+  const res = await fetch(url, opts);
+  if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+  const data = await res.json();
+  if (!res.ok && !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+let toastTimer;
+function toast(msg, type = 'success') {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.remove(), 4000);
+}
+
+// ═══════════════════════════════════════════════════
+// Upload Handler
+// ═══════════════════════════════════════════════════
+async function handleUpload(file, prefix) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Только изображения', 'error'); return; }
+  if (file.size > 100 * 1024 * 1024) { toast('Файл слишком большой (макс. 100МБ)', 'error'); return; }
+
+  const zone = document.getElementById(`${prefix}-upload-zone`);
+  const preview = document.getElementById(`${prefix}-upload-preview`);
+  const progress = document.getElementById(`${prefix}-upload-progress`);
+  const fill = document.getElementById(`${prefix}-upload-fill`);
+  const urlInput = document.getElementById(prefix === 'cv' ? 'cv-product-image' : 'cg-image-url');
+
+  // Show progress
+  zone.style.display = 'none';
+  progress.style.display = 'block';
+  fill.style.width = '30%';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fill.style.width = '60%';
+
+    const res = await fetch('/api/media/upload', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    fill.style.width = '90%';
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+
+    fill.style.width = '100%';
+
+    // Set URL — use presignedUrl for display, internalUrl for N8N
+    const displayUrl = data.presignedUrl || data.internalUrl;
+    const internalUrl = data.internalUrl;
+    urlInput.value = internalUrl;
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      preview.innerHTML = `<img src="${e.target.result}"><button class="remove-btn" onclick="clearUpload('${prefix}')">&times;</button>`;
+      preview.style.display = 'inline-block';
+    };
+    reader.readAsDataURL(file);
+
+    progress.style.display = 'none';
+    toast('Изображение загружено!', 'success');
+  } catch (e) {
+    toast('Ошибка загрузки: ' + e.message, 'error');
+    zone.style.display = '';
+    progress.style.display = 'none';
+  }
+}
+
+function clearUpload(prefix) {
+  const zone = document.getElementById(`${prefix}-upload-zone`);
+  const preview = document.getElementById(`${prefix}-upload-preview`);
+  const urlInput = document.getElementById(prefix === 'cv' ? 'cv-product-image' : 'cg-image-url');
+  zone.style.display = '';
+  preview.style.display = 'none';
+  preview.innerHTML = '';
+  urlInput.value = '';
+}
+
+// ═══════════════════════════════════════════════════
+// Generations Gallery
+// ═══════════════════════════════════════════════════
+let currentGenTab = 'videos';
+
+async function loadGenerations() {
+  // Init tab listeners
+  document.querySelectorAll('[data-gen-tab]').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('[data-gen-tab]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentGenTab = tab.dataset.genTab;
+      renderGenTab();
+    };
+  });
+  renderGenTab();
+}
+
+async function renderGenTab() {
+  const container = document.getElementById('gen-gallery-content');
+  container.innerHTML = `<div class="empty-state">${ico('loader',32)} Загрузка...</div>`;
+
+  try {
+    switch (currentGenTab) {
+      case 'videos': await renderGenVideos(container); break;
+      case 'cards': await renderGenCards(container); break;
+      case 'scripts': await renderGenScripts(container); break;
+      case 'prompts': await renderGenPrompts(container); break;
+      case 'media': await renderGenMedia(container); break;
+    }
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">${ico('alertTriangle',32)}<p>Ошибка: ${esc(e.message)}</p></div>`;
+  }
+}
+
+async function renderGenVideos(container) {
+  const res = await api('GET', '/api/videos?limit=50&order=DESC');
+  const items = res.data || [];
+  if (!items.length) { container.innerHTML = `<div class="empty-state">${ico('video',48)}<p>Нет видео</p></div>`; return; }
+
+  container.innerHTML = `<div class="gen-section"><div class="gen-section-header"><h3>${ico('video',20)} Видео</h3><span class="count">${items.length}</span></div>
+    <div class="gallery-grid">${items.map(v => `
+      <div class="gallery-card" onclick="openVideoDetail(${v.id})" style="cursor:pointer;">
+        <div class="g-preview">${v.final_video_url
+          ? `<video src="${esc(v.final_video_url)}" muted preload="metadata"></video>`
+          : `<div class="g-placeholder">${ico('video',48)}</div>`
+        }</div>
+        <div class="g-body">
+          <div class="g-title">${esc(v.idea_title || v.product_name || 'Видео #' + v.id)}</div>
+          <div class="g-meta"><span class="badge badge-${v.status}">${v.status}</span> <span>${fmtDate(v.created_at)}</span></div>
+        </div>
+      </div>
+    `).join('')}</div></div>`;
+}
+
+async function renderGenCards(container) {
+  const res = await api('GET', '/api/cards?limit=50');
+  const items = res.data || [];
+  if (!items.length) { container.innerHTML = `<div class="empty-state">${ico('package',48)}<p>Нет карточек</p></div>`; return; }
+
+  container.innerHTML = `<div class="gen-section"><div class="gen-section-header"><h3>${ico('package',20)} Карточки товаров</h3><span class="count">${items.length}</span></div>
+    <div class="gallery-grid">${items.map(c => `
+      <div class="gallery-card" onclick="openCardDetail(${c.id})" style="cursor:pointer;">
+        <div class="g-preview">${c.image_url
+          ? `<img src="${esc(c.image_url)}" alt="${esc(c.product_name)}">`
+          : `<div class="g-placeholder">${ico('image',48)}</div>`
+        }</div>
+        <div class="g-body">
+          <div class="g-title">${esc(c.product_name || 'Карточка #' + c.id)}</div>
+          <div class="g-meta"><span class="badge badge-${c.status}">${c.status}</span> <span>${esc(c.marketplace || '')}</span> <span>${fmtDate(c.created_at)}</span></div>
+        </div>
+      </div>
+    `).join('')}</div></div>`;
+}
+
+async function renderGenScripts(container) {
+  const res = await api('GET', '/api/content/ideas?limit=100');
+  const ideas = (res.data || []).filter(i => i.script_id);
+  if (!ideas.length) { container.innerHTML = `<div class="empty-state">${ico('fileText',48)}<p>Нет сценариев</p></div>`; return; }
+
+  container.innerHTML = `<div class="gen-section"><div class="gen-section-header"><h3>${ico('fileText',20)} Сценарии</h3><span class="count">${ideas.length}</span></div>
+    <div class="gallery-grid">${ideas.map(i => `
+      <div class="gallery-card" onclick="openIdeaDetail(${i.id})" style="cursor:pointer;">
+        <div class="g-preview" style="height:auto;min-height:80px;padding:12px;align-items:flex-start;">
+          <div style="font-size:12px;color:var(--text2);line-height:1.5;overflow:hidden;max-height:100px;">${esc((i.concept || '').substring(0, 200))}${(i.concept || '').length > 200 ? '...' : ''}</div>
+        </div>
+        <div class="g-body">
+          <div class="g-title">${esc(i.title || 'Идея #' + i.id)}</div>
+          <div class="g-meta"><span class="badge badge-${i.status}">${i.status}</span> <span>${esc(i.category || '')}</span> <span>${fmtDate(i.created_at)}</span></div>
+        </div>
+      </div>
+    `).join('')}</div></div>`;
+}
+
+async function renderGenPrompts(container) {
+  const res = await api('GET', '/api/content/ideas?limit=100');
+  const ideas = (res.data || []).filter(i => i.prompt_id);
+  if (!ideas.length) { container.innerHTML = `<div class="empty-state">${ico('film',48)}<p>Нет промптов</p></div>`; return; }
+
+  container.innerHTML = `<div class="gen-section"><div class="gen-section-header"><h3>${ico('film',20)} Видео-промпты</h3><span class="count">${ideas.length}</span></div>
+    <div class="gallery-grid">${ideas.map(i => `
+      <div class="gallery-card" onclick="openIdeaDetail(${i.id})" style="cursor:pointer;">
+        <div class="g-preview" style="height:auto;min-height:80px;padding:12px;align-items:flex-start;">
+          <div style="font-size:12px;color:var(--text2);line-height:1.5;overflow:hidden;max-height:100px;">${esc((i.visual_description || '').substring(0, 200))}${(i.visual_description || '').length > 200 ? '...' : ''}</div>
+        </div>
+        <div class="g-body">
+          <div class="g-title">${esc(i.title || 'Идея #' + i.id)}</div>
+          <div class="g-meta"><span class="badge badge-${i.status}">${i.status}</span> <span>${fmtDate(i.created_at)}</span></div>
+        </div>
+      </div>
+    `).join('')}</div></div>`;
+}
+
+async function renderGenMedia(container) {
+  try {
+    const res = await api('GET', '/api/media');
+    const items = res.data || [];
+    if (!items.length) { container.innerHTML = `<div class="empty-state">${ico('upload',48)}<p>Нет загруженных файлов</p></div>`; return; }
+
+    container.innerHTML = `<div class="gen-section"><div class="gen-section-header"><h3>${ico('upload',20)} Медиа-файлы</h3><span class="count">${items.length}</span></div>
+      <div class="gallery-grid">${items.map(f => {
+        const isImg = (f.file_type || f.mime_type || '').startsWith('image');
+        const isVid = (f.file_type || f.mime_type || '').startsWith('video');
+        return `
+        <div class="gallery-card">
+          <div class="g-preview">${
+            isImg ? `<img src="${esc(f.url || f.presigned_url)}" alt="${esc(f.original_name)}">` :
+            isVid ? `<video src="${esc(f.url || f.presigned_url)}" muted preload="metadata"></video>` :
+            `<div class="g-placeholder">${ico('fileText',48)}</div>`
+          }</div>
+          <div class="g-body">
+            <div class="g-title">${esc(f.original_name || f.file_key || 'Файл')}</div>
+            <div class="g-meta"><span>${esc(f.file_type || '')}</span> <span>${fmtDate(f.created_at)}</span></div>
+          </div>
+          <div class="g-actions">
+            <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${esc(f.url || f.presigned_url || '')}');toast('Ссылка скопирована','success');">${ico('clipboard')} Ссылка</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteMediaFile(${f.id})">${ico('trash')}</button>
+          </div>
+        </div>`;
+      }).join('')}</div></div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">${ico('alertTriangle',32)}<p>Ошибка: ${esc(e.message)}</p></div>`;
+  }
+}
+
+async function deleteMediaFile(id) {
+  if (!confirm('Удалить файл?')) return;
+  try {
+    await api('DELETE', `/api/media/${id}`);
+    toast('Файл удалён', 'success');
+    renderGenTab();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// Enter key on auth
+document.getElementById('auth-login').addEventListener('keyup', (e) => {
+  if (e.key === 'Enter') document.getElementById('auth-password').focus();
+});
+document.getElementById('auth-password').addEventListener('keyup', (e) => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// Start
+init();
+</script>
+</body>
+</html>
