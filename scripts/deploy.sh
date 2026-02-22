@@ -197,6 +197,12 @@ else
   log_warn "Git remote не настроен. Пропускаю git pull."
 fi
 
+# ─── Подставляем домен в nginx.conf (git pull мог перезаписать) ───
+DOMAIN=$(grep -oP '^N8N_HOST=\K.*' "$PROJECT_DIR/.env" 2>/dev/null || echo "")
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "localhost" ]; then
+  sed -i "s/your-domain.com/${DOMAIN}/g" "$PROJECT_DIR/nginx/nginx.conf"
+fi
+
 # ═══════════════════════════════════════
 # 3. ПЕРЕСБОРКА
 # ═══════════════════════════════════════
