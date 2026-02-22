@@ -199,6 +199,7 @@ GENERIC_TIMEZONE=Europe/Moscow
 TZ=Europe/Moscow
 WEBHOOK_URL=https://${DOMAIN}
 N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION}
+N8N_API_KEY=$(openssl rand -hex 24)
 EXECUTIONS_TIMEOUT=-1
 
 # --- PostgreSQL ---
