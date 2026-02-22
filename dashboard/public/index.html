@@ -232,17 +232,126 @@
     /* Mobile hamburger */
     .mobile-menu-btn { display:none; position:fixed; top:12px; left:12px; z-index:50; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-size:18px; cursor:pointer; }
     .sidebar.mobile-open { display:flex; z-index:40; }
+    .mobile-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:35; }
+    .mobile-overlay.active { display:block; }
 
+    /* ═══ Table scroll wrapper ═══ */
+    .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+    /* ═══ Tablet ≤768px ═══ */
     @media (max-width:768px) {
-      .sidebar { display:none; position:fixed; width:260px; }
+      .sidebar { display:none; position:fixed; width:260px; height:100vh; }
       .mobile-menu-btn { display:block; }
       .main { margin-left:0; padding:16px; padding-top:52px; }
-      .detail-grid { grid-template-columns:1fr; }
-      .stats-grid { grid-template-columns:1fr 1fr; }
+
+      /* Page header */
       .page-header { flex-direction:column; align-items:flex-start; gap:10px; }
+      .page-header h2 { font-size:18px; }
+
+      /* Grids */
+      .detail-grid { grid-template-columns:1fr; }
+      .stats-grid { grid-template-columns:1fr 1fr; gap:12px; }
+
+      /* Filters */
       .filters { flex-direction:column; }
-      .tabs { overflow-x:auto; flex-wrap:nowrap; }
-      .tab { white-space:nowrap; font-size:13px; padding:8px 14px; }
+      .filters select, .filters input { min-width:unset; width:100%; }
+
+      /* Tabs */
+      .tabs { overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; }
+      .tab { white-space:nowrap; font-size:13px; padding:8px 14px; flex-shrink:0; }
+
+      /* Tables — horizontal scroll inside cards */
+      .card { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      table { min-width:600px; }
+      th, td { padding:8px 10px; font-size:12px; }
+      td .btn { font-size:11px; padding:4px 8px; white-space:nowrap; }
+
+      /* Gallery */
+      .gallery-grid { grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
+      .gallery-card .g-preview { height:120px; }
+
+      /* Auth */
+      .auth-box { width:calc(100vw - 32px); max-width:380px; padding:28px; }
+      .auth-box h1 { font-size:22px; }
+
+      /* Modals */
+      .modal { width:calc(100vw - 24px); max-width:calc(100vw - 24px) !important; padding:18px; max-height:85vh; }
+      .modal h3 { font-size:17px; }
+
+      /* Buttons */
+      .btn-group { flex-wrap:wrap; }
+      .btn { font-size:13px; padding:7px 12px; }
+      .btn-sm { padding:4px 8px; font-size:11px; }
+
+      /* Upload zone */
+      .upload-zone { padding:14px; }
+      .upload-preview img { max-width:120px; max-height:80px; }
+
+      /* Override inline 2-column grids → single column */
+      [style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
+
+      /* Toast */
+      .toast { left:16px; right:16px; bottom:16px; }
+
+      /* Settings */
+      .settings-actions { flex-wrap:wrap; }
+      .provider-info { flex-direction:column; align-items:flex-start; gap:4px; }
+
+      /* Video preview */
+      .video-preview { max-width:100%; }
+
+      /* Cards padding */
+      .card { margin-bottom:12px; }
+      .stat-card { padding:12px; }
+      .stat-card .stat-value { font-size:24px; }
+    }
+
+    /* ═══ Phone ≤480px ═══ */
+    @media (max-width:480px) {
+      .main { padding:10px; padding-top:48px; }
+      .page-header h2 { font-size:16px; }
+
+      /* Stats — single column */
+      .stats-grid { grid-template-columns:1fr; gap:10px; }
+      .stat-card .stat-value { font-size:22px; }
+
+      /* Cards */
+      .card { padding:12px; }
+
+      /* Tables */
+      table { min-width:520px; }
+      th, td { padding:6px 8px; font-size:11px; }
+      .badge { font-size:10px; padding:2px 6px; }
+
+      /* Gallery — 2 columns */
+      .gallery-grid { grid-template-columns:1fr 1fr; gap:8px; }
+      .gallery-card .g-body { padding:8px; }
+      .gallery-card .g-title { font-size:12px; }
+      .gallery-card .g-meta { font-size:10px; }
+      .gallery-card .g-actions { padding:6px 8px; }
+      .gallery-card .g-actions .btn { font-size:10px; padding:3px 6px; }
+      .gallery-card .g-preview { height:100px; }
+
+      /* Modals */
+      .modal { padding:14px; width:calc(100vw - 16px); }
+      .modal h3 { font-size:15px; }
+      .modal .form-group label { font-size:12px; }
+      .modal .form-group input, .modal .form-group select, .modal .form-group textarea { font-size:13px; }
+
+      /* Auth */
+      .auth-box { padding:20px; }
+      .auth-box h1 { font-size:20px; }
+
+      /* Empty states */
+      .empty-state { padding:30px 16px; }
+      .empty-state .icon { font-size:36px; }
+
+      /* Detail fields */
+      .detail-field .value { font-size:13px; }
+
+      /* Buttons */
+      .btn { font-size:12px; padding:6px 10px; }
+      .btn-sm { padding:3px 6px; font-size:10px; }
     }
   </style>
 </head>
@@ -263,7 +372,8 @@
 </div>
 
 <!-- ═══ Main App ═══ -->
-<button class="mobile-menu-btn" id="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+<button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileMenu()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+<div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
 <div id="app" class="app">
   <!-- Sidebar -->
   <nav class="sidebar">
@@ -330,6 +440,7 @@
           <select id="cv-video-type" style="width:100%;" onchange="toggleVideoTypeFields()">
             <option value="regular">Обычное видео (TTS + Minimax)</option>
             <option value="gptunnel">GPTunnel видео (TTS + Veo-3)</option>
+            <option value="a2e">A2E аватар (говорящий аватар)</option>
             <option value="heygen">HeyGen аватар (говорящий аватар)</option>
           </select>
         </div>
@@ -376,6 +487,34 @@
         </div>
         <div style="display:flex;gap:12px;">
           <label><input type="checkbox" id="cv-auto-publish"> Автопубликация</label>
+        </div>
+        <!-- A2E поля (скрыты по умолчанию) -->
+        <div id="cv-a2e-fields" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
+          <h4 style="margin-bottom:10px;font-size:14px;">Настройки A2E аватара <span id="cv-a2e-credits" style="font-size:12px;font-weight:normal;color:var(--text2);"></span></h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Аватар</label>
+              <select id="cv-a2e-avatar" style="width:100%;"><option value="">-- Загрузите список --</option></select>
+              <button class="btn btn-sm btn-outline" onclick="loadA2EAvatarList()" style="margin-top:6px;font-size:11px;">Загрузить аватары</button>
+            </div>
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">TTS Голос</label>
+              <select id="cv-a2e-voice" style="width:100%;"><option value="">-- Загрузите список --</option></select>
+              <button class="btn btn-sm btn-outline" onclick="loadA2EVoiceList()" style="margin-top:6px;font-size:11px;">Загрузить голоса</button>
+            </div>
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фон (#RRGGBB или ID)</label>
+              <input type="text" id="cv-a2e-bg" style="width:100%;" placeholder="Пусто = фон аватара">
+            </div>
+            <div class="form-group">
+              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Разрешение</label>
+              <select id="cv-a2e-resolution" style="width:100%;">
+                <option value="1080">1080p (Full HD)</option>
+                <option value="720">720p (HD)</option>
+                <option value="480">480p (SD)</option>
+              </select>
+            </div>
+          </div>
         </div>
         <!-- HeyGen поля (скрыты по умолчанию) -->
         <div id="cv-heygen-fields" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
@@ -906,6 +1045,20 @@ let socket = null;
 let currentPage = 'dashboard';
 
 // ═══════════════════════════════════════════════════
+// Mobile menu helpers
+// ═══════════════════════════════════════════════════
+function toggleMobileMenu() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const isOpen = sidebar.classList.toggle('mobile-open');
+  if (isOpen) { overlay.classList.add('active'); } else { overlay.classList.remove('active'); }
+}
+function closeMobileMenu() {
+  document.querySelector('.sidebar')?.classList.remove('mobile-open');
+  document.getElementById('mobile-overlay')?.classList.remove('active');
+}
+
+// ═══════════════════════════════════════════════════
 // Auth
 // ═══════════════════════════════════════════════════
 async function doLogin() {
@@ -974,8 +1127,7 @@ function showApp() {
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     el.addEventListener('click', () => {
       navigateTo(el.dataset.page);
-      // Close mobile menu
-      document.querySelector('.sidebar')?.classList.remove('mobile-open');
+      closeMobileMenu();
     });
   });
 
@@ -1326,7 +1478,11 @@ async function createVideo() {
       heygen_avatar_id: document.getElementById('cv-heygen-avatar').value,
       heygen_voice_id: document.getElementById('cv-heygen-voice').value,
       heygen_background: document.getElementById('cv-heygen-bg').value,
-      heygen_ratio: document.getElementById('cv-heygen-ratio').value
+      heygen_ratio: document.getElementById('cv-heygen-ratio').value,
+      a2e_avatar_id: document.getElementById('cv-a2e-avatar').value,
+      a2e_voice_id: document.getElementById('cv-a2e-voice').value,
+      a2e_background: document.getElementById('cv-a2e-bg').value,
+      a2e_resolution: document.getElementById('cv-a2e-resolution').value
     });
 
     toast(`Видео #${res.data.id} запущено в производство!`, 'success');
@@ -1356,14 +1512,19 @@ async function createVideo() {
 }
 
 function getStepProgress(step) {
-  const steps = { created: 5, loading_data: 10, tts: 30, video_generation: 50, montage: 75, review: 90, done: 100 };
+  const steps = {
+    created: 5, loading_data: 10, tts: 30, a2e_tts: 25, a2e_video: 50,
+    heygen_video: 50, video_generation: 50, montage: 75, review: 90, done: 100
+  };
   return steps[step] || 50;
 }
 
-// Toggle HeyGen fields
+// Toggle HeyGen / A2E fields
 function toggleVideoTypeFields() {
   const type = document.getElementById('cv-video-type').value;
   document.getElementById('cv-heygen-fields').style.display = type === 'heygen' ? 'block' : 'none';
+  document.getElementById('cv-a2e-fields').style.display = type === 'a2e' ? 'block' : 'none';
+  if (type === 'a2e') loadA2ECredits();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1817,7 +1978,7 @@ async function loadErrors() {
 // ═══════════════════════════════════════════════════
 const SETTING_CAT_NAMES = {
   ai: 'AI', tts: 'Озвучка', video: 'Видео', cards: 'Карточки',
-  subtitle: 'Субтитры', branding: 'Брендинг', heygen: 'HeyGen',
+  subtitle: 'Субтитры', branding: 'Брендинг', a2e: 'A2E', heygen: 'HeyGen',
   telegram: 'Telegram', vk: 'VK', schedule: 'Расписание'
 };
 
@@ -1826,6 +1987,7 @@ const SETTING_CAT_INFO = {
   tts:   'Провайдер озвучки. GPTunnel TTS поддерживает русские голоса: ALEX, OLEG, DMITRY, VALERIA, SVETLANA и др.',
   video: 'Провайдер видеогенерации. GPTunnel поддерживает модель Veo 3.1 от Google.',
   cards: 'Генерация изображений для карточек товаров. GPTunnel: Imagen 3, Flux Dev, Seedream 3.',
+  a2e:   'A2E — платформа для создания видео с AI-аватарами (video.a2e.ai). Встроенный TTS, поллинг статуса, кредиты.',
   heygen: 'HeyGen — платформа для создания видео с AI-аватарами.'
 };
 
@@ -1869,6 +2031,7 @@ const CAT_TEST_BUTTONS = {
   video:   { label: 'Тест видео', fn: 'testGptunnelMedia("video")' },
   cards:   { label: 'Тест изображений', fn: 'testGptunnelMedia("image")' },
   telegram: { label: 'Тест бота', fn: 'testTelegram()' },
+  a2e:     { label: 'Тест A2E', fn: 'testA2E()' },
   heygen:  { label: 'Тест HeyGen', fn: 'testHeygen()' }
 };
 
@@ -2049,6 +2212,81 @@ async function testHeygen() {
       showTestResult('heygen', `${ico('x')} ${res.error}`, 'error');
     }
   } catch (e) { showTestResult('heygen', `${ico('x')} ${e.message}`, 'error'); }
+}
+
+async function testA2E() {
+  showTestResult('a2e', ico('loader') + ' Тестирование A2E...', 'loading');
+  try {
+    const inputs = document.querySelectorAll('.settings-cat-content[data-cat="a2e"] .setting-input');
+    const s = {};
+    inputs.forEach(inp => { s[inp.dataset.key] = inp.value; });
+
+    const res = await api('POST', '/api/settings/test-a2e', {
+      apiToken: s.a2e_api_token || '',
+      baseUrl: s.a2e_base_url || 'https://video.a2e.ai'
+    });
+    if (res.ok) {
+      showTestResult('a2e', `${ico('check')} Кредитов: ${res.data.credits} | Аватаров: ${res.data.avatarsCount} | ${res.data.durationMs}ms`, 'success');
+    } else {
+      showTestResult('a2e', `${ico('x')} ${res.error}`, 'error');
+    }
+  } catch (e) { showTestResult('a2e', `${ico('x')} ${e.message}`, 'error'); }
+}
+
+// ─── A2E: загрузка аватаров для формы создания видео ───
+async function loadA2EAvatarList() {
+  const sel = document.getElementById('cv-a2e-avatar');
+  sel.innerHTML = '<option value="">Загрузка...</option>';
+  try {
+    const res = await api('GET', '/api/settings/a2e-avatars?type=default');
+    if (!res.ok) { sel.innerHTML = '<option value="">Ошибка: ' + (res.error || '') + '</option>'; return; }
+    let html = '<option value="">-- Выберите аватар --</option>';
+    (res.data || []).forEach(a => {
+      html += `<option value="${a._id}">${a._id} (${(a.lang || []).join(', ')})</option>`;
+    });
+    sel.innerHTML = html;
+    // Also load custom avatars
+    const res2 = await api('GET', '/api/settings/a2e-avatars?type=custom');
+    if (res2.ok && res2.data?.length) {
+      let customHtml = '<optgroup label="Кастомные">';
+      res2.data.forEach(a => {
+        customHtml += `<option value="${a._id}">[Кастом] ${a._id}</option>`;
+      });
+      customHtml += '</optgroup>';
+      sel.innerHTML += customHtml;
+    }
+  } catch (e) { sel.innerHTML = '<option value="">Ошибка: ' + e.message + '</option>'; }
+}
+
+// ─── A2E: загрузка голосов TTS ───
+async function loadA2EVoiceList() {
+  const sel = document.getElementById('cv-a2e-voice');
+  sel.innerHTML = '<option value="">Загрузка...</option>';
+  try {
+    const res = await api('GET', '/api/settings/a2e-voices?country=ru');
+    if (!res.ok) { sel.innerHTML = '<option value="">Ошибка: ' + (res.error || '') + '</option>'; return; }
+    let html = '<option value="">-- Выберите голос --</option>';
+    (res.data || []).forEach(group => {
+      html += `<optgroup label="${group.label || group.value || 'Группа'}">`;
+      (group.children || []).forEach(v => {
+        html += `<option value="${v.value}">${v.label}</option>`;
+      });
+      html += '</optgroup>';
+    });
+    sel.innerHTML = html;
+  } catch (e) { sel.innerHTML = '<option value="">Ошибка: ' + e.message + '</option>'; }
+}
+
+// ─── A2E: показать баланс кредитов ───
+async function loadA2ECredits() {
+  const span = document.getElementById('cv-a2e-credits');
+  if (!span) return;
+  try {
+    const res = await api('GET', '/api/settings/a2e-credits');
+    if (res.ok) {
+      span.textContent = `(Кредитов: ${res.data.coins})`;
+    }
+  } catch (e) { /* ignore */ }
 }
 
 async function loadGptunnelVoices() {

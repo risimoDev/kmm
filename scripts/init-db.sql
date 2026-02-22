@@ -105,6 +105,17 @@ VALUES
   ('heygen_api_key',    '',    'string', 'heygen', 'HeyGen API Key',      'Ключ API HeyGen для аватаров', TRUE),
   ('heygen_avatar_id',  '',    'string', 'heygen', 'Аватар по умолч.',    'ID аватара HeyGen по умолчанию', FALSE),
   ('heygen_voice_id',   '',    'string', 'heygen', 'Голос по умолч.',     'ID голоса HeyGen по умолчанию', FALSE),
+  -- A2E (AI Avatar)
+  ('a2e_api_token',     '',    'string', 'a2e', 'A2E API Token',       'Bearer-токен A2E API (video.a2e.ai → профиль → API Token)', TRUE),
+  ('a2e_base_url',      'https://video.a2e.ai', 'string', 'a2e', 'Base URL',    'Базовый URL A2E API (US: video.a2e.ai, China: video.a2e.com.cn)', FALSE),
+  ('a2e_avatar_id',     '',    'string', 'a2e', 'Аватар по умолч.',    'ID аватара A2E по умолчанию (_id из списка аватаров)', FALSE),
+  ('a2e_voice_id',      '',    'string', 'a2e', 'TTS голос по умолч.', 'ID голоса A2E TTS (value из списка голосов)', FALSE),
+  ('a2e_voice_country', 'ru',  'string', 'a2e', 'Страна голоса',      'Код страны для TTS (ru, en, zh и др.)', FALSE),
+  ('a2e_voice_region',  '',    'string', 'a2e', 'Регион голоса',       'Регион для TTS (необязательно)', FALSE),
+  ('a2e_speech_rate',   '1.0', 'string', 'a2e', 'Скорость речи',      'Скорость TTS: 0.5 — 2.0', FALSE),
+  ('a2e_resolution',    '1080','string', 'a2e', 'Разрешение',         'Разрешение видео: 480 / 720 / 1080', FALSE),
+  ('a2e_background',    '',    'string', 'a2e', 'Фон видео',          'Цвет фона (#RRGGBB) или ID фона. Пусто = фон аватара', FALSE),
+  ('a2e_captions',      'false','boolean','a2e', 'Субтитры A2E',      'Включить встроенные субтитры A2E', FALSE),
   -- VK
   ('vk_access_token',   '',    'string', 'vk', 'VK Access Token', 'Токен VK API', TRUE),
   ('vk_group_id',        '',    'string', 'vk', 'VK Group ID',     'ID сообщества VK', FALSE),
@@ -213,6 +224,10 @@ CREATE TABLE IF NOT EXISTS pipeline_sessions (
 
   -- Публикация
   auto_publish         BOOLEAN DEFAULT FALSE,
+
+  -- Тип видео
+  video_type           VARCHAR(30) DEFAULT 'regular'
+                       CHECK (video_type IN ('regular', 'gptunnel', 'heygen', 'a2e')),
 
   -- Управление N8N
   execution_id         VARCHAR(100),
@@ -355,6 +370,18 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_settings_updated') THEN
     CREATE TRIGGER trg_settings_updated
       BEFORE UPDATE ON app_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  END IF;
+END $$;
+
+-- ─────────────────────────────────────────
+-- Миграция: добавить video_type если отсутствует
+-- ─────────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'pipeline_sessions' AND column_name = 'video_type'
+  ) THEN
+    ALTER TABLE pipeline_sessions ADD COLUMN video_type VARCHAR(30) DEFAULT 'regular';
   END IF;
 END $$;
 

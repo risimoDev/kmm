@@ -4,6 +4,10 @@
 // POST /api/settings/test-ai      — Тест AI подключения (только tech_admin)
 // POST /api/settings/test-telegram — Тест Telegram бота (только tech_admin)
 // POST /api/settings/test-heygen  — Тест HeyGen API (только tech_admin)
+// POST /api/settings/test-a2e     — Тест A2E API (только tech_admin)
+// GET  /api/settings/a2e-avatars  — Список аватаров A2E
+// GET  /api/settings/a2e-voices   — Список TTS голосов A2E
+// GET  /api/settings/a2e-credits  — Баланс кредитов A2E
 
 const { Router } = require('express');
 const axios = require('axios');
@@ -296,7 +300,132 @@ router.get('/gptunnel-voices', techAdminOnly, async (req, res, next) => {
   }
 });
 
+// ─── Тест A2E API ───
+router.post('/test-a2e', techAdminOnly, async (req, res, next) => {
+  try {
+    const { apiToken, baseUrl } = req.body;
+
+    if (!apiToken) {
+      return res.status(400).json({ ok: false, error: 'apiToken обязателен' });
+    }
+
+    const base = (baseUrl || 'https://video.a2e.ai').replace(/\/+$/, '');
+    const headers = { Authorization: `Bearer ${apiToken}` };
+    const startTime = Date.now();
+
+    // Check credits
+    const creditsRes = await axios.get(`${base}/api/v1/user/remainingCoins`, {
+      headers, timeout: 10_000
+    });
+    const coins = creditsRes.data?.data?.coins ?? 'N/A';
+
+    // Check avatars
+    const avatarsRes = await axios.get(`${base}/api/v1/anchor/character_list?type=default`, {
+      headers, timeout: 10_000
+    });
+    const avatars = avatarsRes.data?.data || [];
+
+    const duration = Date.now() - startTime;
+
+    res.json({
+      ok: true,
+      data: {
+        credits: coins,
+        avatarsCount: avatars.length,
+        avatarsSample: avatars.slice(0, 5).map(a => ({
+          id: a._id,
+          cover: a.video_cover || a.people_img || ''
+        })),
+        durationMs: duration
+      }
+    });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
+    res.json({ ok: false, error: `A2E ошибка: ${msg}` });
+  }
+});
+
+// ─── Список аватаров A2E ───
+router.get('/a2e-avatars', techAdminOnly, async (req, res, next) => {
+  try {
+    const { type = 'default' } = req.query;
+    const settings = await getA2ESettings();
+    if (!settings.token) return res.json({ ok: false, error: 'A2E API Token не настроен' });
+
+    const response = await axios.get(`${settings.baseUrl}/api/v1/anchor/character_list?type=${type}`, {
+      headers: { Authorization: `Bearer ${settings.token}` },
+      timeout: 15_000
+    });
+
+    const avatars = (response.data?.data || []).map(a => ({
+      _id: a._id,
+      type: a.type,
+      video_cover: a.video_cover || '',
+      people_img: a.people_img || '',
+      background_img: a.background_img || '',
+      background_color: a.background_color || '',
+      base_video: a.base_video || '',
+      lang: a.lang || []
+    }));
+
+    res.json({ ok: true, data: avatars });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
+    res.json({ ok: false, error: `A2E: ${msg}` });
+  }
+});
+
+// ─── Список TTS голосов A2E ───
+router.get('/a2e-voices', techAdminOnly, async (req, res, next) => {
+  try {
+    const { country = 'ru', region = '' } = req.query;
+    const settings = await getA2ESettings();
+    if (!settings.token) return res.json({ ok: false, error: 'A2E API Token не настроен' });
+
+    let url = `${settings.baseUrl}/api/v1/anchor/voice_list?country=${country}`;
+    if (region) url += `&region=${region}`;
+
+    const response = await axios.get(url, {
+      headers: { Authorization: `Bearer ${settings.token}` },
+      timeout: 15_000
+    });
+
+    res.json({ ok: true, data: response.data?.data || [] });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
+    res.json({ ok: false, error: `A2E: ${msg}` });
+  }
+});
+
+// ─── Баланс кредитов A2E ───
+router.get('/a2e-credits', techAdminOnly, async (req, res, next) => {
+  try {
+    const settings = await getA2ESettings();
+    if (!settings.token) return res.json({ ok: false, error: 'A2E API Token не настроен' });
+
+    const response = await axios.get(`${settings.baseUrl}/api/v1/user/remainingCoins`, {
+      headers: { Authorization: `Bearer ${settings.token}` },
+      timeout: 10_000
+    });
+
+    res.json({ ok: true, data: { coins: response.data?.data?.coins ?? 0 } });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
+    res.json({ ok: false, error: `A2E: ${msg}` });
+  }
+});
+
 // ─── Helpers ───
+async function getA2ESettings() {
+  const result = await query("SELECT key, value FROM app_settings WHERE key IN ('a2e_api_token', 'a2e_base_url')");
+  const s = {};
+  result.rows.forEach(r => { s[r.key] = r.value; });
+  return {
+    token: s.a2e_api_token || '',
+    baseUrl: (s.a2e_base_url || 'https://video.a2e.ai').replace(/\/+$/, '')
+  };
+}
+
 function maskSecret(value) {
   if (!value || value.length < 8) return '****';
   return value.slice(0, 4) + '****' + value.slice(-4);

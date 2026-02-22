@@ -153,7 +153,11 @@ router.post('/', async (req, res, next) => {
       heygen_avatar_id,
       heygen_voice_id,
       heygen_background,
-      heygen_ratio = '16:9'
+      heygen_ratio = '16:9',
+      a2e_avatar_id,
+      a2e_voice_id,
+      a2e_background,
+      a2e_resolution = '1080'
     } = req.body;
 
     if (!idea_id) {
@@ -170,7 +174,7 @@ router.post('/', async (req, res, next) => {
     }
 
     // Валидация video_type
-    const validVideoTypes = ['regular', 'heygen'];
+    const validVideoTypes = ['regular', 'heygen', 'a2e'];
     const safeVideoType = validVideoTypes.includes(video_type) ? video_type : 'regular';
 
     // Создать сессию
@@ -201,10 +205,12 @@ router.post('/', async (req, res, next) => {
     if (voice_script_id) await query("UPDATE voice_scripts SET status = 'used' WHERE id = $1", [voice_script_id]);
     if (video_prompt_id) await query("UPDATE video_prompts SET status = 'used' WHERE id = $1", [video_prompt_id]);
 
-    // Вызвать N8N video-factory (regular или heygen)
+    // Вызвать N8N video-factory (regular, heygen или a2e)
     const webhookUrl = safeVideoType === 'heygen'
       ? `${N8N_URL}/webhook/video-factory-heygen`
-      : `${N8N_URL}/webhook/video-factory`;
+      : safeVideoType === 'a2e'
+        ? `${N8N_URL}/webhook/video-factory-a2e`
+        : `${N8N_URL}/webhook/video-factory`;
 
     const webhookPayload = {
       session_id: session.id,
@@ -223,6 +229,12 @@ router.post('/', async (req, res, next) => {
       webhookPayload.heygen_voice_id = heygen_voice_id || '';
       webhookPayload.heygen_background = heygen_background || '';
       webhookPayload.heygen_ratio = heygen_ratio || '16:9';
+    } else if (safeVideoType === 'a2e') {
+      // A2E-специфичные параметры
+      webhookPayload.a2e_avatar_id = a2e_avatar_id || '';
+      webhookPayload.a2e_voice_id = a2e_voice_id || '';
+      webhookPayload.a2e_background = a2e_background || '';
+      webhookPayload.a2e_resolution = a2e_resolution || '1080';
     } else {
       // Regular video параметры
       webhookPayload.tts_provider = settings.tts_provider || 'openai';
