@@ -2,11 +2,11 @@ FROM n8nio/n8n:latest
 
 USER root
 
-# Устанавливаем ffmpeg, python3 и шрифты напрямую в том же Alpine что и n8n
-RUN apk add --no-cache \
+# n8nio/n8n:latest основан на Debian — используем apt-get
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \
-    font-noto \
-    font-noto-emoji
+    fonts-noto \
+  && rm -rf /var/lib/apt/lists/*
 
 USER node
