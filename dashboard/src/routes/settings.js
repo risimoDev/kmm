@@ -30,11 +30,8 @@ router.get('/', async (req, res, next) => {
       'SELECT key, value, type, category, label, description, is_secret, updated_at FROM app_settings ORDER BY category, key'
     );
 
-    // Маскируем секретные значения
-    const settings = result.rows.map(s => ({
-      ...s,
-      value: s.is_secret && s.value ? maskSecret(s.value) : s.value
-    }));
+    // Секреты не маскируем — фронтенд показывает type=password + глазик
+    const settings = result.rows;
 
     // Для business_owner — только разрешённые категории
     const isTechAdmin = req.user && req.user.role === 'tech_admin';
@@ -71,8 +68,8 @@ router.put('/', techAdminOnly, async (req, res, next) => {
     const updatedKeys = [];
 
     for (const [key, value] of Object.entries(updates)) {
-      // Пропускаем пустые секретные значения (значит не менялось, отображалось как ****)
-      if (typeof value === 'string' && value.includes('****')) continue;
+      // Пропускаем пустые значения
+      if (value === '' || value === null || value === undefined) continue;
 
       await query(
         `UPDATE app_settings SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = $3`,

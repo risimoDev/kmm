@@ -2078,7 +2078,10 @@ async function loadSettings() {
             <option value="false" ${s.value !== 'true' ? 'selected' : ''}>Нет</option>
           </select>`;
         } else {
-          contentHtml += `<input type="${inputType}" data-key="${s.key}" class="setting-input" value="${esc(s.value || '')}" ${readonly} style="width:100%;">`;
+          contentHtml += `<div style="position:relative;display:flex;align-items:center;">
+            <input type="${inputType}" data-key="${s.key}" class="setting-input" value="${esc(s.value || '')}" ${readonly} style="width:100%;${s.is_secret ? 'padding-right:36px;' : ''}">
+            ${s.is_secret ? `<button type="button" class="btn-eye" onclick="toggleSecretVisibility(this)" title="Показать/скрыть" style="position:absolute;right:6px;background:none;border:none;cursor:pointer;padding:4px;color:var(--text2);opacity:0.6;">${ico('eye')}</button>` : ''}
+          </div>`;
         }
 
         contentHtml += '</div>';
@@ -2115,6 +2118,17 @@ async function loadSettings() {
     });
   } catch (e) {
     document.getElementById('settings-content').innerHTML = `<div class="card">Ошибка загрузки: ${e.message}</div>`;
+  }
+}
+
+function toggleSecretVisibility(btn) {
+  const input = btn.parentElement.querySelector('input');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.style.opacity = '1';
+  } else {
+    input.type = 'password';
+    btn.style.opacity = '0.6';
   }
 }
 
