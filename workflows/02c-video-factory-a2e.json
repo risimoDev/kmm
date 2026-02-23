@@ -40,7 +40,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'a2e_api_token') AS a2e_api_token,\n       (SELECT value FROM app_settings WHERE key = 'a2e_base_url') AS a2e_base_url,\n       (SELECT value FROM app_settings WHERE key = 'a2e_avatar_id') AS default_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_id') AS default_voice_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_country') AS voice_country,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_region') AS voice_region,\n       (SELECT value FROM app_settings WHERE key = 'a2e_speech_rate') AS speech_rate,\n       (SELECT value FROM app_settings WHERE key = 'a2e_resolution') AS default_resolution,\n       (SELECT value FROM app_settings WHERE key = 'a2e_background') AS default_background,\n       (SELECT value FROM app_settings WHERE key = 'a2e_captions') AS captions_enabled\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'a2e_base_url') AS a2e_base_url,\n       (SELECT value FROM app_settings WHERE key = 'a2e_avatar_id') AS default_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_id') AS default_voice_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_country') AS voice_country,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_region') AS voice_region,\n       (SELECT value FROM app_settings WHERE key = 'a2e_speech_rate') AS speech_rate,\n       (SELECT value FROM app_settings WHERE key = 'a2e_resolution') AS default_resolution,\n       (SELECT value FROM app_settings WHERE key = 'a2e_background') AS default_background,\n       (SELECT value FROM app_settings WHERE key = 'a2e_captions') AS captions_enabled\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
         "options": {}
       },
       "id": "load-data-a2e",
@@ -57,7 +57,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst a2eToken = dbData.a2e_api_token || '';\nconst baseUrl = (dbData.a2e_base_url || 'https://video.a2e.ai').replace(/\\/+$/, '');\nconst avatarId = params.a2e_avatar_id || dbData.default_avatar_id || '';\nconst voiceId = params.a2e_voice_id || dbData.default_voice_id || '';\nconst voiceCountry = dbData.voice_country || 'ru';\nconst voiceRegion = dbData.voice_region || '';\nconst speechRate = parseFloat(dbData.speech_rate) || 1.0;\nconst resolution = parseInt(params.a2e_resolution || dbData.default_resolution) || 1080;\nconst background = params.a2e_background || dbData.default_background || '';\nconst captionsEnabled = dbData.captions_enabled === 'true';\n\nif (!a2eToken) throw new Error('A2E API token not configured in settings');\nif (!avatarId) throw new Error('A2E avatar_id not set');\nif (!voiceId) throw new Error('A2E voice_id not set');\n\nreturn [{ json: {\n  ...params,\n  a2e_token: a2eToken,\n  a2e_base_url: baseUrl,\n  a2e_avatar_id: avatarId,\n  a2e_voice_id: voiceId,\n  voice_country: voiceCountry,\n  voice_region: voiceRegion,\n  speech_rate: speechRate,\n  resolution: resolution,\n  background: background,\n  captions_enabled: captionsEnabled,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst baseUrl = (dbData.a2e_base_url || 'https://video.a2e.ai').replace(/\\/+$/, '');\nconst avatarId = params.a2e_avatar_id || dbData.default_avatar_id || '';\nconst voiceId = params.a2e_voice_id || dbData.default_voice_id || '';\nconst voiceCountry = dbData.voice_country || 'ru';\nconst voiceRegion = dbData.voice_region || '';\nconst speechRate = parseFloat(dbData.speech_rate) || 1.0;\nconst resolution = parseInt(params.a2e_resolution || dbData.default_resolution) || 1080;\nconst background = params.a2e_background || dbData.default_background || '';\nconst captionsEnabled = dbData.captions_enabled === 'true';\n\nif (!avatarId) throw new Error('A2E avatar_id not set');\nif (!voiceId) throw new Error('A2E voice_id not set');\n\nreturn [{ json: {\n  ...params,\n  a2e_base_url: baseUrl,\n  a2e_avatar_id: avatarId,\n  a2e_voice_id: voiceId,\n  voice_country: voiceCountry,\n  voice_region: voiceRegion,\n  speech_rate: speechRate,\n  resolution: resolution,\n  background: background,\n  captions_enabled: captionsEnabled,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
       },
       "id": "merge-a2e",
       "name": "🔗 Объединение данных",
@@ -87,19 +87,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $('🔗 Объединение данных').first().json.a2e_base_url }}/api/v1/video/send_tts",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('🔗 Объединение данных').first().json.a2e_token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"msg\": {{ JSON.stringify($('🔗 Объединение данных').first().json.script_text) }},\n  \"tts_id\": {{ JSON.stringify($('🔗 Объединение данных').first().json.a2e_voice_id) }},\n  \"speechRate\": {{ $('🔗 Объединение данных').first().json.speech_rate }},\n  \"country\": {{ JSON.stringify($('🔗 Объединение данных').first().json.voice_country) }},\n  \"region\": {{ JSON.stringify($('🔗 Объединение данных').first().json.voice_region) }}\n}",
@@ -109,7 +98,13 @@
       "name": "🗣️ A2E TTS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1420, 560]
+      "position": [1420, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_A2E_CRED_ID",
+          "name": "A2E API"
+        }
+      }
     },
     {
       "parameters": {
@@ -141,7 +136,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🎵 Извлечь аудио URL').first().json;\n\n// Build A2E video generation request\nconst a2eBody = {\n  title: ctx.title || 'Video ' + ctx.session_id,\n  anchor_id: ctx.a2e_avatar_id,\n  anchor_type: 0,\n  audioSrc: ctx.audio_url,\n  resolution: ctx.resolution || 1080,\n  isSkipRs: true,\n  isCaptionEnabled: ctx.captions_enabled || false,\n  msg: ctx.script_text || ''\n};\n\n// Background: color (#RRGGBB) or leave default\nif (ctx.background) {\n  if (ctx.background.startsWith('#')) {\n    // Convert #RRGGBB to [R,G,B]\n    const hex = ctx.background.replace('#', '');\n    a2eBody.color = [\n      parseInt(hex.substring(0,2), 16),\n      parseInt(hex.substring(2,4), 16),\n      parseInt(hex.substring(4,6), 16)\n    ];\n  } else {\n    a2eBody.back_id = ctx.background;\n  }\n}\n\nreturn [{ json: {\n  body: JSON.stringify(a2eBody),\n  a2e_token: ctx.a2e_token,\n  a2e_base_url: ctx.a2e_base_url,\n  session_id: ctx.session_id\n}}];"
+        "jsCode": "const ctx = $('🎵 Извлечь аудио URL').first().json;\n\n// Build A2E video generation request\nconst a2eBody = {\n  title: ctx.title || 'Video ' + ctx.session_id,\n  anchor_id: ctx.a2e_avatar_id,\n  anchor_type: 0,\n  audioSrc: ctx.audio_url,\n  resolution: ctx.resolution || 1080,\n  isSkipRs: true,\n  isCaptionEnabled: ctx.captions_enabled || false,\n  msg: ctx.script_text || ''\n};\n\n// Background: color (#RRGGBB) or leave default\nif (ctx.background) {\n  if (ctx.background.startsWith('#')) {\n    // Convert #RRGGBB to [R,G,B]\n    const hex = ctx.background.replace('#', '');\n    a2eBody.color = [\n      parseInt(hex.substring(0,2), 16),\n      parseInt(hex.substring(2,4), 16),\n      parseInt(hex.substring(4,6), 16)\n    ];\n  } else {\n    a2eBody.back_id = ctx.background;\n  }\n}\n\nreturn [{ json: {\n  body: JSON.stringify(a2eBody),\n  a2e_base_url: ctx.a2e_base_url,\n  session_id: ctx.session_id\n}}];"
       },
       "id": "build-a2e",
       "name": "🏗️ A2E запрос",
@@ -153,19 +148,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $json.a2e_base_url }}/api/v1/video/generate",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.a2e_token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.body }}",
@@ -175,11 +159,17 @@
       "name": "🎭 A2E создание видео",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2380, 560]
+      "position": [2380, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_A2E_CRED_ID",
+          "name": "A2E API"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nif (response.code !== 0) {\n  throw new Error('A2E video creation failed: ' + (response.msg || JSON.stringify(response)));\n}\n\nconst videoId = response.data?._id;\nif (!videoId) throw new Error('A2E did not return video _id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ A2E запрос').first().json.session_id,\n  a2e_token: $('🏗️ A2E запрос').first().json.a2e_token,\n  a2e_base_url: $('🏗️ A2E запрос').first().json.a2e_base_url,\n  poll_count: 0\n}}];"
+        "jsCode": "const response = $input.first().json;\nif (response.code !== 0) {\n  throw new Error('A2E video creation failed: ' + (response.msg || JSON.stringify(response)));\n}\n\nconst videoId = response.data?._id;\nif (!videoId) throw new Error('A2E did not return video _id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ A2E запрос').first().json.session_id,\n  a2e_base_url: $('🏗️ A2E запрос').first().json.a2e_base_url,\n  poll_count: 0\n}}];"
       },
       "id": "extract-vid-a2e",
       "name": "🔑 Извлечь video_id",
@@ -199,19 +189,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $json.a2e_base_url }}/api/v1/video/awsResult",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.a2e_token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"_id\": \"{{ $json.video_id }}\" }",
@@ -221,7 +200,13 @@
       "name": "🔄 Проверить статус",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3100, 560]
+      "position": [3100, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_A2E_CRED_ID",
+          "name": "A2E API"
+        }
+      }
     },
     {
       "parameters": {
@@ -239,7 +224,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const prev = $input.first().json;\nconst statusData = prev.data?.[0] || {};\nconst status = statusData.status || 'unknown';\n\nif (status === 'fail') throw new Error('A2E video generation failed: ' + JSON.stringify(statusData));\n\nconst pollCount = ($('🔑 Извлечь video_id').first().json.poll_count || 0) + 1;\nif (pollCount > 90) throw new Error('A2E timeout: 90 polls (30 min)');\n\nreturn [{ json: {\n  video_id: $('🔑 Извлечь video_id').first().json.video_id,\n  session_id: $('🔑 Извлечь video_id').first().json.session_id,\n  a2e_token: $('🔑 Извлечь video_id').first().json.a2e_token,\n  a2e_base_url: $('🔑 Извлечь video_id').first().json.a2e_base_url,\n  poll_count: pollCount\n}}];"
+        "jsCode": "const prev = $input.first().json;\nconst statusData = prev.data?.[0] || {};\nconst status = statusData.status || 'unknown';\n\nif (status === 'fail') throw new Error('A2E video generation failed: ' + JSON.stringify(statusData));\n\nconst pollCount = ($('🔑 Извлечь video_id').first().json.poll_count || 0) + 1;\nif (pollCount > 90) throw new Error('A2E timeout: 90 polls (30 min)');\n\nreturn [{ json: {\n  video_id: $('🔑 Извлечь video_id').first().json.video_id,\n  session_id: $('🔑 Извлечь video_id').first().json.session_id,\n  a2e_base_url: $('🔑 Извлечь video_id').first().json.a2e_base_url,\n  poll_count: pollCount\n}}];"
       },
       "id": "retry-a2e",
       "name": "⏳ Ещё не готово",
