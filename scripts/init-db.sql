@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
   label         VARCHAR(200),
   description   TEXT,
   is_secret     BOOLEAN DEFAULT FALSE,
-  updated_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_by    VARCHAR(100),
   updated_at    TIMESTAMP DEFAULT NOW()
 );
 
