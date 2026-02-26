@@ -343,7 +343,7 @@ router.post('/test-a2e', techAdminOnly, async (req, res, next) => {
 });
 
 // ─── Список аватаров A2E ───
-router.get('/a2e-avatars', techAdminOnly, async (req, res, next) => {
+router.get('/a2e-avatars', async (req, res, next) => {
   try {
     const { type = 'default' } = req.query;
     const settings = await getA2ESettings();
@@ -373,21 +373,38 @@ router.get('/a2e-avatars', techAdminOnly, async (req, res, next) => {
 });
 
 // ─── Список TTS голосов A2E ───
-router.get('/a2e-voices', techAdminOnly, async (req, res, next) => {
+router.get('/a2e-voices', async (req, res, next) => {
   try {
-    const { country = 'ru', region = '' } = req.query;
+    const { country = '', region = '' } = req.query;
     const settings = await getA2ESettings();
     if (!settings.token) return res.json({ ok: false, error: 'A2E API Token не настроен' });
 
-    let url = `${settings.baseUrl}/api/v1/anchor/voice_list?country=${country}`;
-    if (region) url += `&region=${region}`;
+    const makeRequest = async (c, r) => {
+      let url = `${settings.baseUrl}/api/v1/anchor/voice_list`;
+      const params = [];
+      if (c) params.push(`country=${encodeURIComponent(c)}`);
+      if (r) params.push(`region=${encodeURIComponent(r)}`);
+      if (params.length) url += '?' + params.join('&');
+      return axios.get(url, {
+        headers: { Authorization: `Bearer ${settings.token}` },
+        timeout: 15_000
+      });
+    };
 
-    const response = await axios.get(url, {
-      headers: { Authorization: `Bearer ${settings.token}` },
-      timeout: 15_000
-    });
+    let response = await makeRequest(country, region);
+    let voices = response.data?.data || [];
 
-    res.json({ ok: true, data: response.data?.data || [] });
+    // Если с фильтром пусто — пробуем без фильтра
+    if (voices.length === 0 && country) {
+      response = await makeRequest('', '');
+      voices = response.data?.data || [];
+    }
+
+    if (response.data?.code !== undefined && response.data.code !== 0) {
+      return res.json({ ok: false, error: `A2E API error code: ${response.data.code}` });
+    }
+
+    res.json({ ok: true, data: voices });
   } catch (err) {
     const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
     res.json({ ok: false, error: `A2E: ${msg}` });
@@ -395,7 +412,7 @@ router.get('/a2e-voices', techAdminOnly, async (req, res, next) => {
 });
 
 // ─── Баланс кредитов A2E ───
-router.get('/a2e-credits', techAdminOnly, async (req, res, next) => {
+router.get('/a2e-credits', async (req, res, next) => {
   try {
     const settings = await getA2ESettings();
     if (!settings.token) return res.json({ ok: false, error: 'A2E API Token не настроен' });

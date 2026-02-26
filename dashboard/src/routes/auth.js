@@ -89,7 +89,7 @@ router.post('/login', authLimiter, async (req, res) => {
     }
 
     // Генерируем JWT
-    const token = signToken({ login: authenticatedUser.login, role: authenticatedUser.role });
+    const token = signToken({ id: authenticatedUser.id || null, login: authenticatedUser.login, role: authenticatedUser.role });
 
     res.cookie('token', token, {
       httpOnly: true,

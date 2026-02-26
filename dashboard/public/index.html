@@ -1520,11 +1520,33 @@ function getStepProgress(step) {
 }
 
 // Toggle HeyGen / A2E fields
-function toggleVideoTypeFields() {
+async function toggleVideoTypeFields() {
   const type = document.getElementById('cv-video-type').value;
   document.getElementById('cv-heygen-fields').style.display = type === 'heygen' ? 'block' : 'none';
   document.getElementById('cv-a2e-fields').style.display = type === 'a2e' ? 'block' : 'none';
-  if (type === 'a2e') loadA2ECredits();
+  if (type === 'a2e') {
+    loadA2ECredits();
+    // Загрузить настройки по умолчанию из БД
+    let defaultAvatar = '', defaultVoice = '', defaultBg = '', defaultRes = '1080';
+    try {
+      const sRes = await api('GET', '/api/settings');
+      if (sRes.ok && sRes.data) {
+        const s = {};
+        (sRes.data || []).forEach(row => { s[row.key] = row.value; });
+        defaultAvatar = s.a2e_avatar_id || '';
+        defaultVoice  = s.a2e_voice_id  || '';
+        defaultBg     = s.a2e_background || '';
+        defaultRes    = s.a2e_resolution || '1080';
+      }
+    } catch (e) { /* не критично */ }
+    // Установить фон и разрешение
+    document.getElementById('cv-a2e-bg').value = defaultBg;
+    const resSel = document.getElementById('cv-a2e-resolution');
+    if (defaultRes) resSel.value = defaultRes;
+    // Загрузить аватары и голоса с предвыбором
+    loadA2EAvatarList(defaultAvatar);
+    loadA2EVoiceList(defaultVoice);
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -2248,7 +2270,7 @@ async function testA2E() {
 }
 
 // ─── A2E: загрузка аватаров для формы создания видео ───
-async function loadA2EAvatarList() {
+async function loadA2EAvatarList(defaultVal) {
   const sel = document.getElementById('cv-a2e-avatar');
   sel.innerHTML = '<option value="">Загрузка...</option>';
   try {
@@ -2269,25 +2291,45 @@ async function loadA2EAvatarList() {
       customHtml += '</optgroup>';
       sel.innerHTML += customHtml;
     }
+    if (defaultVal) sel.value = defaultVal;
   } catch (e) { sel.innerHTML = '<option value="">Ошибка: ' + e.message + '</option>'; }
 }
 
 // ─── A2E: загрузка голосов TTS ───
-async function loadA2EVoiceList() {
+async function loadA2EVoiceList(defaultVal) {
   const sel = document.getElementById('cv-a2e-voice');
+  // Получить страну из настроек (или дефолт 'ru')
+  let country = 'ru';
+  try {
+    const sRes = await api('GET', '/api/settings');
+    if (sRes.ok) {
+      const row = (sRes.data || []).find(r => r.key === 'a2e_voice_country');
+      if (row?.value) country = row.value;
+    }
+  } catch (e) { /* fallback ru */ }
   sel.innerHTML = '<option value="">Загрузка...</option>';
   try {
-    const res = await api('GET', '/api/settings/a2e-voices?country=ru');
+    const params = country ? `?country=${encodeURIComponent(country)}` : '';
+    const res = await api('GET', `/api/settings/a2e-voices${params}`);
     if (!res.ok) { sel.innerHTML = '<option value="">Ошибка: ' + (res.error || '') + '</option>'; return; }
+    const voices = res.data || [];
+    if (!voices.length) { sel.innerHTML = '<option value="">Голоса не найдены</option>'; return; }
     let html = '<option value="">-- Выберите голос --</option>';
-    (res.data || []).forEach(group => {
-      html += `<optgroup label="${group.label || group.value || 'Группа'}">`;
-      (group.children || []).forEach(v => {
-        html += `<option value="${v.value}">${v.label}</option>`;
-      });
-      html += '</optgroup>';
+    voices.forEach(group => {
+      if (group.children && group.children.length) {
+        html += `<optgroup label="${group.label || group.value || 'Группа'}">`;
+        group.children.forEach(v => {
+          html += `<option value="${v.value}">${v.label}</option>`;
+        });
+        html += '</optgroup>';
+      } else {
+        // Голос без группы (плоская структура)
+        html += `<option value="${group.value || group.id || ''}">` +
+          `${group.label || group.name || group.value}</option>`;
+      }
     });
     sel.innerHTML = html;
+    if (defaultVal) sel.value = defaultVal;
   } catch (e) { sel.innerHTML = '<option value="">Ошибка: ' + e.message + '</option>'; }
 }
 

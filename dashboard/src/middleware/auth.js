@@ -42,6 +42,7 @@ function authMiddleware(req, res, next) {
     const payload = verifyToken(token);
 
     req.user = {
+      id: payload.id || null,
       login: payload.login,
       role: payload.role
     };
