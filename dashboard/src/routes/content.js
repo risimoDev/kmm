@@ -10,6 +10,7 @@
 const { Router } = require('express');
 const axios = require('axios');
 const { query, isConnected } = require('../db');
+const { generationLimiter } = require('../middleware/rateLimit');
 
 const router = Router();
 const N8N_URL = process.env.N8N_URL || 'http://n8n:5678';
@@ -108,7 +109,7 @@ router.get('/ideas/:id', async (req, res, next) => {
 });
 
 // ─── Генерация контента через N8N ───
-router.post('/generate', async (req, res, next) => {
+router.post('/generate', generationLimiter, async (req, res, next) => {
   try {
     const { count = 3, product_name, niche, extra_instructions } = req.body;
 

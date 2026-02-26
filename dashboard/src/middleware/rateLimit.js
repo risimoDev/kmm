@@ -21,4 +21,11 @@ const authLimiter = createRateLimiter({
   message: 'Слишком много попыток входа'
 });
 
-module.exports = { createRateLimiter, authLimiter };
+// Лимит на генерацию контента/видео (защита от исчерпания кредитов API)
+const generationLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,  // 1 час
+  max: 30,
+  message: 'Лимит генераций исчерпан (30/час). Подождите.'
+});
+
+module.exports = { createRateLimiter, authLimiter, generationLimiter };

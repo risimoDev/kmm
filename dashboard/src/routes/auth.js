@@ -43,24 +43,10 @@ router.post('/login', authLimiter, async (req, res) => {
     }
 
     const users = parseDashboardUsers();
-
-    // 1) Проверяем ENV-пользователей
-    const found = users.find(u => u.login === login);
     let authenticatedUser = null;
 
-    if (found) {
-      const pwdBuf = Buffer.from(password);
-      const expectedBuf = Buffer.from(found.password);
-      const isValid =
-        pwdBuf.length === expectedBuf.length &&
-        crypto.timingSafeEqual(pwdBuf, expectedBuf);
-      if (isValid) {
-        authenticatedUser = { login: found.login, role: found.role, source: 'env' };
-      }
-    }
-
-    // 2) Если не найден в ENV — проверяем БД
-    if (!authenticatedUser && isConnected()) {
+    // 1) БД — основной источник истины
+    if (isConnected()) {
       try {
         const dbResult = await query(
           'SELECT id, login, password_hash, password_salt, role, is_active FROM users WHERE login = $1 AND password_hash IS NOT NULL',
@@ -81,6 +67,21 @@ router.post('/login', authLimiter, async (req, res) => {
         }
       } catch (dbErr) {
         console.error('[AUTH] DB lookup error:', dbErr.message);
+      }
+    }
+
+    // 2) ENV-пользователи — фоллбэк (если БД недоступна или пользователь не найден)
+    if (!authenticatedUser) {
+      const found = users.find(u => u.login === login);
+      if (found) {
+        const pwdBuf = Buffer.from(password);
+        const expectedBuf = Buffer.from(found.password);
+        const isValid =
+          pwdBuf.length === expectedBuf.length &&
+          crypto.timingSafeEqual(pwdBuf, expectedBuf);
+        if (isValid) {
+          authenticatedUser = { login: found.login, role: found.role, source: 'env' };
+        }
       }
     }
 

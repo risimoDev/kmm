@@ -11,6 +11,7 @@ const { Router } = require('express');
 const axios = require('axios');
 const { query, isConnected } = require('../db');
 const { emitToSession } = require('../socket');
+const { generationLimiter } = require('../middleware/rateLimit');
 
 const router = Router();
 const N8N_URL = process.env.N8N_URL || 'http://n8n:5678';
@@ -136,7 +137,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // ─── Создать видео (запустить пайплайн) ───
-router.post('/', async (req, res, next) => {
+router.post('/', generationLimiter, async (req, res, next) => {
   try {
     if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
 

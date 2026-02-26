@@ -31,12 +31,12 @@ services:
       - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
       - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
       - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
-      - EXECUTIONS_MODE=regular
-      # Для продакшена: переключить на queue + добавить n8n-worker сервис
-      # - EXECUTIONS_MODE=queue
-      # - QUEUE_BULL_REDIS_HOST=redis
-      # - QUEUE_BULL_REDIS_PORT=6379
-      # - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE:-regular}
+      # Queue mode (включите в .env: EXECUTIONS_MODE=queue)
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
+      - QUEUE_HEALTH_CHECK_ACTIVE=true
       - N8N_PAYLOAD_SIZE_MAX=16
       - N8N_METRICS=true
       - N8N_LOG_LEVEL=info
@@ -161,7 +161,7 @@ services:
       - DB_USER=${DB_POSTGRESDB_USER}
       - DB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
       # Auth (логин:пароль:роль — из .env)
-      - JWT_SECRET=${JWT_SECRET:-content-factory-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET}
       - DASHBOARD_USERS=${DASHBOARD_USERS:-}
       # N8N
       - N8N_URL=http://n8n:5678
@@ -188,6 +188,57 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ===================================
+  # N8N Worker — обработчик очереди
+  # (включается при EXECUTIONS_MODE=queue)
+  # ===================================
+  n8n-worker:
+    build: ./n8n
+    container_name: content-factory-n8n-worker
+    restart: unless-stopped
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - DB_TYPE=${DB_TYPE:-postgresdb}
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+      - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
+      - QUEUE_HEALTH_CHECK_ACTIVE=true
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/Moscow}
+      - TZ=${TZ:-Europe/Moscow}
+      - N8N_LOG_LEVEL=info
+      - N8N_PAYLOAD_SIZE_MAX=16
+      - EXECUTIONS_TIMEOUT=${EXECUTIONS_TIMEOUT:--1}
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID:-0}
+      - TELEGRAM_MODERATOR_CHAT_ID=${TELEGRAM_MODERATOR_CHAT_ID:-0}
+      - DASHBOARD_URL=${DASHBOARD_URL:-http://localhost:3001}
+    command: worker
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/home/node/workflows
+      - ./credentials:/home/node/credentials
+      - ./output:/home/node/output
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      n8n:
+        condition: service_healthy
+    networks:
+      - content-factory-network
+    profiles:
+      - queue
 
   # ===================================
   # Nginx - Веб-сервер и reverse proxy
