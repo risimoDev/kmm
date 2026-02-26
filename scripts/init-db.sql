@@ -110,7 +110,7 @@ VALUES
   ('a2e_base_url',      'https://video.a2e.ai', 'string', 'a2e', 'Base URL',    'Базовый URL A2E API (US: video.a2e.ai, China: video.a2e.com.cn)', FALSE),
   ('a2e_avatar_id',     '',    'string', 'a2e', 'Аватар по умолч.',    'ID аватара A2E по умолчанию (_id из списка аватаров)', FALSE),
   ('a2e_voice_id',      '',    'string', 'a2e', 'TTS голос по умолч.', 'ID голоса A2E TTS (value из списка голосов)', FALSE),
-  ('a2e_voice_country', 'ru',  'string', 'a2e', 'Страна голоса',      'Код страны для TTS (ru, en, zh и др.)', FALSE),
+  ('a2e_voice_country', '',   'string', 'a2e', 'Страна голоса',      'Код страны для TTS (en, ru, zh и др.). Пусто = все голоса', FALSE),
   ('a2e_voice_region',  '',    'string', 'a2e', 'Регион голоса',       'Регион для TTS (необязательно)', FALSE),
   ('a2e_speech_rate',   '1.0', 'string', 'a2e', 'Скорость речи',      'Скорость TTS: 0.5 — 2.0', FALSE),
   ('a2e_resolution',    '1080','string', 'a2e', 'Разрешение',         'Разрешение видео: 480 / 720 / 1080', FALSE),
@@ -383,6 +383,71 @@ DO $$ BEGIN
   ) THEN
     ALTER TABLE pipeline_sessions ADD COLUMN video_type VARCHAR(30) DEFAULT 'regular';
   END IF;
+END $$;
+
+-- ─────────────────────────────────────────
+-- Миграция: updated_by INTEGER → VARCHAR(100)
+-- ─────────────────────────────────────────
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'app_settings' AND column_name = 'updated_by' AND data_type = 'integer'
+  ) THEN
+    -- удаляем FK если есть
+    IF EXISTS (
+      SELECT 1 FROM information_schema.table_constraints
+      WHERE constraint_name = 'app_settings_updated_by_fkey' AND table_name = 'app_settings'
+    ) THEN
+      ALTER TABLE app_settings DROP CONSTRAINT app_settings_updated_by_fkey;
+    END IF;
+    ALTER TABLE app_settings ALTER COLUMN updated_by TYPE VARCHAR(100) USING updated_by::TEXT;
+  END IF;
+END $$;
+
+-- ─────────────────────────────────────────
+-- Миграция: pipeline_sessions.user_id — снять NOT NULL
+-- ─────────────────────────────────────────
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'pipeline_sessions' AND column_name = 'user_id'
+      AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE pipeline_sessions ALTER COLUMN user_id DROP NOT NULL;
+    ALTER TABLE pipeline_sessions ALTER COLUMN user_id SET DEFAULT NULL;
+  END IF;
+  -- bigint → integer если нужно
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'pipeline_sessions' AND column_name = 'user_id' AND data_type = 'bigint'
+  ) THEN
+    ALTER TABLE pipeline_sessions ALTER COLUMN user_id TYPE INTEGER USING NULLIF(user_id, 0)::INTEGER;
+  END IF;
+END $$;
+
+-- ─────────────────────────────────────────
+-- Миграция: pipeline_sessions.status — обновить check constraint и данные
+-- ─────────────────────────────────────────
+DO $$ BEGIN
+  -- Если constraint существует со старыми значениями — пересоздать
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'pipeline_sessions_status_check' AND table_name = 'pipeline_sessions'
+  ) THEN
+    ALTER TABLE pipeline_sessions DROP CONSTRAINT pipeline_sessions_status_check;
+  END IF;
+  -- Мигрировать старые статусы
+  UPDATE pipeline_sessions SET status = 'processing' WHERE status = 'pipeline_running';
+  UPDATE pipeline_sessions SET status = 'created'    WHERE status = 'collecting_input';
+  UPDATE pipeline_sessions SET status = 'published'  WHERE status = 'completed';
+  UPDATE pipeline_sessions SET status = 'rejected'
+    WHERE status IN ('rejected_ideas','rejected_audience','rejected_script','rejected_video');
+  UPDATE pipeline_sessions SET status = 'error'
+    WHERE status NOT IN ('created','processing','ready_for_review','approved','publishing','published','rejected','error','cancelled');
+  -- Добавить новый constraint
+  ALTER TABLE pipeline_sessions ADD CONSTRAINT pipeline_sessions_status_check
+    CHECK (status IN ('created','processing','ready_for_review','approved','publishing','published','rejected','error','cancelled'));
+  ALTER TABLE pipeline_sessions ALTER COLUMN status SET DEFAULT 'created';
 END $$;
 
 -- ─────────────────────────────────────────
