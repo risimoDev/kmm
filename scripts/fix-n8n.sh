@@ -53,8 +53,6 @@ REQUIRED_VARS=(
   DB_POSTGRESDB_DATABASE
   DB_POSTGRESDB_USER
   DB_POSTGRESDB_PASSWORD
-  N8N_BASIC_AUTH_USER
-  N8N_BASIC_AUTH_PASSWORD
 )
 
 ENV_ERRORS=0
@@ -70,8 +68,23 @@ for var in "${REQUIRED_VARS[@]}"; do
   fi
 done
 
+# Хелпер для запросов к N8N (поддерживает N8N_API_KEY и basic auth)
+make_n8n_request() {
+  local url="$1"
+  local N8N_API_KEY_VAL="${N8N_API_KEY:-}"
+  local N8N_USER="${N8N_BASIC_AUTH_USER:-}"
+  local N8N_PASS="${N8N_BASIC_AUTH_PASSWORD:-}"
+  if [ -n "$N8N_API_KEY_VAL" ]; then
+    curl -sf --max-time 10 -H "X-N8N-API-KEY: ${N8N_API_KEY_VAL}" "$url" 2>/dev/null || echo "FAIL"
+  elif [ -n "$N8N_USER" ] && [ -n "$N8N_PASS" ]; then
+    curl -sf --max-time 10 -u "${N8N_USER}:${N8N_PASS}" "$url" 2>/dev/null || echo "FAIL"
+  else
+    curl -sf --max-time 10 "$url" 2>/dev/null || echo "FAIL"
+  fi
+}
+
 # Проверка N8N_ENCRYPTION_KEY (минимум 32 символа)
-KEY_LEN=${#N8N_ENCRYPTION_KEY:-0}
+KEY_LEN="${#N8N_ENCRYPTION_KEY}"
 if [ "$KEY_LEN" -lt 32 ] 2>/dev/null; then
   fail "N8N_ENCRYPTION_KEY слишком короткий ($KEY_LEN символов, нужно ≥32)"
   ENV_ERRORS=$((ENV_ERRORS+1))
@@ -123,35 +136,22 @@ fi
 # ════════════════════════════════════════
 # 4. ПРАВА НА VOLUME N8N
 # ════════════════════════════════════════
-h2 "4. Права доступа к n8n_data volume"
+h2 "4. Права доступа к /home/node/.n8n (внутри контейнера)"
 
-VOLUME_PATH=$(docker volume inspect n8n_data --format '{{.Mountpoint}}' 2>/dev/null || echo "")
-if [ -z "$VOLUME_PATH" ]; then
-  fail "Volume n8n_data не найден!"
+# Проверяем изнутри контейнера
+INNER_LS=$(docker exec content-factory-n8n ls -la /home/node/.n8n/ 2>/dev/null || echo "нет доступа")
+echo "$INNER_LS" | head -10 | sed 's/^/  /'
+OWNER_INNER=$(docker exec content-factory-n8n stat -c '%u:%g' /home/node/.n8n 2>/dev/null || echo "?")
+info "Владелец .n8n внутри контейнера: $OWNER_INNER"
+if [ "$OWNER_INNER" != "1000:1000" ] && [ "$OWNER_INNER" != "0:0" ] && [ "$OWNER_INNER" != "?" ]; then
+  warn "Неверный владелец $OWNER_INNER — исправляю..."
+  docker exec -u root content-factory-n8n chown -R 1000:1000 /home/node/.n8n && ok "Права исправлены" || fail "Не удалось исправить права"
 else
-  info "Путь volume: $VOLUME_PATH"
-  OWNER=$(stat -c '%u:%g' "$VOLUME_PATH" 2>/dev/null || echo "unknown")
-  info "Владелец: $OWNER (нужен 1000:1000 — пользователь node)"
-
-  # N8N запускается от пользователя node (uid=1000)
-  if [ "$OWNER" != "1000:1000" ]; then
-    warn "Неверные права! Исправляю..."
-    chown -R 1000:1000 "$VOLUME_PATH" && ok "Права исправлены → 1000:1000" || fail "Не удалось изменить права (нужен sudo)"
-  else
-    ok "Права корректны (1000:1000)"
-  fi
-
-  # Проверка ключевых файлов
-  for f in config database.sqlite; do
-    fpath="$VOLUME_PATH/$f"
-    if [ -e "$fpath" ]; then
-      fowner=$(stat -c '%u:%g' "$fpath" 2>/dev/null || echo "?")
-      ok "  $f найден (владелец: $fowner)"
-    else
-      info "  $f не найден (нормально при первом запуске или при использовании PostgreSQL)"
-    fi
-  done
+  ok "Права в норме ($OWNER_INNER)"
 fi
+# Путь volume
+VOL_PATH=$(docker inspect content-factory-n8n --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || echo "")
+[ -n "$VOL_PATH" ] && info "Volume path на хосте: $VOL_PATH" || true
 
 # ════════════════════════════════════════
 # 5. ПОДКЛЮЧЕНИЕ К POSTGRESQL
@@ -189,14 +189,28 @@ else
   docker logs content-factory-n8n --tail 20 2>&1 | sed 's/^/    /'
 fi
 
-# Проверка REST API с авторизацией
-N8N_API=$(curl -sf -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" \
-  "http://localhost:5678/rest/settings" 2>/dev/null || echo "FAIL")
-if echo "$N8N_API" | grep -qi "timezone\|instanceId\|oauthCallbackUrl"; then
-  ok "N8N REST API отвечает (авторизация работает)"
+# Проверка авторизации
+SETTINGS_RESP=$(curl -sf --max-time 5 "http://localhost:5678/rest/settings" 2>/dev/null || echo "FAIL")
+if echo "$SETTINGS_RESP" | grep -q '"authenticationMethod"'; then
+  AUTH_METHOD=$(echo "$SETTINGS_RESP" | python3 -c \
+    "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('userManagement',{}).get('authenticationMethod','?'))" \
+    2>/dev/null || echo "?")
+  info "authenticationMethod: $AUTH_METHOD"
+  if [ "$AUTH_METHOD" = "email" ]; then
+    if [ -n "${N8N_API_KEY:-}" ]; then
+      WF_TEST=$(make_n8n_request "http://localhost:5678/rest/workflows")
+      if echo "$WF_TEST" | grep -q '"id"'; then
+        ok "N8N_API_KEY работает"
+      else
+        warn "N8N_API_KEY устарел — пересоздайте: N8N UI → Settings → n8n API"
+      fi
+    else
+      warn "N8N_API_KEY не задан! Добавьте в .env: N8N_API_KEY=n8n_api_xxx"
+      warn "Создайте: N8N UI → Settings → n8n API → Create an API key"
+    fi
+  fi
 else
-  warn "N8N REST API не отвечает или ошибка авторизации"
-  info "Ответ: $(echo $N8N_API | head -c 200)"
+  warn "REST API /rest/settings не ответил корректно"
 fi
 
 # ════════════════════════════════════════
@@ -231,19 +245,22 @@ fi
 # ════════════════════════════════════════
 h2 "9. Статус воркфлоу"
 
-WF_LIST=$(curl -sf -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" \
-  "http://localhost:5678/rest/workflows" 2>/dev/null || echo "FAIL")
+WF_LIST=$(make_n8n_request "http://localhost:5678/rest/workflows")
 if echo "$WF_LIST" | grep -q '"id"'; then
-  ACTIVE_COUNT=$(echo "$WF_LIST" | grep -o '"active":true' | wc -l || echo "0")
-  TOTAL_COUNT=$(echo "$WF_LIST" | grep -o '"id"' | wc -l || echo "0")
+  ACTIVE_COUNT=$(echo "$WF_LIST" | python3 -c "import sys,json; d=json.load(sys.stdin); lst=d.get('data', d if isinstance(d,list) else []); print(sum(1 for w in lst if w.get('active')))" 2>/dev/null || echo "0")
+  TOTAL_COUNT=$(echo "$WF_LIST" | python3 -c "import sys,json; d=json.load(sys.stdin); lst=d.get('data', d if isinstance(d,list) else []); print(len(lst))" 2>/dev/null || echo "0")
   info "Воркфлоу: $ACTIVE_COUNT активных из $TOTAL_COUNT"
-  if [ "$ACTIVE_COUNT" -lt 3 ]; then
+  if [ "$ACTIVE_COUNT" -lt 3 ] 2>/dev/null; then
     warn "Мало активных воркфлоу! Нужно активировать хотя бы: 01-content-brain, 02-video-factory, 03-publisher"
   else
     ok "Воркфлоу активированы"
   fi
 else
-  warn "Не удалось получить список воркфлоу"
+  if [ -z "${N8N_API_KEY:-}" ]; then
+    warn "N8N_API_KEY не задан — список воркфлоу недоступен"
+  else
+    warn "Не удалось получить список воркфлоу"
+  fi
 fi
 
 # ════════════════════════════════════════
@@ -251,8 +268,8 @@ fi
 # ════════════════════════════════════════
 h2 "10. Проверка импорта воркфлоу"
 
-TOTAL_WF=$(curl -sf -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" \
-  "http://localhost:5678/rest/workflows" 2>/dev/null | grep -o '"id"' | wc -l || echo "0")
+TOTAL_WF_RESP=$(make_n8n_request "http://localhost:5678/rest/workflows")
+TOTAL_WF=$(echo "$TOTAL_WF_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); lst=d.get('data', d if isinstance(d,list) else []); print(len(lst))" 2>/dev/null || echo "0")
 
 if [ "$TOTAL_WF" -lt 5 ]; then
   warn "В N8N меньше 5 воркфлоу ($TOTAL_WF найдено). Импортирую из ./workflows/..."

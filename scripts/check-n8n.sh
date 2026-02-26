@@ -23,6 +23,21 @@ cd "$(dirname "$0")/.."
 if [ -f .env ]; then set -a; source .env; set +a; ok ".env загружен"
 else fail ".env не найден!"; exit 1; fi
 
+# Хелпер для запросов к N8N (поддерживает N8N_API_KEY и basic auth)
+make_n8n_request() {
+  local url="$1"
+  local N8N_API_KEY_VAL="${N8N_API_KEY:-}"
+  local N8N_USER="${N8N_BASIC_AUTH_USER:-}"
+  local N8N_PASS="${N8N_BASIC_AUTH_PASSWORD:-}"
+  if [ -n "$N8N_API_KEY_VAL" ]; then
+    curl -sf --max-time 10 -H "X-N8N-API-KEY: ${N8N_API_KEY_VAL}" "$url" 2>/dev/null || echo "FAIL"
+  elif [ -n "$N8N_USER" ] && [ -n "$N8N_PASS" ]; then
+    curl -sf --max-time 10 -u "${N8N_USER}:${N8N_PASS}" "$url" 2>/dev/null || echo "FAIL"
+  else
+    curl -sf --max-time 10 "$url" 2>/dev/null || echo "FAIL"
+  fi
+}
+
 echo ""
 echo -e "${BOLD}[1] Контейнеры${NC}"
 docker compose ps --format "  {{.Name}}\t{{.Status}}" 2>/dev/null || docker ps --format "  {{.Names}}\t{{.Status}}" | grep content-factory
@@ -46,30 +61,47 @@ else
 fi
 
 echo ""
-echo -e "${BOLD}[4] REST API (авторизация)${NC}"
-API_RESP=$(curl -sf --max-time 5 \
-  -u "${N8N_BASIC_AUTH_USER:-admin}:${N8N_BASIC_AUTH_PASSWORD:-}" \
-  "http://localhost:5678/rest/settings" 2>/dev/null | head -c 200 || echo "FAIL")
-if echo "$API_RESP" | grep -qi "timezone\|instanceId\|oauthCallbackUrl"; then
-  ok "REST API /rest/settings — OK"
-  dim "N8N_BASIC_AUTH работает"
+echo -e "${BOLD}[4] REST API / Метод авторизации${NC}"
+SETTINGS_PUBLIC=$(curl -sf --max-time 5 "http://localhost:5678/rest/settings" 2>/dev/null || echo "FAIL")
+if echo "$SETTINGS_PUBLIC" | grep -q '"authenticationMethod"'; then
+  AUTH_METHOD=$(echo "$SETTINGS_PUBLIC" | python3 -c \
+    "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('userManagement',{}).get('authenticationMethod','?'))" \
+    2>/dev/null || echo "?")
+  info "authenticationMethod: $AUTH_METHOD"
+  N8N_API_KEY_VAL="${N8N_API_KEY:-}"
+  if [ "$AUTH_METHOD" = "email" ]; then
+    info "N8N использует User Management (email-аутентификация)"
+    if [ -n "$N8N_API_KEY_VAL" ]; then
+      WF_TEST=$(make_n8n_request "http://localhost:5678/rest/workflows")
+      if echo "$WF_TEST" | grep -q '"id"'; then
+        ok "N8N_API_KEY работает корректно"
+      else
+        fail "N8N_API_KEY задан, но API вернул ошибку — ключ устарел или неверен"
+        dim "Пересоздайте: N8N UI → Settings → n8n API"
+      fi
+    else
+      warn "N8N_API_KEY не задан — API вызовы недоступны"
+      warn "Создайте: N8N UI → Settings → n8n API → Create API Key"
+      warn "Добавьте в .env: N8N_API_KEY=n8n_api_xxxxxxxxxx"
+    fi
+  elif [ "$AUTH_METHOD" = "basicAuth" ]; then
+    ok "Basic Auth: ${N8N_BASIC_AUTH_USER:-не задан}"
+  fi
+elif [ "$SETTINGS_PUBLIC" = "FAIL" ]; then
+  fail "/rest/settings недоступен — N8N не отвечает"
 else
-  fail "REST API не отвечает или неверный логин/пароль"
-  dim "Ответ: $API_RESP"
-  warn "Переменные: N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-ПУСТО}"
+  dim "Ответ: ${SETTINGS_PUBLIC:0:200}"
 fi
 
 echo ""
 echo -e "${BOLD}[5] Воркфлоу${NC}"
-WF=$(curl -sf --max-time 10 \
-  -u "${N8N_BASIC_AUTH_USER:-admin}:${N8N_BASIC_AUTH_PASSWORD:-}" \
-  "http://localhost:5678/rest/workflows" 2>/dev/null || echo "FAIL")
+WF=$(make_n8n_request "http://localhost:5678/rest/workflows")
 if echo "$WF" | grep -q '"id"'; then
-  TOTAL=$(echo "$WF" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',d)))" 2>/dev/null || echo "$WF" | grep -o '"id"' | wc -l)
-  ACTIVE=$(echo "$WF" | python3 -c "import sys,json; d=json.load(sys.stdin); lst=d.get('data',d); print(sum(1 for w in lst if w.get('active')))" 2>/dev/null || echo "$WF" | grep -o '"active":true' | wc -l)
-  echo "  Всего: $TOTAL | Активных: $ACTIVE"
-  if [ "$ACTIVE" -lt 3 ]; then
-    warn "Мало активных воркфлоу! Активируйте в UI: /n8n/"
+  TOTAL=$(echo "$WF" | python3 -c "import sys,json; d=json.load(sys.stdin); lst=d.get('data', d if isinstance(d,list) else []); print(len(lst))" 2>/dev/null || echo "?")
+  ACTIVE=$(echo "$WF" | python3 -c "import sys,json; d=json.load(sys.stdin); lst=d.get('data', d if isinstance(d,list) else []); print(sum(1 for w in lst if w.get('active')))" 2>/dev/null || echo "?")
+  info "Всего: $TOTAL | Активных: $ACTIVE"
+  if [ "$ACTIVE" != "?" ] && [ "${ACTIVE}" -lt 3 ] 2>/dev/null; then
+    warn "Мало активных воркфлоу — активируйте в UI: ${N8N_EDITOR_BASE_URL:-/n8n/}"
   else
     ok "Воркфлоу активированы"
   fi
@@ -85,7 +117,12 @@ try:
 except: pass
 " 2>/dev/null || true
 else
-  warn "Не удалось получить список воркфлоу (api недоступен или нет воркфлоу)"
+  if [ -z "${N8N_API_KEY:-}" ]; then
+    warn "N8N_API_KEY не задан — список воркфлоу недоступен"
+  else
+    warn "Не удалось получить список воркфлоу"
+    dim "${WF:0:200}"
+  fi
 fi
 
 echo ""
@@ -104,23 +141,32 @@ echo -e "${BOLD}[7] Переменные N8N${NC}"
 info "N8N_EDITOR_BASE_URL = ${N8N_EDITOR_BASE_URL:-ПУСТО ⚠}"
 info "WEBHOOK_URL         = ${WEBHOOK_URL:-ПУСТО ⚠}"
 info "N8N_HOST            = ${N8N_HOST:-localhost}"
-info "N8N_ENCRYPTION_KEY  = ****(длина: ${#N8N_ENCRYPTION_KEY})"
-if [ "${#N8N_ENCRYPTION_KEY}" -lt 32 ]; then
+ENC_KEY_LEN="${#N8N_ENCRYPTION_KEY}"
+info "N8N_ENCRYPTION_KEY  = ****(длина: ${ENC_KEY_LEN})"
+if [ -n "${N8N_API_KEY:-}" ]; then
+  API_KEY_LEN="${#N8N_API_KEY}"
+  info "N8N_API_KEY         = ****(длина: ${API_KEY_LEN})"
+else
+  warn "N8N_API_KEY         = НЕ ЗАДАН"
+fi
+if [ "$ENC_KEY_LEN" -lt 32 ]; then
   warn "N8N_ENCRYPTION_KEY меньше 32 символов — может вызывать проблемы с credentials!"
 fi
 
 echo ""
-echo -e "${BOLD}[8] Права на volume n8n_data${NC}"
-VOL=$(docker volume inspect n8n_data --format '{{.Mountpoint}}' 2>/dev/null || echo "")
-if [ -n "$VOL" ] && [ -d "$VOL" ]; then
-  OWNER=$(stat -c '%u:%g' "$VOL")
-  info "Путь: $VOL | Владелец: $OWNER"
-  if [ "$OWNER" = "1000:1000" ]; then ok "Права корректны (1000:1000 = node)"
-  else warn "Неверный владелец $OWNER (ожидается 1000:1000)"; fi
-  ls -la "$VOL" 2>/dev/null | head -10 | sed 's/^/  /'
+echo -e "${BOLD}[8] Права на /home/node/.n8n (внутри контейнера)${NC}"
+INNER=$(docker exec content-factory-n8n ls -la /home/node/.n8n/ 2>/dev/null || echo "нет доступа")
+echo "$INNER" | head -10 | sed 's/^/  /'
+OWNER_INNER=$(docker exec content-factory-n8n stat -c '%u:%g' /home/node/.n8n 2>/dev/null || echo "?")
+info "Владелец .n8n: $OWNER_INNER"
+if [ "$OWNER_INNER" = "1000:1000" ] || [ "$OWNER_INNER" = "0:0" ] || [ "$OWNER_INNER" = "?" ]; then
+  ok "Права в норме"
 else
-  warn "Volume n8n_data не найден или путь недоступен"
+  warn "Неожиданный владелец: $OWNER_INNER"
 fi
+# Дополнительно: путь к volume на хосте (может быть недоступен)
+VOL_PATH=$(docker inspect content-factory-n8n --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || echo "")
+[ -n "$VOL_PATH" ] && dim "Volume path на хосте: $VOL_PATH" || true
 
 echo ""
 echo -e "${BOLD}[9] Nginx${NC}"
@@ -146,6 +192,13 @@ fi
 
 echo ""
 echo -e "${BOLD}════════════════════════════════════════════${NC}"
+if [ -z "${N8N_API_KEY:-}" ]; then
+  echo -e "\n${YELLOW}⚠  Добавьте N8N_API_KEY в .env для полной диагностики:${NC}"
+  echo "   1. Откройте ${N8N_EDITOR_BASE_URL:-https://YOUR_DOMAIN/n8n/}"
+  echo "   2. Settings → n8n API → Create an API key"
+  echo "   3. echo 'N8N_API_KEY=n8n_api_xxx' >> .env"
+  echo "   4. docker compose up -d n8n"
+fi
 echo -e "${BOLD}Использование:${NC}"
 echo "  bash scripts/check-n8n.sh             # только диагностика"
 echo "  bash scripts/fix-n8n.sh               # диагностика + автоисправление"
