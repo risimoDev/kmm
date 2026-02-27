@@ -358,10 +358,8 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE pipeline_sessions SET\n  status = 'ready_for_review',\n  current_step = 'review',\n  raw_video_url = $1,\n  final_video_url = $1,\n  updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $json.session_id }} AND step_name = 'a2e_video';",
-        "options": {
-          "queryParams": "={{ $json.raw_video_url }}"
-        }
+        "query": "=UPDATE pipeline_sessions SET\n  status = 'ready_for_review',\n  current_step = 'review',\n  raw_video_url = '{{ $json.raw_video_url.replace(/'/g, \"''\") }}',\n  final_video_url = '{{ $json.raw_video_url.replace(/'/g, \"''\") }}',\n  updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $json.session_id }} AND step_name = 'a2e_video';",
+        "options": {}
       },
       "id": "finalize-a2e",
       "name": "💾 Финализация",

@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const { Server: SocketServer } = require('socket.io');
 
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const { pool, checkConnection } = require('./src/db');
 const { authMiddleware } = require('./src/middleware/auth');
 const { createRateLimiter } = require('./src/middleware/rateLimit');
@@ -48,6 +49,41 @@ initSocketIO(io);
 
 // Делаем io доступным в routes через req.app
 app.set('io', io);
+
+// ─── N8N Reverse Proxy (BEFORE body-parser!) ───
+// n8n HTML грузит assets по абсолютным путям от корня (/assets/, /static/, /rest/, /push)
+// Поэтому нужен один прокси, который ловит и /n8n/* и корневые n8n-пути
+const N8N_PROXY_TARGET = process.env.N8N_URL || 'http://n8n:5678';
+const N8N_ROOT_PATHS = ['/assets/', '/static/', '/rest/', '/rest?', '/push', '/types/', '/healthz', '/webhook/', '/webhook-waiting/', '/form/'];
+
+app.use(createProxyMiddleware({
+  target: N8N_PROXY_TARGET,
+  // Не меняем Host → браузер шлёт Origin: localhost:3001, n8n видит Host: localhost:3001
+  // При changeOrigin: true n8n получает Host: n8n:5678, а Origin: localhost:3001 → CSRF mismatch
+  changeOrigin: false,
+  xfwd: true,           // X-Forwarded-For, X-Forwarded-Port, X-Forwarded-Proto
+  ws: true,             // WebSocket для /push (n8n live updates)
+  pathFilter: (pathname) => {
+    if (pathname.startsWith('/n8n')) return true;
+    return N8N_ROOT_PATHS.some(p => pathname.startsWith(p));
+  },
+  pathRewrite: (path) => {
+    // /n8n/rest/login → /rest/login (strip prefix)
+    // /rest/login → /rest/login (keep as-is)
+    if (path.startsWith('/n8n/')) return path.replace(/^\/n8n/, '') || '/';
+    if (path === '/n8n') return '/';
+    return path;
+  },
+  on: {
+    error: (err, req, res) => {
+      console.error('[N8N Proxy]', err.message);
+      if (res && res.writeHead) {
+        res.writeHead(502, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'N8N недоступен' }));
+      }
+    }
+  }
+}));
 
 // ─── Global Middleware ───
 app.use(helmet({

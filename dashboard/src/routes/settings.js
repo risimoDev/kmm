@@ -429,6 +429,34 @@ router.get('/a2e-credits', async (req, res, next) => {
   }
 });
 
+// ─── Детали голоса A2E (для аудио-превью) ───
+router.get('/a2e-voice-preview/:id', async (req, res, next) => {
+  try {
+    const settings = await getA2ESettings();
+    if (!settings.token) return res.json({ ok: false, error: 'A2E API Token не настроен' });
+
+    const response = await axios.get(`${settings.baseUrl}/api/v1/userVoice/${req.params.id}`, {
+      headers: { Authorization: `Bearer ${settings.token}` },
+      timeout: 10_000
+    });
+
+    const d = response.data?.data || {};
+    res.json({
+      ok: true,
+      data: {
+        _id: d._id || req.params.id,
+        name: d.name || '',
+        gender: d.gender || '',
+        voice_urls: d.voice_urls || [],
+        current_status: d.current_status || ''
+      }
+    });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
+    res.json({ ok: false, error: `A2E: ${msg}` });
+  }
+});
+
 // ─── Helpers ───
 async function getA2ESettings() {
   const result = await query("SELECT key, value FROM app_settings WHERE key IN ('a2e_api_token', 'a2e_base_url')");
