@@ -17,7 +17,12 @@ COPY --from=fetcher /tmp/ffmpeg/ffprobe /usr/local/bin/ffprobe
 RUN chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
 # Шрифты для субтитров (кириллица, латиница, Font Discovery)
-RUN apk add --no-cache fontconfig ttf-dejavu font-noto font-noto-cjk \
-     && fc-cache -f -v
+# n8nio/n8n:latest теперь на Debian — используем apt-get
+RUN apt-get update \
+     && apt-get install -y --no-install-recommends \
+     fontconfig fonts-dejavu-core fonts-noto fonts-noto-cjk \
+     && fc-cache -f -v \
+     && apt-get clean \
+     && rm -rf /var/lib/apt/lists/*
 
 USER node
