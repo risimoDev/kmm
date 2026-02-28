@@ -43,6 +43,9 @@ services:
       - EXECUTIONS_TIMEOUT=${EXECUTIONS_TIMEOUT:--1}
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
+      # Разблокировка Execute Command (отключён в n8n 2.x по умолчанию)
+      - NODES_EXCLUDE=[]
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
       # ⚠️ AI ключи НЕ хранятся в env — используйте N8N Credentials
       # Telegram (для бот-воркфлоу)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -217,6 +220,8 @@ services:
       - EXECUTIONS_TIMEOUT=${EXECUTIONS_TIMEOUT:--1}
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
+      - NODES_EXCLUDE=[]
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
       - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID:-0}
