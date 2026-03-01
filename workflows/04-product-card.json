@@ -12,7 +12,10 @@
       "name": "📥 Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
-      "position": [200, 400],
+      "position": [
+        200,
+        400
+      ],
       "webhookId": "product-card"
     },
     {
@@ -23,7 +26,10 @@
       "name": "🔍 Валидация",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 400]
+      "position": [
+        440,
+        400
+      ]
     },
     {
       "parameters": {
@@ -35,7 +41,10 @@
       "name": "✅ Ответ 200",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [680, 240]
+      "position": [
+        680,
+        240
+      ]
     },
     {
       "parameters": {
@@ -47,7 +56,10 @@
       "name": "⚙️ Настройки",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [680, 560],
+      "position": [
+        680,
+        560
+      ],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -63,7 +75,10 @@
       "name": "🔧 Конфиг",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [940, 560]
+      "position": [
+        940,
+        560
+      ]
     },
     {
       "parameters": {
@@ -73,7 +88,10 @@
       "name": "🏗️ Запрос анализа фото",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 560]
+      "position": [
+        1200,
+        560
+      ]
     },
     {
       "parameters": {
@@ -92,7 +110,10 @@
       "name": "🧠 AI анализ фото",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1460, 560],
+      "position": [
+        1460,
+        560
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "YTA7VkJwvfpfaJec",
@@ -108,17 +129,23 @@
       "name": "📋 Парсинг анализа",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1720, 560]
+      "position": [
+        1720,
+        560
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $input.first().json;\nconst cardData = ctx.card_data;\nconst prompts = cardData.infographic_prompts || [];\n\n// Берём 1-й промпт или генерируем дефолтный\nconst mainPrompt = prompts[0]\n  || 'Professional product infographic for ' + ctx.product_name + ' on marketplace ' + ctx.marketplace + '. ' + (cardData.visual_style_notes || 'Modern clean design') + '. Bright colors, clear layout, selling format, vertical 9:16.';\n\nreturn [{ json: {\n  ...ctx,\n  seedream_prompt: mainPrompt,\n  all_infographic_prompts: prompts\n}}];"
+        "jsCode": "const ctx = $input.first().json;\nconst cardData = ctx.card_data;\nconst prompts = cardData.infographic_prompts || [];\n\n// Берём 1-й промпт или генерируем дефолтный\nlet mainPrompt = prompts[0]\n  || 'Professional product infographic for ' + ctx.product_name + ' on marketplace ' + ctx.marketplace + '. ' + (cardData.visual_style_notes || 'Modern clean design') + '. Bright colors, clear layout, selling format, vertical orientation.';\n\n// Убираем Midjourney-флаги (--ar, --v и т.д.) — Seedream принимает ar в теле запроса\nmainPrompt = mainPrompt.replace(/\\s*--[a-z]+\\s+[\\w:.]+/gi, '').trim();\n\nreturn [{ json: {\n  ...ctx,\n  seedream_prompt: mainPrompt,\n  all_infographic_prompts: prompts\n}}];"
       },
       "id": "build-seedream-prompt",
       "name": "🎨 Промпт Seedream",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1980, 560]
+      "position": [
+        1980,
+        560
+      ]
     },
     {
       "parameters": {
@@ -137,7 +164,10 @@
       "name": "🖼️ Seedream /create",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2240, 560],
+      "position": [
+        2240,
+        560
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "YTA7VkJwvfpfaJec",
@@ -153,7 +183,10 @@
       "name": "🔑 Извлечь task_id",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2480, 560]
+      "position": [
+        2480,
+        560
+      ]
     },
     {
       "parameters": {
@@ -163,7 +196,10 @@
       "name": "⏳ Ждать 15 сек",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2720, 560],
+      "position": [
+        2720,
+        560
+      ],
       "webhookId": "b3c7d1e2-f456-4a89-b012-3c4d5e6f7a8b"
     },
     {
@@ -183,7 +219,10 @@
       "name": "🔄 Seedream /result",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2960, 560],
+      "position": [
+        2960,
+        560
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "YTA7VkJwvfpfaJec",
@@ -218,27 +257,36 @@
       "name": "✅ Готово?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3200, 560]
+      "position": [
+        3200,
+        560
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🔑 Извлечь task_id').first().json;\nconst statusResp = $input.first().json;\n\nconst status = (statusResp.status || '').toLowerCase();\nif (status === 'fail' || status === 'failed' || status === 'error') {\n  throw new Error('Seedream generation failed: ' + JSON.stringify(statusResp).substring(0, 500));\n}\n\nlet pollCount = 0;\ntry { pollCount = $('⏳ Ещё не готово').first().json.poll_count || 0; } catch(e) {}\npollCount++;\n\nif (pollCount > 40) throw new Error('Seedream timeout after ' + (pollCount * 15) + ' seconds');\n\nreturn [{ json: {\n  task_id: ctx.task_id,\n  media_base_url: ctx.media_base_url,\n  poll_count: pollCount\n}}];"
+        "jsCode": "const ctx = $('🔑 Извлечь task_id').first().json;\nconst statusResp = $input.first().json;\n\nconst status = (statusResp.status || '').toLowerCase();\nif (status === 'fail' || status === 'failed' || status === 'error') {\n  // Seedream не смог — продолжаем без инфографики\n  return [{ json: {\n    seedream_failed: true,\n    seedream_error: JSON.stringify(statusResp).substring(0, 500),\n    task_id: ctx.task_id,\n    media_base_url: ctx.media_base_url\n  }}];\n}\n\nlet pollCount = 0;\ntry { pollCount = $('⏳ Ещё не готово').first().json.poll_count || 0; } catch(e) {}\npollCount++;\n\nif (pollCount > 40) {\n  return [{ json: {\n    seedream_failed: true,\n    seedream_error: 'Timeout after ' + (pollCount * 15) + ' seconds',\n    task_id: ctx.task_id,\n    media_base_url: ctx.media_base_url\n  }}];\n}\n\nreturn [{ json: {\n  task_id: ctx.task_id,\n  media_base_url: ctx.media_base_url,\n  poll_count: pollCount,\n  seedream_failed: false\n}}];"
       },
       "id": "not-ready-yet",
       "name": "⏳ Ещё не готово",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3440, 720]
+      "position": [
+        3440,
+        720
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const statusResp = $input.first().json;\nconst ctx = $('🎨 Промпт Seedream').first().json;\n\nconst imageUrl = statusResp.url;\nif (!imageUrl) throw new Error('Seedream returned done but no URL: ' + JSON.stringify(statusResp).substring(0, 300));\n\n// Мержим infographic_url в a_plus_content\nconst aPlusContent = {\n  ...(ctx.card_data.a_plus_content || {}),\n  infographic_url: imageUrl,\n  seedream_task_id: statusResp.id\n};\n\nreturn [{ json: {\n  product_name: ctx.product_name,\n  image_url: ctx.image_url,\n  marketplace: ctx.marketplace,\n  artikuls: ctx.artikuls,\n  session_id: ctx.session_id,\n  callback_url: ctx.callback_url,\n  style: ctx.style,\n  color_scheme: ctx.color_scheme,\n  include_price: ctx.include_price,\n  price: ctx.price,\n  include_badge: ctx.include_badge,\n  badge_text: ctx.badge_text,\n  card_data: ctx.card_data,\n  a_plus_content_merged: aPlusContent,\n  infographic_url: imageUrl\n}}];"
+        "jsCode": "const statusResp = $input.first().json;\nconst ctx = $('🎨 Промпт Seedream').first().json;\n\n// Поддержка: Seedream успех ИЛИ Seedream не смог (seedream_failed=true)\nconst seedreamFailed = statusResp.seedream_failed || false;\nconst imageUrl = statusResp.url || null;\n\nif (!imageUrl && !seedreamFailed) {\n  throw new Error('Seedream returned done but no URL: ' + JSON.stringify(statusResp).substring(0, 300));\n}\n\nconst aPlusContent = {\n  ...(ctx.card_data.a_plus_content || {}),\n  infographic_url: imageUrl,\n  seedream_task_id: statusResp.id || null\n};\n\nif (seedreamFailed) {\n  aPlusContent.seedream_error = statusResp.seedream_error || 'Seedream generation failed';\n}\n\nreturn [{ json: {\n  product_name: ctx.product_name,\n  image_url: ctx.image_url,\n  marketplace: ctx.marketplace,\n  artikuls: ctx.artikuls,\n  session_id: ctx.session_id,\n  callback_url: ctx.callback_url,\n  style: ctx.style,\n  color_scheme: ctx.color_scheme,\n  include_price: ctx.include_price,\n  price: ctx.price,\n  include_badge: ctx.include_badge,\n  badge_text: ctx.badge_text,\n  card_data: ctx.card_data,\n  a_plus_content_merged: aPlusContent,\n  infographic_url: imageUrl\n}}];"
       },
       "id": "collect-result",
       "name": "📎 Собрать результат",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3440, 400]
+      "position": [
+        3440,
+        400
+      ]
     },
     {
       "parameters": {
@@ -250,7 +298,10 @@
       "name": "💾 Сохранить карточку",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3680, 400],
+      "position": [
+        3680,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -265,13 +316,18 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"card_id\": {{ $json.id }},\n  \"product_name\": \"{{ $('📎 Собрать результат').first().json.product_name }}\",\n  \"infographic_url\": \"{{ $('📎 Собрать результат').first().json.infographic_url || '' }}\",\n  \"status\": \"generated\"\n}",
-        "options": { "timeout": 10000 }
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "callback-card",
       "name": "📡 Callback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3920, 400],
+      "position": [
+        3920,
+        400
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -282,130 +338,259 @@
       "name": "📤 Результат",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4160, 400]
+      "position": [
+        4160,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-failed",
+              "leftValue": "={{ $json.seedream_failed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-retry",
+      "name": "🔁 Повторить?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        720
+      ]
     }
   ],
   "connections": {
     "📥 Webhook": {
       "main": [
         [
-          { "node": "🔍 Валидация", "type": "main", "index": 0 }
+          {
+            "node": "🔍 Валидация",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🔍 Валидация": {
       "main": [
         [
-          { "node": "✅ Ответ 200", "type": "main", "index": 0 },
-          { "node": "⚙️ Настройки", "type": "main", "index": 0 }
+          {
+            "node": "✅ Ответ 200",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "⚙️ Настройки",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "⚙️ Настройки": {
       "main": [
         [
-          { "node": "🔧 Конфиг", "type": "main", "index": 0 }
+          {
+            "node": "🔧 Конфиг",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🔧 Конфиг": {
       "main": [
         [
-          { "node": "🏗️ Запрос анализа фото", "type": "main", "index": 0 }
+          {
+            "node": "🏗️ Запрос анализа фото",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🏗️ Запрос анализа фото": {
       "main": [
         [
-          { "node": "🧠 AI анализ фото", "type": "main", "index": 0 }
+          {
+            "node": "🧠 AI анализ фото",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🧠 AI анализ фото": {
       "main": [
         [
-          { "node": "📋 Парсинг анализа", "type": "main", "index": 0 }
+          {
+            "node": "📋 Парсинг анализа",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "📋 Парсинг анализа": {
       "main": [
         [
-          { "node": "🎨 Промпт Seedream", "type": "main", "index": 0 }
+          {
+            "node": "🎨 Промпт Seedream",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🎨 Промпт Seedream": {
       "main": [
         [
-          { "node": "🖼️ Seedream /create", "type": "main", "index": 0 }
+          {
+            "node": "🖼️ Seedream /create",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🖼️ Seedream /create": {
       "main": [
         [
-          { "node": "🔑 Извлечь task_id", "type": "main", "index": 0 }
+          {
+            "node": "🔑 Извлечь task_id",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🔑 Извлечь task_id": {
       "main": [
         [
-          { "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }
+          {
+            "node": "⏳ Ждать 15 сек",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "⏳ Ждать 15 сек": {
       "main": [
         [
-          { "node": "🔄 Seedream /result", "type": "main", "index": 0 }
+          {
+            "node": "🔄 Seedream /result",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "🔄 Seedream /result": {
       "main": [
         [
-          { "node": "✅ Готово?", "type": "main", "index": 0 }
+          {
+            "node": "✅ Готово?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "✅ Готово?": {
       "main": [
         [
-          { "node": "📎 Собрать результат", "type": "main", "index": 0 }
+          {
+            "node": "📎 Собрать результат",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "⏳ Ещё не готово", "type": "main", "index": 0 }
+          {
+            "node": "⏳ Ещё не готово",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "⏳ Ещё не готово": {
       "main": [
         [
-          { "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }
+          {
+            "node": "🔁 Повторить?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "📎 Собрать результат": {
       "main": [
         [
-          { "node": "💾 Сохранить карточку", "type": "main", "index": 0 }
+          {
+            "node": "💾 Сохранить карточку",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "💾 Сохранить карточку": {
       "main": [
         [
-          { "node": "📡 Callback", "type": "main", "index": 0 }
+          {
+            "node": "📡 Callback",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "📡 Callback": {
       "main": [
         [
-          { "node": "📤 Результат", "type": "main", "index": 0 }
+          {
+            "node": "📤 Результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔁 Повторить?": {
+      "main": [
+        [
+          {
+            "node": "📎 Собрать результат",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⏳ Ждать 15 сек",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
