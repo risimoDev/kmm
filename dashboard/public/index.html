@@ -426,7 +426,7 @@
         <input type="text" id="content-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadContent()">
       </div>
       <div class="card"><table><thead><tr>
-        <th>ID</th><th>Заголовок</th><th>Категория</th><th>Статус</th><th>Сценарий</th><th>Промпт</th><th>Дата</th><th>Действия</th>
+        <th>ID</th><th>Заголовок</th><th>Категория</th><th>Тип</th><th>Статус</th><th>Сценарий</th><th>Промпт</th><th>Дата</th><th>Действия</th>
       </tr></thead><tbody id="content-table"></tbody></table></div>
     </div>
 
@@ -485,8 +485,23 @@
             <label><input type="checkbox" id="cv-show-artikul"> Показать артикул на видео</label>
           </div>
         </div>
-        <div style="display:flex;gap:12px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <label><input type="checkbox" id="cv-auto-publish"> Автопубликация</label>
+          <label><input type="checkbox" id="cv-subtitles" checked> Субтитры</label>
+        </div>
+        <!-- Музыка -->
+        <div class="form-group" style="margin-top:14px;">
+          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фоновая музыка</label>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;">
+            <select id="cv-music-track" style="width:100%;">
+              <option value="">— Без музыки —</option>
+            </select>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <label style="font-size:12px;color:var(--text2);white-space:nowrap;">Громкость</label>
+              <input type="range" id="cv-music-volume" min="0" max="0.5" step="0.05" value="0.15" style="width:80px;">
+              <span id="cv-music-volume-label" style="font-size:12px;color:var(--text2);min-width:30px;">15%</span>
+            </div>
+          </div>
         </div>
         <!-- A2E поля (скрыты по умолчанию) -->
         <div id="cv-a2e-fields" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
@@ -630,23 +645,100 @@
     <!-- Schedule -->
     <div id="page-schedule" class="page">
       <div class="page-header"><h2>Расписание</h2></div>
-      <div class="card">
-        <h3>Автоматическая генерация</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;">
+
+      <!-- Блок 1: Генерация идей -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-bottom:12px;">📝 Генерация идей</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
           <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автогенерация</label>
-            <select id="sched-enabled" style="width:100%;">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автогенерация идей</label>
+            <select id="sched-ideas-enabled" style="width:100%;">
               <option value="false">Выключена</option>
               <option value="true">Включена</option>
             </select>
           </div>
           <div class="form-group">
             <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
-            <input type="text" id="sched-cron" value="0 9 * * 1-5" style="width:100%;">
+            <input type="text" id="sched-ideas-cron" value="0 9 * * 1-5" style="width:100%;">
           </div>
           <div class="form-group">
             <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Кол-во идей за раз</label>
-            <input type="number" id="sched-count" value="3" min="1" max="10" style="width:100%;">
+            <input type="number" id="sched-ideas-count" value="3" min="1" max="10" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Тип контента</label>
+            <select id="sched-content-type" style="width:100%;">
+              <option value="regular">Обычное видео</option>
+              <option value="a2e">A2E аватар</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-outline" onclick="runGenerateNow()" style="font-size:13px;">▶ Запустить сейчас</button>
+        </div>
+      </div>
+
+      <!-- Блок 2: Автосоздание видео -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-bottom:12px;">🎬 Автосоздание видео</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автосоздание видео</label>
+            <select id="sched-video-enabled" style="width:100%;">
+              <option value="false">Выключено</option>
+              <option value="true">Включено</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
+            <input type="text" id="sched-video-cron" value="0 10 * * 1-5" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Тип видео</label>
+            <select id="sched-video-type" style="width:100%;">
+              <option value="regular">Обычное видео</option>
+              <option value="a2e">A2E аватар</option>
+              <option value="heygen">HeyGen аватар</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Видео за раз</label>
+            <input type="number" id="sched-video-batch" value="2" min="1" max="5" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Субтитры</label>
+            <select id="sched-video-subtitles" style="width:100%;">
+              <option value="true">Включены</option>
+              <option value="false">Выключены</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фоновая музыка</label>
+            <select id="sched-video-music" style="width:100%;">
+              <option value="">Без музыки</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Блок 3: Автопубликация -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-bottom:12px;">📢 Автопубликация</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автопубликация</label>
+            <select id="sched-publish-enabled" style="width:100%;">
+              <option value="false">Выключена</option>
+              <option value="true">Включена</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
+            <input type="text" id="sched-publish-cron" value="0 12 * * 1-5" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Публикаций за раз</label>
+            <input type="number" id="sched-publish-batch" value="1" min="1" max="5" style="width:100%;">
           </div>
           <div class="form-group">
             <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Каналы по умолчанию</label>
@@ -657,10 +749,39 @@
             </select>
           </div>
         </div>
-        <div style="margin-top:16px;display:flex;gap:10px;">
-          <button class="btn btn-primary" onclick="saveSchedule()">Сохранить</button>
-          <button class="btn btn-outline" onclick="runGenerateNow()">Запустить сейчас</button>
+      </div>
+
+      <!-- Сохранить -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="saveSchedule()">Сохранить всё</button>
+      </div>
+
+      <!-- Музыкальная библиотека -->
+      <div class="card">
+        <h3 style="margin-bottom:12px;">🎵 Библиотека музыки</h3>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Загрузите фоновые треки (MP3/WAV/OGG). Они будут доступны при создании видео и в автоматизации.</p>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+          <input type="file" id="music-upload-input" accept=".mp3,.wav,.ogg,.flac,.aac,audio/*" style="display:none;" onchange="uploadMusicTrack()">
+          <input type="text" id="music-upload-name" placeholder="Название трека (необязательно)" style="flex:1;">
+          <select id="music-upload-category" style="width:150px;">
+            <option value="общий">Общий</option>
+            <option value="энергичный">Энергичный</option>
+            <option value="спокойный">Спокойный</option>
+            <option value="корпоративный">Корпоративный</option>
+            <option value="весёлый">Весёлый</option>
+          </select>
+          <button class="btn btn-outline" onclick="document.getElementById('music-upload-input').click()">📁 Загрузить</button>
         </div>
+
+        <table>
+          <thead><tr>
+            <th>Название</th><th>Категория</th><th>Размер</th><th>Дата</th><th>Действия</th>
+          </tr></thead>
+          <tbody id="music-tracks-table">
+            <tr><td colspan="5" class="empty-state" style="text-align:center;padding:20px;">Нет загруженных треков</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -730,6 +851,13 @@
 <div class="modal-overlay" id="generate-modal">
   <div class="modal">
     <h3>Генерация идей</h3>
+    <div class="form-group">
+      <label>Тип контента</label>
+      <select id="gen-content-type" style="width:100%;">
+        <option value="regular">Обычное видео (TTS + генерация)</option>
+        <option value="a2e">A2E аватар (говорящий аватар)</option>
+      </select>
+    </div>
     <div class="form-group">
       <label>Количество идей</label>
       <input type="number" id="gen-count" value="3" min="1" max="10">
@@ -1181,7 +1309,7 @@ function navigateTo(page) {
     case 'videos': loadVideos(); break;
     case 'cards': loadCards(); break;
     case 'generations': loadGenerations(); break;
-    case 'schedule': loadSchedule(); break;
+    case 'schedule': loadSchedule(); loadMusicLibrary(); break;
     case 'errors': loadErrors(); break;
     case 'settings': loadSettings(); break;
     case 'users': loadUsers(); break;
@@ -1254,7 +1382,7 @@ async function loadContent() {
     const tbody = document.getElementById('content-table');
 
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Нет идей. Сгенерируйте!</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Нет идей. Сгенерируйте!</td></tr>';
       return;
     }
 
@@ -1262,6 +1390,7 @@ async function loadContent() {
       <td>#${i.id}</td>
       <td><a href="#" onclick="openIdeaDetail(${i.id});return false;">${esc(i.title || '—')}</a></td>
       <td>${esc(i.category || '—')}</td>
+      <td><span class="badge badge-${i.content_type === 'a2e' ? 'rejected' : 'approved'}" style="font-size:10px;">${i.content_type === 'a2e' ? 'A2E' : 'Обычное'}</span></td>
       <td><span class="badge badge-${i.status}">${i.status}</span></td>
       <td>${i.script_id ? '<span class="badge badge-approved">✓</span>' : '—'}</td>
       <td>${i.prompt_id ? '<span class="badge badge-approved">✓</span>' : '—'}</td>
@@ -1275,7 +1404,7 @@ async function loadContent() {
       </td>
     </tr>`).join('');
   } catch (e) {
-    document.getElementById('content-table').innerHTML = `<tr><td colspan="8">Ошибка: ${e.message}</td></tr>`;
+    document.getElementById('content-table').innerHTML = `<tr><td colspan="9">Ошибка: ${e.message}</td></tr>`;
   }
 }
 
@@ -1416,7 +1545,8 @@ async function generateIdeas() {
       count: parseInt(document.getElementById('gen-count').value) || 3,
       product_name: document.getElementById('gen-product').value,
       niche: document.getElementById('gen-niche').value,
-      extra_instructions: document.getElementById('gen-extra').value
+      extra_instructions: document.getElementById('gen-extra').value,
+      content_type: document.getElementById('gen-content-type').value
     });
 
     toast('Идеи сгенерированы!', 'success');
@@ -1439,10 +1569,12 @@ async function loadCreateVideo() {
     const ideas = res.data || [];
     const sel = document.getElementById('cv-idea-select');
     sel.innerHTML = '<option value="">-- Выберите идею --</option>' +
-      ideas.map(i => `<option value="${i.id}">${i.title} (${i.category || 'без категории'})</option>`).join('');
+      ideas.map(i => `<option value="${i.id}">${i.title} (${i.content_type === 'a2e' ? 'A2E' : 'Обычное'} | ${i.category || 'без категории'})</option>`).join('');
   } catch (e) {
     toast('Ошибка загрузки идей: ' + e.message, 'error');
   }
+  // Загрузить музыкальные треки
+  loadMusicTracks();
 }
 
 async function loadIdeaDetails() {
@@ -1481,6 +1613,9 @@ async function createVideo() {
       artikul: document.getElementById('cv-artikul').value,
       show_artikul: document.getElementById('cv-show-artikul').checked,
       auto_publish: document.getElementById('cv-auto-publish').checked,
+      subtitles_enabled: document.getElementById('cv-subtitles').checked,
+      music_track_id: document.getElementById('cv-music-track').value || null,
+      music_volume: parseFloat(document.getElementById('cv-music-volume').value) || 0.15,
       video_type: document.getElementById('cv-video-type').value,
       heygen_avatar_id: document.getElementById('cv-heygen-avatar').value,
       heygen_voice_id: document.getElementById('cv-heygen-voice').value,
@@ -1938,15 +2073,37 @@ async function loadSchedule() {
   try {
     const res = await api('GET', '/api/schedule');
     const d = res.data || {};
-    document.getElementById('sched-enabled').value = String(d.auto_generate_enabled || false);
-    document.getElementById('sched-cron').value = d.auto_generate_cron || '0 9 * * 1-5';
-    document.getElementById('sched-count').value = d.auto_generate_count || 3;
 
-    // Select channels
+    // Идеи
+    document.getElementById('sched-ideas-enabled').value = String(d.auto_generate_enabled || false);
+    document.getElementById('sched-ideas-cron').value = d.auto_generate_cron || '0 9 * * 1-5';
+    document.getElementById('sched-ideas-count').value = d.auto_generate_count || 3;
+    document.getElementById('sched-content-type').value = d.auto_content_type || 'regular';
+
+    // Видео
+    document.getElementById('sched-video-enabled').value = String(d.auto_video_enabled || false);
+    document.getElementById('sched-video-cron').value = d.auto_video_cron || '0 10 * * 1-5';
+    document.getElementById('sched-video-type').value = d.auto_video_type || 'regular';
+    document.getElementById('sched-video-batch').value = d.auto_video_batch || 2;
+    document.getElementById('sched-video-subtitles').value = String(d.auto_subtitles !== undefined ? d.auto_subtitles : true);
+
+    // Публикация
+    document.getElementById('sched-publish-enabled').value = String(d.auto_publish_enabled || false);
+    document.getElementById('sched-publish-cron').value = d.auto_publish_cron || '0 12 * * 1-5';
+    document.getElementById('sched-publish-batch').value = d.auto_publish_batch || 1;
+
+    // Каналы
     const channels = d.default_channels || ['telegram'];
     document.querySelectorAll('#sched-channels option').forEach(opt => {
       opt.selected = channels.includes(opt.value);
     });
+
+    // Музыка для расписания
+    await loadMusicTracks();
+    const musicSel = document.getElementById('sched-video-music');
+    if (musicSel && d.auto_music_track_id) {
+      musicSel.value = d.auto_music_track_id;
+    }
   } catch (e) {
     toast('Ошибка загрузки расписания: ' + e.message, 'error');
   }
@@ -1956,9 +2113,22 @@ async function saveSchedule() {
   try {
     const channels = Array.from(document.getElementById('sched-channels').selectedOptions).map(o => o.value);
     await api('PUT', '/api/schedule', {
-      auto_generate_enabled: document.getElementById('sched-enabled').value === 'true',
-      auto_generate_cron: document.getElementById('sched-cron').value,
-      auto_generate_count: parseInt(document.getElementById('sched-count').value),
+      // Идеи
+      auto_generate_enabled: document.getElementById('sched-ideas-enabled').value === 'true',
+      auto_generate_cron: document.getElementById('sched-ideas-cron').value,
+      auto_generate_count: parseInt(document.getElementById('sched-ideas-count').value),
+      auto_content_type: document.getElementById('sched-content-type').value,
+      // Видео
+      auto_video_enabled: document.getElementById('sched-video-enabled').value === 'true',
+      auto_video_cron: document.getElementById('sched-video-cron').value,
+      auto_video_type: document.getElementById('sched-video-type').value,
+      auto_video_batch: parseInt(document.getElementById('sched-video-batch').value),
+      auto_subtitles: document.getElementById('sched-video-subtitles').value === 'true',
+      auto_music_track_id: document.getElementById('sched-video-music').value || '',
+      // Публикация
+      auto_publish_enabled: document.getElementById('sched-publish-enabled').value === 'true',
+      auto_publish_cron: document.getElementById('sched-publish-cron').value,
+      auto_publish_batch: parseInt(document.getElementById('sched-publish-batch').value),
       default_channels: channels
     });
     toast('Расписание сохранено', 'success');
@@ -1969,10 +2139,134 @@ async function runGenerateNow() {
   try {
     toast('Запуск генерации...', 'success');
     await api('POST', '/api/schedule/run-now', {
-      count: parseInt(document.getElementById('sched-count').value) || 3
+      count: parseInt(document.getElementById('sched-ideas-count').value) || 3,
+      content_type: document.getElementById('sched-content-type').value || 'regular'
     });
     toast('Идеи сгенерированы!', 'success');
   } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// Music tracks loading
+// ═══════════════════════════════════════════════════
+let _musicTracks = [];
+async function loadMusicTracks() {
+  try {
+    const res = await api('GET', '/api/media/music');
+    _musicTracks = res.data || [];
+    // Fill selects
+    const selectors = ['cv-music-track', 'sched-video-music'];
+    for (const selId of selectors) {
+      const sel = document.getElementById(selId);
+      if (!sel) continue;
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">— Без музыки —</option>' +
+        _musicTracks.map(t => `<option value="${t.id}">${esc(t.name)}${t.category ? ' (' + esc(t.category) + ')' : ''}</option>`).join('');
+      if (currentVal) sel.value = currentVal;
+    }
+  } catch (e) { /* не критично */ }
+}
+
+// Volume slider
+document.addEventListener('DOMContentLoaded', () => {
+  const volSlider = document.getElementById('cv-music-volume');
+  const volLabel = document.getElementById('cv-music-volume-label');
+  if (volSlider && volLabel) {
+    volSlider.addEventListener('input', () => {
+      volLabel.textContent = Math.round(volSlider.value * 100) + '%';
+    });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Music Library Management
+// ═══════════════════════════════════════════════════
+async function loadMusicLibrary() {
+  try {
+    const res = await api('GET', '/api/media/music');
+    const tracks = res.data || [];
+    const tbody = document.getElementById('music-tracks-table');
+    if (!tbody) return;
+
+    if (tracks.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state" style="text-align:center;padding:20px;">Нет загруженных треков</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = tracks.map(t => `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${t.url ? `<button class="btn btn-outline" style="padding:2px 6px;font-size:11px;" onclick="playMusicPreview('${esc(t.url)}', this)">▶</button>` : ''}
+          <span>${esc(t.name)}</span>
+        </div>
+      </td>
+      <td>${esc(t.category || 'общий')}</td>
+      <td>${formatFileSize(t.file_size)}</td>
+      <td>${fmtDate(t.created_at)}</td>
+      <td><button class="btn btn-outline" style="font-size:12px;color:var(--danger);" onclick="deleteMusicTrack(${t.id})">Удалить</button></td>
+    </tr>`).join('');
+  } catch (e) { /* не критично */ }
+}
+
+let _musicAudio = null;
+function playMusicPreview(url, btn) {
+  if (_musicAudio) { _musicAudio.pause(); _musicAudio = null; }
+  _musicAudio = new Audio(url);
+  _musicAudio.volume = 0.3;
+  _musicAudio.play();
+  btn.textContent = '⏸';
+  _musicAudio.onended = () => { btn.textContent = '▶'; _musicAudio = null; };
+  btn.onclick = () => {
+    if (_musicAudio) { _musicAudio.pause(); _musicAudio = null; btn.textContent = '▶'; }
+    btn.onclick = () => playMusicPreview(url, btn);
+  };
+}
+
+async function uploadMusicTrack() {
+  const input = document.getElementById('music-upload-input');
+  const file = input.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('name', document.getElementById('music-upload-name').value || '');
+  formData.append('category', document.getElementById('music-upload-category').value || 'общий');
+
+  try {
+    toast('Загрузка трека...', 'success');
+    const resp = await fetch('/api/media/music', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+    const result = await resp.json();
+    if (!result.ok) throw new Error(result.error || 'Ошибка загрузки');
+
+    toast('Трек загружен!', 'success');
+    document.getElementById('music-upload-name').value = '';
+    input.value = '';
+    loadMusicLibrary();
+    loadMusicTracks(); // refresh selects
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function deleteMusicTrack(id) {
+  if (!confirm('Удалить трек?')) return;
+  try {
+    await api('DELETE', `/api/media/music/${id}`);
+    toast('Трек удалён', 'success');
+    loadMusicLibrary();
+    loadMusicTracks();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 // ═══════════════════════════════════════════════════
@@ -2335,8 +2629,7 @@ async function loadA2EAvatarList(defaultVal) {
   } catch (e) { loading.style.display = 'block'; loading.textContent = 'Ошибка: ' + e.message; }
 }
 
-// ─── A2E: загрузка голосов TTS (список с аудио-превью) ───
-let _a2eVoiceAudio = null; // текущий проигрываемый аудио
+// ─── A2E: загрузка голосов TTS (список) ───
 async function loadA2EVoiceList(defaultVal) {
   const list = document.getElementById('cv-a2e-voice-list');
   const hidden = document.getElementById('cv-a2e-voice');
@@ -2363,34 +2656,6 @@ async function loadA2EVoiceList(defaultVal) {
     });
   }
 
-  async function playPreview(voiceId, btn) {
-    // Если тот же — стоп
-    if (_a2eVoiceAudio && btn.dataset.playing === 'true') {
-      _a2eVoiceAudio.pause(); _a2eVoiceAudio = null;
-      btn.textContent = '▶'; btn.dataset.playing = 'false';
-      return;
-    }
-    // Стоп предыдущему
-    if (_a2eVoiceAudio) { _a2eVoiceAudio.pause(); _a2eVoiceAudio = null; }
-    list.querySelectorAll('.a2e-play-btn').forEach(b => { b.textContent = '▶'; b.dataset.playing = 'false'; });
-    btn.textContent = '⏳'; btn.disabled = true;
-    try {
-      const res = await api('GET', `/api/settings/a2e-voice-preview/${voiceId}`);
-      if (res.ok && res.data?.voice_urls?.length) {
-        _a2eVoiceAudio = new Audio(res.data.voice_urls[0]);
-        _a2eVoiceAudio.volume = 0.7;
-        _a2eVoiceAudio.play();
-        btn.textContent = '⏹'; btn.dataset.playing = 'true';
-        _a2eVoiceAudio.onended = () => { btn.textContent = '▶'; btn.dataset.playing = 'false'; _a2eVoiceAudio = null; };
-      } else {
-        btn.textContent = '✗'; setTimeout(() => { btn.textContent = '▶'; }, 1500);
-      }
-    } catch (e) {
-      btn.textContent = '✗'; setTimeout(() => { btn.textContent = '▶'; }, 1500);
-    }
-    btn.disabled = false;
-  }
-
   function renderVoice(v, gender) {
     const item = document.createElement('div');
     item.className = 'a2e-voice-item';
@@ -2398,12 +2663,11 @@ async function loadA2EVoiceList(defaultVal) {
     item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;';
     const genderIcon = gender === 'female' ? '♀' : gender === 'male' ? '♂' : '🎤';
     const genderColor = gender === 'female' ? '#f472b6' : gender === 'male' ? '#60a5fa' : 'var(--text2)';
+    const rateLabel = v.ttsRate ? `<span style="font-size:10px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;flex-shrink:0;" title="Скорость речи">×${v.ttsRate}</span>` : '';
     item.innerHTML = `
-      <button class="a2e-play-btn" onclick="event.stopPropagation();" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" title="Прослушать">▶</button>
+      <span style="font-size:16px;color:${genderColor};flex-shrink:0;width:22px;text-align:center;">${genderIcon}</span>
       <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.label || v.value}</span>
-      <span style="font-size:11px;color:${genderColor};flex-shrink:0;">${genderIcon}</span>`;
-    const btn = item.querySelector('.a2e-play-btn');
-    btn.onclick = (e) => { e.stopPropagation(); playPreview(v.value, btn); };
+      ${rateLabel}`;
     item.onclick = () => selectVoice(v.value);
     item.onmouseenter = () => { if (hidden.value !== v.value) item.style.background = 'rgba(99,102,241,0.06)'; };
     item.onmouseleave = () => { if (hidden.value !== v.value) item.style.background = ''; };
@@ -2711,10 +2975,9 @@ async function handleUpload(file, prefix) {
 
     fill.style.width = '100%';
 
-    // Set URL — use presignedUrl for display, internalUrl for N8N
-    const displayUrl = data.presignedUrl || data.internalUrl;
-    const internalUrl = data.internalUrl;
-    urlInput.value = internalUrl;
+    // Use publicUrl — accessible from external APIs like GPTunnel
+    const publicUrl = data.publicUrl || data.internalUrl;
+    urlInput.value = publicUrl;
 
     // Show preview
     const reader = new FileReader();

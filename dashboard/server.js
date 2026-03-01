@@ -103,13 +103,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── API Routes ───
 app.use('/api/auth',      authRoutes);
+// Публичный прокси MinIO файлов — без auth, для внешних API (GPTunnel и т.д.)
+app.use('/api/media',     mediaRoutes);  // /public/* внутри — без auth, остальное — проверяется в роутере
 app.use('/api/content',   authMiddleware, contentRoutes);
 app.use('/api/videos',    authMiddleware, videosRoutes);
 app.use('/api/schedule',  authMiddleware, scheduleRoutes);
 app.use('/api/analytics', authMiddleware, analyticsRoutes);
 app.use('/api/settings',  authMiddleware, settingsRoutes);
 app.use('/api/errors',    authMiddleware, errorsRoutes);
-app.use('/api/media',     authMiddleware, mediaRoutes);
 app.use('/api/cards',     authMiddleware, cardsRoutes);
 app.use('/api/users',     authMiddleware, usersRoutes);
 app.use('/api/internal',  internalRoutes);  // Для N8N callbacks — без auth, по Docker сети
