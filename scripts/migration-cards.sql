@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS product_cards (
 
   -- Сгенерированная инфографика
   infographic_url       TEXT,
+  infographic_variants  JSONB DEFAULT '[]',
+  concept               VARCHAR(50) DEFAULT 'studio',
+  generation_model      VARCHAR(50) DEFAULT 'flux-kontext-pro',
   
   -- Настройки
   style                 VARCHAR(50) DEFAULT 'modern',
@@ -91,5 +94,23 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name = 'product_cards' AND column_name = 'infographic_url') THEN
     ALTER TABLE product_cards ADD COLUMN infographic_url TEXT;
+  END IF;
+END $$;
+
+-- ─────────────────────────────────────────
+-- Миграция v2: 3 варианта + концепт + модель
+-- ─────────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'product_cards' AND column_name = 'infographic_variants') THEN
+    ALTER TABLE product_cards ADD COLUMN infographic_variants JSONB DEFAULT '[]';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'product_cards' AND column_name = 'concept') THEN
+    ALTER TABLE product_cards ADD COLUMN concept VARCHAR(50) DEFAULT 'studio';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'product_cards' AND column_name = 'generation_model') THEN
+    ALTER TABLE product_cards ADD COLUMN generation_model VARCHAR(50) DEFAULT 'flux-kontext-pro';
   END IF;
 END $$;

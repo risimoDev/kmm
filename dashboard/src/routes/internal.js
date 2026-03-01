@@ -9,12 +9,49 @@
 // POST /api/internal/media            — Регистрация медиа-файла (из N8N)
 // POST /api/internal/content-ready    — Callback: контент сгенерирован
 // POST /api/internal/video-ready      — Callback: видео готово к ревью
+// POST /api/internal/save-image       — Скачать изображение по URL → сохранить в MinIO
+// POST /api/internal/save-infographics— Скачать массив инфографик → MinIO → вернуть URLs
 
 const { Router } = require('express');
 const { query, isConnected } = require('../db');
 const { emitToSession } = require('../socket');
+const { Client: MinioClient } = require('minio');
+const https = require('https');
+const http = require('http');
+const crypto = require('crypto');
+const path = require('path');
 
 const router = Router();
+
+// ─── MinIO клиент (для save-image) ───
+const minio = new MinioClient({
+  endPoint: process.env.MINIO_ENDPOINT || 'minio',
+  port: parseInt(process.env.MINIO_PORT || '9000'),
+  useSSL: false,
+  accessKey: process.env.MINIO_ROOT_USER || 'minioadmin',
+  secretKey: process.env.MINIO_ROOT_PASSWORD || 'minioadmin'
+});
+const BUCKET = process.env.MINIO_BUCKET || 'content-factory';
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || 'https://k-m-m.ru';
+
+// ─── Helper: download URL to buffer ───
+function downloadUrl(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, { timeout: 30000 }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return downloadUrl(res.headers.location).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP ${res.statusCode} downloading ${url}`));
+      }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
 
 // ─── Обновление шага пайплайна ───
 router.post('/step-update', async (req, res, next) => {
@@ -276,6 +313,61 @@ router.post('/video-ready', async (req, res, next) => {
     });
 
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Сохранить инфографики из временных URL в MinIO ───
+// Body: { urls: ["temp_url1", "temp_url2", ...], card_id?: number, prefix?: string }
+// Response: { ok: true, publicUrls: ["public_url1", ...] }
+router.post('/save-infographics', async (req, res, next) => {
+  try {
+    const { urls, card_id, prefix } = req.body;
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ ok: false, error: 'urls array required' });
+    }
+
+    const folder = prefix || `cards/${card_id || crypto.randomBytes(4).toString('hex')}`;
+    const publicUrls = [];
+
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        const url = urls[i];
+        if (!url) { publicUrls.push(null); continue; }
+
+        const buffer = await downloadUrl(url);
+        // Determine extension from URL or default to .png
+        const ext = path.extname(new URL(url).pathname) || '.png';
+        const fileKey = `${folder}/variant-${i}${ext}`;
+
+        await minio.putObject(BUCKET, fileKey, buffer, buffer.length, {
+          'Content-Type': ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png'
+        });
+
+        publicUrls.push(`${PUBLIC_BASE_URL}/api/media/public/${fileKey}`);
+        console.log(`✅ Saved infographic ${i}: ${fileKey} (${buffer.length} bytes)`);
+      } catch (err) {
+        console.error(`❌ Failed to save infographic ${i}:`, err.message);
+        publicUrls.push(null);
+      }
+    }
+
+    // If card_id provided, update the card in DB
+    if (card_id && isConnected()) {
+      const validUrls = publicUrls.filter(u => u);
+      if (validUrls.length > 0) {
+        await query(
+          `UPDATE product_cards
+           SET infographic_url = $1,
+               infographic_variants = $2
+           WHERE id = $3`,
+          [validUrls[0], JSON.stringify(validUrls), card_id]
+        );
+      }
+    }
+
+    res.json({ ok: true, publicUrls });
   } catch (err) {
     next(err);
   }

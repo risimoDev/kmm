@@ -63,7 +63,8 @@ router.get('/', async (req, res, next) => {
     );
 
     const dataResult = await query(
-      `SELECT id, product_name, image_url, infographic_url, marketplace, artikuls,
+      `SELECT id, product_name, image_url, infographic_url, infographic_variants,
+              marketplace, artikuls, concept, generation_model,
               main_title, subtitle, status, style, created_at, updated_at
        FROM product_cards ${where}
        ORDER BY ${safeSort} ${safeOrder}
@@ -115,7 +116,8 @@ router.post('/generate', async (req, res, next) => {
       price = '',
       include_badge = false,
       badge_text = '',
-      extra_instructions = ''
+      extra_instructions = '',
+      concept = 'studio'
     } = req.body;
 
     if (!product_name) {
@@ -140,7 +142,8 @@ router.post('/generate', async (req, res, next) => {
       price,
       include_badge,
       badge_text,
-      extra_instructions
+      extra_instructions,
+      concept
     }, { timeout: 120000 });
 
     res.json({

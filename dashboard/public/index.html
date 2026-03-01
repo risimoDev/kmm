@@ -153,6 +153,39 @@
     .upload-preview .remove-btn { position:absolute; top:-6px; right:-6px; width:20px; height:20px; background:var(--red); color:#fff; border:none; border-radius:50%; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; line-height:1; }
     .upload-progress { margin-top:8px; }
     .upload-or { display:flex; align-items:center; gap:10px; margin:10px 0; font-size:12px; color:var(--text2); }
+
+    /* Wizard Steps */
+    .wizard-step { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:8px; font-size:13px; color:var(--text3); background:var(--bg); transition:all 0.3s; }
+    .wizard-step.active { background:var(--accent); color:#fff; font-weight:600; }
+    .wizard-step.done { background:var(--green); color:#fff; }
+    .step-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,0.2); font-size:12px; font-weight:700; }
+    .wizard-arrow { color:var(--text3); font-size:16px; }
+    .wizard-page { display:none; }
+    .wizard-page.active { display:block; }
+
+    /* Concept Cards */
+    .concept-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
+    .concept-card { padding:16px; border:2px solid var(--border); border-radius:12px; cursor:pointer; transition:all 0.2s; text-align:center; }
+    .concept-card:hover { border-color:var(--accent); background:rgba(99,102,241,0.04); transform:translateY(-2px); }
+    .concept-card.selected { border-color:var(--accent); background:rgba(99,102,241,0.08); box-shadow:0 0 0 3px rgba(99,102,241,0.2); }
+    .concept-icon { font-size:32px; margin-bottom:8px; }
+    .concept-title { font-weight:600; font-size:14px; margin-bottom:4px; }
+    .concept-desc { font-size:11px; color:var(--text3); line-height:1.4; }
+
+    /* Generation Progress */
+    .spinner-large { width:48px; height:48px; border:4px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; margin:0 auto; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .gen-progress-bar { width:100%; max-width:400px; height:8px; background:var(--bg3); border-radius:4px; overflow:hidden; margin:0 auto; }
+    .gen-progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:4px; transition:width 0.5s ease; }
+    .gen-progress-text { margin-top:8px; font-size:13px; color:var(--text2); }
+
+    /* Variants Grid */
+    .variants-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+    .variant-card { border:2px solid var(--border); border-radius:12px; overflow:hidden; transition:all 0.2s; }
+    .variant-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.1); }
+    .variant-card img { width:100%; aspect-ratio:9/16; object-fit:cover; cursor:pointer; }
+    .variant-card .variant-actions { padding:10px; display:flex; gap:6px; justify-content:center; }
+    .variant-card .variant-label { padding:6px 10px; text-align:center; font-size:12px; font-weight:600; color:var(--text2); background:var(--bg); }
     .upload-or::before, .upload-or::after { content:''; flex:1; height:1px; background:var(--border); }
 
     /* ═══ Gallery Grid ═══ */
@@ -629,7 +662,7 @@
         <input type="text" id="cards-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadCards()">
       </div>
       <div class="card"><table><thead><tr>
-        <th>ID</th><th>Фото</th><th>Товар</th><th>Маркетплейс</th><th>Заголовок</th><th>Инфографика</th><th>Статус</th><th>Дата</th><th>Действия</th>
+        <th>ID</th><th>Фото</th><th>Товар</th><th>МП</th><th>Концепт</th><th>Заголовок</th><th>Инфографика</th><th>Статус</th><th>Дата</th><th>Действия</th>
       </tr></thead><tbody id="cards-table"></tbody></table></div>
     </div>
 
@@ -947,89 +980,156 @@
   </div>
 </div>
 
-<!-- Generate Card Modal -->
+<!-- Generate Card Wizard Modal -->
 <div class="modal-overlay" id="card-generate-modal">
-  <div class="modal" style="width:650px;">
-    <h3>Генерация карточки товара</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Фото товара *</label>
-        <div class="upload-zone" id="cg-upload-zone" onclick="document.getElementById('cg-upload-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleUpload(event.dataTransfer.files[0],'cg')">
-          <input type="file" id="cg-upload-input" accept="image/*" onchange="handleUpload(this.files[0],'cg')">
-          <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
-          <div class="upload-text"><strong>Нажмите</strong> или перетащите фото товара</div>
+  <div class="modal" style="width:720px;max-height:90vh;overflow-y:auto;">
+    <!-- Wizard Steps Header -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;">
+      <div class="wizard-step active" id="ws-1"><span class="step-num">1</span> Фото товара</div>
+      <div class="wizard-arrow">→</div>
+      <div class="wizard-step" id="ws-2"><span class="step-num">2</span> Концепция</div>
+      <div class="wizard-arrow">→</div>
+      <div class="wizard-step" id="ws-3"><span class="step-num">3</span> Генерация</div>
+    </div>
+
+    <!-- Step 1: Upload Photo + Product Info -->
+    <div class="wizard-page active" id="wizard-step-1">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Фото товара *</label>
+          <div class="upload-zone" id="cg-upload-zone" onclick="document.getElementById('cg-upload-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleUpload(event.dataTransfer.files[0],'cg')">
+            <input type="file" id="cg-upload-input" accept="image/*" onchange="handleUpload(this.files[0],'cg')">
+            <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+            <div class="upload-text"><strong>Нажмите</strong> или перетащите фото товара</div>
+          </div>
+          <div id="cg-upload-preview" class="upload-preview" style="display:none;"></div>
+          <div id="cg-upload-progress" class="upload-progress" style="display:none;">
+            <div class="progress-bar"><div class="fill" id="cg-upload-fill" style="width:0%"></div></div>
+          </div>
+          <div class="upload-or">или вставьте ссылку</div>
+          <input type="text" id="cg-image-url" placeholder="https://... (ссылка на фото товара)">
         </div>
-        <div id="cg-upload-preview" class="upload-preview" style="display:none;"></div>
-        <div id="cg-upload-progress" class="upload-progress" style="display:none;">
-          <div class="progress-bar"><div class="fill" id="cg-upload-fill" style="width:0%"></div></div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Название товара *</label>
+          <input type="text" id="cg-product-name" placeholder="Например: Кроссовки Nike Air Max 90">
         </div>
-        <div class="upload-or">или вставьте ссылку</div>
-        <input type="text" id="cg-image-url" placeholder="https://... (ссылка на фото товара)">
+        <div class="form-group">
+          <label>Маркетплейс</label>
+          <select id="cg-marketplace" style="width:100%;">
+            <option value="WB">Wildberries</option>
+            <option value="Ozon">Ozon</option>
+            <option value="YM">Яндекс.Маркет</option>
+            <option value="Other">Другой</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Стиль</label>
+          <select id="cg-style" style="width:100%;">
+            <option value="modern">Современный</option>
+            <option value="minimal">Минимализм</option>
+            <option value="premium">Премиум</option>
+            <option value="bright">Яркий</option>
+            <option value="classic">Классический</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Описание товара</label>
+          <textarea id="cg-description" placeholder="Краткое описание товара для AI-анализа" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Целевая аудитория</label>
+          <input type="text" id="cg-audience" placeholder="Женщины 25-45 лет">
+        </div>
+        <div class="form-group">
+          <label>Ключевые особенности</label>
+          <input type="text" id="cg-features" placeholder="Натуральная кожа, ортопедическая">
+        </div>
+        <div class="form-group">
+          <label>Артикулы (через запятую)</label>
+          <input type="text" id="cg-artikuls" placeholder="WB-12345, OZ-67890">
+        </div>
+        <div class="form-group">
+          <label>Цветовая схема</label>
+          <select id="cg-color-scheme" style="width:100%;">
+            <option value="auto">Авто (по фото)</option>
+            <option value="light">Светлая</option>
+            <option value="dark">Тёмная</option>
+            <option value="brand">Бренд</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="cg-include-price"> Указать цену</label>
+          <input type="text" id="cg-price" placeholder="2990 руб." style="margin-top:4px;">
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="cg-include-badge"> Добавить бейдж</label>
+          <input type="text" id="cg-badge" placeholder="ХИТ ПРОДАЖ" style="margin-top:4px;">
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Доп. инструкции для AI</label>
+          <textarea id="cg-extra" placeholder="Сделать акцент на экологичности..." rows="2"></textarea>
+        </div>
       </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Название товара *</label>
-        <input type="text" id="cg-product-name" placeholder="Например: Кроссовки Nike Air Max 90">
-      </div>
-      <div class="form-group">
-        <label>Маркетплейс</label>
-        <select id="cg-marketplace" style="width:100%;">
-          <option value="WB">Wildberries</option>
-          <option value="Ozon">Ozon</option>
-          <option value="YM">Яндекс.Маркет</option>
-          <option value="Other">Другой</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Стиль</label>
-        <select id="cg-style" style="width:100%;">
-          <option value="modern">Современный</option>
-          <option value="minimal">Минимализм</option>
-          <option value="premium">Премиум</option>
-          <option value="bright">Яркий</option>
-          <option value="classic">Классический</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Цветовая схема</label>
-        <select id="cg-color-scheme" style="width:100%;">
-          <option value="auto">Авто (по фото)</option>
-          <option value="light">Светлая</option>
-          <option value="dark">Тёмная</option>
-          <option value="brand">Бренд</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Артикулы (через запятую)</label>
-        <input type="text" id="cg-artikuls" placeholder="WB-12345, OZ-67890">
-      </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Описание товара</label>
-        <textarea id="cg-description" placeholder="Краткое описание товара для AI-анализа"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Целевая аудитория</label>
-        <input type="text" id="cg-audience" placeholder="Женщины 25-45 лет">
-      </div>
-      <div class="form-group">
-        <label>Ключевые особенности</label>
-        <input type="text" id="cg-features" placeholder="Натуральная кожа, ортопедическая стелька">
-      </div>
-      <div class="form-group">
-        <label><input type="checkbox" id="cg-include-price"> Указать цену</label>
-        <input type="text" id="cg-price" placeholder="2990 руб." style="margin-top:4px;">
-      </div>
-      <div class="form-group">
-        <label><input type="checkbox" id="cg-include-badge"> Добавить бейдж</label>
-        <input type="text" id="cg-badge" placeholder="ХИТ ПРОДАЖ" style="margin-top:4px;">
-      </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Доп. инструкции для AI</label>
-        <textarea id="cg-extra" placeholder="Сделать акцент на экологичности..."></textarea>
+      <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+        <button class="btn btn-outline" onclick="closeModal('card-generate-modal')">Отмена</button>
+        <button class="btn btn-primary" onclick="wizardNext(2)">Далее — Выбрать концепцию →</button>
       </div>
     </div>
-    <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
-      <button class="btn btn-outline" onclick="closeModal('card-generate-modal')">Отмена</button>
-      <button class="btn btn-primary" onclick="generateCard()" id="cg-submit">Генерировать</button>
+
+    <!-- Step 2: Choose Concept -->
+    <div class="wizard-page" id="wizard-step-2">
+      <h3 style="margin-bottom:16px;">Выберите концепцию оформления</h3>
+      <div class="concept-grid">
+        <div class="concept-card selected" data-concept="studio" onclick="selectConcept(this)">
+          <div class="concept-icon">📸</div>
+          <div class="concept-title">Студия</div>
+          <div class="concept-desc">Белый/светлый фон, студийное освещение, чистый вид. Иконки преимуществ вокруг товара.</div>
+        </div>
+        <div class="concept-card" data-concept="lifestyle" onclick="selectConcept(this)">
+          <div class="concept-icon">🏠</div>
+          <div class="concept-title">Лайфстайл</div>
+          <div class="concept-desc">Товар в контексте использования: кухня, офис, отдых. Тёплые тона, уютная атмосфера.</div>
+        </div>
+        <div class="concept-card" data-concept="flatlay" onclick="selectConcept(this)">
+          <div class="concept-icon">🎨</div>
+          <div class="concept-title">Flatlay</div>
+          <div class="concept-desc">Вид сверху, товар в центре. Аксессуары и декор вокруг на текстурном фоне.</div>
+        </div>
+        <div class="concept-card" data-concept="minimal" onclick="selectConcept(this)">
+          <div class="concept-icon">✨</div>
+          <div class="concept-title">Минимализм</div>
+          <div class="concept-desc">Однотонный фон, минимум декора, акцент на товаре. Элегантная типографика.</div>
+        </div>
+        <div class="concept-card" data-concept="model" onclick="selectConcept(this)">
+          <div class="concept-icon">👤</div>
+          <div class="concept-title">На модели</div>
+          <div class="concept-desc">Товар на человеке/модели. Подходит для одежды, аксессуаров, украшений.</div>
+        </div>
+      </div>
+      <div class="btn-group" style="justify-content:space-between;margin-top:20px;">
+        <button class="btn btn-outline" onclick="wizardNext(1)">← Назад</button>
+        <button class="btn btn-primary" onclick="wizardGenerate()">🚀 Генерировать 3 варианта</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Generation Progress + Results -->
+    <div class="wizard-page" id="wizard-step-3">
+      <div id="wizard-generating" style="text-align:center;padding:40px 0;">
+        <div class="spinner-large"></div>
+        <h3 style="margin-top:16px;">Генерация инфографики...</h3>
+        <p style="color:var(--text3);">AI анализирует фото и создаёт 3 варианта оформления.<br>Это займёт 1-2 минуты.</p>
+        <div class="gen-progress-bar" style="margin-top:20px;">
+          <div class="gen-progress-fill" id="gen-fill" style="width:0%"></div>
+        </div>
+        <div class="gen-progress-text" id="gen-text">Анализ фото...</div>
+      </div>
+      <div id="wizard-results" style="display:none;">
+        <h3 style="margin-bottom:16px;">3 варианта инфографики</h3>
+        <div class="variants-grid" id="variants-grid"></div>
+        <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-outline" onclick="closeModal('card-generate-modal');loadCards();">Готово</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1709,17 +1809,28 @@ async function loadCards() {
     const tbody = document.getElementById('cards-table');
 
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Нет карточек. Генерируйте!</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Нет карточек. Генерируйте!</td></tr>';
       return;
     }
 
-    tbody.innerHTML = items.map(c => `<tr>
+    const conceptIcons = { studio: '📸', lifestyle: '🏠', flatlay: '🎨', minimal: '✨', model: '👤' };
+
+    tbody.innerHTML = items.map(c => {
+      let varCount = 0;
+      if (c.infographic_variants) {
+        try {
+          const v = typeof c.infographic_variants === 'string' ? JSON.parse(c.infographic_variants) : c.infographic_variants;
+          varCount = Array.isArray(v) ? v.filter(u => u).length : 0;
+        } catch(e) {}
+      }
+      return `<tr>
       <td>#${c.id}</td>
       <td>${c.image_url ? `<img src="${esc(c.image_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '—'}</td>
       <td>${esc(c.product_name || '—')}</td>
       <td>${esc(c.marketplace || '—')}</td>
-      <td title="${esc(c.main_title || '')}">${esc((c.main_title || '—').substring(0, 50))}</td>
-      <td>${c.infographic_url ? `<img src="${esc(c.infographic_url)}" style="width:40px;height:56px;object-fit:cover;border-radius:4px;" title="Инфографика">` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td><span title="${c.concept || 'studio'}">${conceptIcons[c.concept] || '📸'} ${esc(c.concept || 'studio')}</span></td>
+      <td title="${esc(c.main_title || '')}">${esc((c.main_title || '—').substring(0, 40))}</td>
+      <td>${c.infographic_url ? `<img src="${esc(c.infographic_url)}" style="width:40px;height:56px;object-fit:cover;border-radius:4px;" title="Инфографика"> ${varCount > 1 ? '<span style="font-size:11px;color:var(--text3);">×' + varCount + '</span>' : ''}` : '<span style="color:var(--text3)">—</span>'}</td>
       <td><span class="badge badge-${c.status}">${c.status}</span></td>
       <td>${fmtDate(c.created_at)}</td>
       <td>
@@ -1730,30 +1841,77 @@ async function loadCards() {
           <button class="btn btn-sm btn-danger" onclick="deleteCard(${c.id})">${ico('trash')}</button>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
   } catch (e) {
     document.getElementById('cards-table').innerHTML = `<tr><td colspan="9">Ошибка: ${e.message}</td></tr>`;
   }
 }
 
-function openCardGenerateModal() { openModal('card-generate-modal'); }
+function openCardGenerateModal() {
+  // Reset wizard to step 1
+  wizardNext(1);
+  document.getElementById('wizard-generating').style.display = 'block';
+  document.getElementById('wizard-results').style.display = 'none';
+  openModal('card-generate-modal');
+}
 
-async function generateCard() {
+let selectedConcept = 'studio';
+
+function selectConcept(el) {
+  document.querySelectorAll('.concept-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedConcept = el.dataset.concept;
+}
+
+function wizardNext(step) {
+  document.querySelectorAll('.wizard-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('wizard-step-' + step).classList.add('active');
+  document.querySelectorAll('.wizard-step').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < step) s.classList.add('done');
+    if (i + 1 === step) s.classList.add('active');
+  });
+}
+
+async function wizardGenerate() {
   const imageUrl = document.getElementById('cg-image-url').value.trim();
   const productName = document.getElementById('cg-product-name').value.trim();
 
-  if (!imageUrl) { toast('Укажите URL фото товара', 'error'); return; }
-  if (!productName) { toast('Укажите название товара', 'error'); return; }
+  if (!imageUrl) { toast('Укажите URL фото товара', 'error'); wizardNext(1); return; }
+  if (!productName) { toast('Укажите название товара', 'error'); wizardNext(1); return; }
 
-  const btn = document.getElementById('cg-submit');
-  btn.disabled = true;
-  btn.textContent = 'Генерация...';
+  // Move to step 3 (generating)
+  wizardNext(3);
+  document.getElementById('wizard-generating').style.display = 'block';
+  document.getElementById('wizard-results').style.display = 'none';
 
   const artikulsRaw = document.getElementById('cg-artikuls').value.trim();
   const artikuls = artikulsRaw ? artikulsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
+  // Animate progress bar
+  let progress = 0;
+  const progressFill = document.getElementById('gen-fill');
+  const progressText = document.getElementById('gen-text');
+  const stages = [
+    { p: 15, t: 'Анализ фото товара...' },
+    { p: 35, t: 'GPT-4o создаёт контент...' },
+    { p: 55, t: 'Генерация 3 вариантов (flux-kontext-pro)...' },
+    { p: 75, t: 'Ожидание результатов...' },
+    { p: 90, t: 'Сохранение в MinIO...' }
+  ];
+  let stageIdx = 0;
+  const progressInterval = setInterval(() => {
+    if (stageIdx < stages.length) {
+      progress = stages[stageIdx].p;
+      progressFill.style.width = progress + '%';
+      progressText.textContent = stages[stageIdx].t;
+      stageIdx++;
+    }
+  }, 12000);
+
   try {
-    await api('POST', '/api/cards/generate', {
+    const res = await api('POST', '/api/cards/generate', {
       product_name: productName,
       image_url: imageUrl,
       marketplace: document.getElementById('cg-marketplace').value,
@@ -1767,17 +1925,83 @@ async function generateCard() {
       price: document.getElementById('cg-price').value,
       include_badge: document.getElementById('cg-include-badge').checked,
       badge_text: document.getElementById('cg-badge').value,
-      extra_instructions: document.getElementById('cg-extra').value
+      extra_instructions: document.getElementById('cg-extra').value,
+      concept: selectedConcept
     });
-    toast('Генерация карточки запущена!', 'success');
-    closeModal('card-generate-modal');
-    setTimeout(() => loadCards(), 2000);
+
+    clearInterval(progressInterval);
+    progressFill.style.width = '100%';
+    progressText.textContent = 'Генерация запущена! Результаты появятся через 1-2 минуты.';
+
+    toast('Генерация 3 вариантов запущена!', 'success');
+
+    // Poll for results
+    pollForCardResults();
   } catch (e) {
+    clearInterval(progressInterval);
     toast('Ошибка: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Генерировать';
+    progressText.textContent = 'Ошибка: ' + e.message;
+    progressFill.style.width = '0%';
   }
+}
+
+async function pollForCardResults() {
+  // Wait and then check for the latest card
+  let attempts = 0;
+  const maxAttempts = 30; // 30 * 5s = 2.5 min
+  const checkInterval = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await api('GET', '/api/cards?limit=1&sort=created_at&order=DESC');
+      const latest = (res.data || [])[0];
+      if (latest && latest.status === 'generated' && latest.infographic_variants) {
+        const variants = typeof latest.infographic_variants === 'string'
+          ? JSON.parse(latest.infographic_variants)
+          : latest.infographic_variants;
+        if (Array.isArray(variants) && variants.length > 0) {
+          clearInterval(checkInterval);
+          showVariantResults(latest, variants);
+          return;
+        }
+      }
+      // Also check infographic_url for single result
+      if (latest && latest.status === 'generated' && latest.infographic_url && attempts > 5) {
+        clearInterval(checkInterval);
+        showVariantResults(latest, [latest.infographic_url]);
+        return;
+      }
+    } catch (e) { /* continue polling */ }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(checkInterval);
+      document.getElementById('gen-text').textContent = 'Генерация завершена. Проверьте список карточек.';
+      setTimeout(() => { closeModal('card-generate-modal'); loadCards(); }, 2000);
+    }
+  }, 5000);
+}
+
+function showVariantResults(card, variants) {
+  document.getElementById('wizard-generating').style.display = 'none';
+  document.getElementById('wizard-results').style.display = 'block';
+
+  const grid = document.getElementById('variants-grid');
+  const conceptNames = { studio: 'Студия', lifestyle: 'Лайфстайл', flatlay: 'Flatlay', minimal: 'Минимализм', model: 'На модели' };
+
+  grid.innerHTML = variants.map((url, i) => `
+    <div class="variant-card">
+      <div class="variant-label">Вариант ${i + 1} ${card.concept ? '• ' + (conceptNames[card.concept] || card.concept) : ''}</div>
+      <img src="${esc(url)}" onclick="window.open('${esc(url)}','_blank')" title="Открыть в новой вкладке">
+      <div class="variant-actions">
+        <button class="btn btn-sm btn-primary" onclick="downloadCardImage(${card.id}, '${esc(url)}')">⬇ Скачать</button>
+        <button class="btn btn-sm btn-outline" onclick="window.open('${esc(url)}','_blank')">🔗</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function generateCard() {
+  // Legacy fallback — calls wizard instead
+  wizardGenerate();
 }
 
 async function openCardDetail(id) {
@@ -1808,18 +2032,37 @@ async function openCardDetail(id) {
       <div class="detail-field"><div class="label">Создано</div><div class="value">${fmtDate(c.created_at)}</div></div>
     </div>`;
 
-    // Инфографика (сгенерированная Seedream)
-    const infraUrl = c.infographic_url || (c.a_plus_content && c.a_plus_content.infographic_url) || null;
-    if (infraUrl) {
-      html += `<div class="card"><h3>🖼️ Инфографика</h3>
-        <img src="${esc(infraUrl)}" style="max-width:100%;max-height:500px;border-radius:8px;margin-bottom:12px;cursor:pointer;" onclick="window.open('${esc(infraUrl)}','_blank')" title="Открыть в новой вкладке">
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="btn btn-primary" onclick="downloadCardImage(${c.id}, '${esc(infraUrl)}')">⬇ Скачать инфографику</button>
-          <button class="btn btn-outline" onclick="window.open('${esc(infraUrl)}','_blank')">🔗 Открыть</button>
+    // Инфографика — 3 варианта
+    let variants = [];
+    if (c.infographic_variants) {
+      variants = typeof c.infographic_variants === 'string' ? JSON.parse(c.infographic_variants) : c.infographic_variants;
+    }
+    if (!Array.isArray(variants)) variants = [];
+    // Fallback to single URL
+    if (variants.length === 0) {
+      const infraUrl = c.infographic_url || (c.a_plus_content && c.a_plus_content.infographic_url) || null;
+      if (infraUrl) variants = [infraUrl];
+    }
+
+    const conceptNames = { studio: '📸 Студия', lifestyle: '🏠 Лайфстайл', flatlay: '🎨 Flatlay', minimal: '✨ Минимализм', model: '👤 На модели' };
+
+    if (variants.length > 0) {
+      html += `<div class="card full-width"><h3>🖼️ Инфографика ${c.concept ? '<span style="font-weight:400;font-size:13px;"> • ' + (conceptNames[c.concept] || c.concept) + '</span>' : ''} <span style="font-weight:400;font-size:13px;color:var(--text3);">(${variants.length} вариант${variants.length > 1 ? 'а' : ''}${c.generation_model ? ' • ' + c.generation_model : ''})</span></h3>
+        <div style="display:grid;grid-template-columns:repeat(${Math.min(variants.length, 3)}, 1fr);gap:16px;margin-top:12px;">
+          ${variants.map((url, i) => `
+            <div style="border:2px solid var(--border);border-radius:12px;overflow:hidden;">
+              <div style="padding:6px 10px;text-align:center;font-size:12px;font-weight:600;color:var(--text2);background:var(--bg);">Вариант ${i + 1}</div>
+              <img src="${esc(url)}" style="width:100%;cursor:pointer;" onclick="window.open('${esc(url)}','_blank')" title="Открыть в новой вкладке">
+              <div style="padding:8px;display:flex;gap:6px;justify-content:center;">
+                <button class="btn btn-sm btn-primary" onclick="downloadCardImage(${c.id}, '${esc(url)}')">⬇ Скачать</button>
+                <button class="btn btn-sm btn-outline" onclick="window.open('${esc(url)}','_blank')">🔗 Открыть</button>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>`;
     } else {
-      html += `<div class="card"><h3>🖼️ Инфографика</h3>
+      html += `<div class="card full-width"><h3>🖼️ Инфографика</h3>
         <div style="padding:30px;text-align:center;color:var(--text3);background:var(--bg);border-radius:8px;">
           ${c.status === 'generated' ? '⏳ Инфографика генерируется...' : 'Инфографика не сгенерирована'}
         </div>
