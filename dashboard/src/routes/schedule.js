@@ -53,31 +53,38 @@ router.put('/', async (req, res, next) => {
   try {
     if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
 
-    const { auto_generate_enabled, auto_generate_cron, auto_generate_count, default_channels } = req.body;
+    const {
+      auto_generate_enabled, auto_generate_cron, auto_generate_count, auto_content_type,
+      auto_video_enabled, auto_video_cron, auto_video_type, auto_video_batch,
+      auto_subtitles, auto_music_track_id,
+      auto_publish_enabled, auto_publish_cron, auto_publish_batch,
+      default_channels
+    } = req.body;
+
+    const userId = req.user?.id || null;
+
+    // Все поля расписания — обновляем по ключу
+    const fieldMap = {
+      auto_generate_enabled, auto_generate_cron, auto_generate_count, auto_content_type,
+      auto_video_enabled, auto_video_cron, auto_video_type, auto_video_batch,
+      auto_subtitles, auto_music_track_id,
+      auto_publish_enabled, auto_publish_cron, auto_publish_batch
+    };
 
     const updates = [];
-    if (auto_generate_enabled !== undefined) {
-      updates.push(query(
-        "UPDATE app_settings SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = 'auto_generate_enabled'",
-        [String(auto_generate_enabled), req.user?.id || null]
-      ));
+    for (const [key, value] of Object.entries(fieldMap)) {
+      if (value !== undefined) {
+        updates.push(query(
+          "UPDATE app_settings SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = $3",
+          [String(value), userId, key]
+        ));
+      }
     }
-    if (auto_generate_cron !== undefined) {
-      updates.push(query(
-        "UPDATE app_settings SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = 'auto_generate_cron'",
-        [auto_generate_cron, req.user?.id || null]
-      ));
-    }
-    if (auto_generate_count !== undefined) {
-      updates.push(query(
-        "UPDATE app_settings SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = 'auto_generate_count'",
-        [String(auto_generate_count), req.user?.id || null]
-      ));
-    }
+
     if (default_channels !== undefined) {
       updates.push(query(
         "UPDATE app_settings SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = 'default_channels'",
-        [JSON.stringify(default_channels), req.user?.id || null]
+        [JSON.stringify(default_channels), userId]
       ));
     }
 
@@ -105,7 +112,7 @@ router.put('/', async (req, res, next) => {
 // ─── Запустить генерацию вручную ───
 router.post('/run-now', async (req, res, next) => {
   try {
-    const { count, product_name, niche, extra_instructions } = req.body;
+    const { count, product_name, niche, extra_instructions, content_type } = req.body;
 
     let generateCount = count;
     if (!generateCount && isConnected()) {
@@ -113,11 +120,19 @@ router.post('/run-now', async (req, res, next) => {
       generateCount = result.rows.length > 0 ? parseInt(result.rows[0].value) : 3;
     }
 
+    // Получаем content_type из запроса или из настроек
+    let contentType = content_type;
+    if (!contentType && isConnected()) {
+      const ctResult = await query("SELECT value FROM app_settings WHERE key = 'auto_content_type'");
+      contentType = ctResult.rows.length > 0 ? ctResult.rows[0].value : 'regular';
+    }
+
     const n8nResponse = await axios.post(`${N8N_URL}/webhook/content-brain`, {
       count: generateCount || 3,
       product_name: product_name || '',
       niche: niche || '',
-      extra_instructions: extra_instructions || ''
+      extra_instructions: extra_instructions || '',
+      content_type: contentType || 'regular'
     }, { timeout: 120000 });
 
     res.json({ ok: true, data: n8nResponse.data });

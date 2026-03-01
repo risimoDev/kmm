@@ -151,6 +151,9 @@ router.post('/', generationLimiter, async (req, res, next) => {
       show_artikul = false,
       auto_publish = false,
       video_type = 'regular',
+      subtitles_enabled = true,
+      music_track_id,
+      music_volume = 0.15,
       heygen_avatar_id,
       heygen_voice_id,
       heygen_background,
@@ -175,15 +178,25 @@ router.post('/', generationLimiter, async (req, res, next) => {
     }
 
     // Валидация video_type
-    const validVideoTypes = ['regular', 'heygen', 'a2e'];
+    const validVideoTypes = ['regular', 'gptunnel', 'heygen', 'a2e'];
     const safeVideoType = validVideoTypes.includes(video_type) ? video_type : 'regular';
+
+    // Музыкальный трек: получить file_key из БД
+    let musicFileKey = '';
+    if (music_track_id) {
+      const musicResult = await query('SELECT file_key FROM music_tracks WHERE id = $1 AND is_active = true', [music_track_id]);
+      if (musicResult.rows.length > 0) {
+        musicFileKey = musicResult.rows[0].file_key;
+      }
+    }
 
     // Создать сессию
     const sessionResult = await query(
       `INSERT INTO pipeline_sessions
         (user_id, source, status, current_step, product_name, product_image_url,
-         artikul, show_artikul, idea_id, voice_script_id, video_prompt_id, auto_publish, video_type)
-       VALUES ($1, 'web', 'created', 'created', $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         artikul, show_artikul, idea_id, voice_script_id, video_prompt_id,
+         auto_publish, video_type, subtitles_enabled, music_track_id, music_volume)
+       VALUES ($1, 'web', 'created', 'created', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         req.user?.id || null,
@@ -195,7 +208,10 @@ router.post('/', generationLimiter, async (req, res, next) => {
         voice_script_id || null,
         video_prompt_id || null,
         auto_publish,
-        safeVideoType
+        safeVideoType,
+        subtitles_enabled !== false,
+        music_track_id || null,
+        parseFloat(music_volume) || 0.15
       ]
     );
 
@@ -206,7 +222,7 @@ router.post('/', generationLimiter, async (req, res, next) => {
     if (voice_script_id) await query("UPDATE voice_scripts SET status = 'used' WHERE id = $1", [voice_script_id]);
     if (video_prompt_id) await query("UPDATE video_prompts SET status = 'used' WHERE id = $1", [video_prompt_id]);
 
-    // Вызвать N8N video-factory (regular, heygen или a2e)
+    // Вызвать N8N video-factory (regular, gptunnel, heygen или a2e)
     const webhookUrl = safeVideoType === 'heygen'
       ? `${N8N_URL}/webhook/video-factory-heygen`
       : safeVideoType === 'a2e'
@@ -221,7 +237,10 @@ router.post('/', generationLimiter, async (req, res, next) => {
       product_image_url: product_image_url || '',
       artikul: artikul || '',
       show_artikul,
-      video_type: safeVideoType
+      video_type: safeVideoType,
+      subtitles_enabled: subtitles_enabled !== false,
+      music_file_key: musicFileKey || '',
+      music_volume: parseFloat(music_volume) || 0.15
     };
 
     if (safeVideoType === 'heygen') {

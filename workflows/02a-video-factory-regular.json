@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'minimax',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'minimax',\n  subtitle_font: body.subtitle_font || 'DejaVu Sans',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7,\n  subtitles_enabled: body.subtitles_enabled || false,\n  music_file_key: body.music_file_key || '',\n  music_volume: parseFloat(body.music_volume) || 0.3\n}}];"
       },
       "id": "validate-vf",
       "name": "🔍 Валидация входа",
@@ -40,7 +40,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions, vp.style_reference,\n       ci.title, ci.concept, ci.visual_description\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions, vp.style_reference,\n       ci.title, ci.concept, ci.visual_description,\n       ps.subtitles_enabled AS db_subtitles_enabled,\n       ps.music_volume AS db_music_volume,\n       mt.file_key AS db_music_file_key\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nLEFT JOIN music_tracks mt ON mt.id = ps.music_track_id\nWHERE ps.id = {{ $json.session_id }};",
         "options": {}
       },
       "id": "load-data-vf",
@@ -57,7 +57,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nreturn [{ json: {\n  ...params,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  scene_descriptions: dbData.scene_descriptions || [],\n  style_reference: dbData.style_reference || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nreturn [{ json: {\n  ...params,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  scene_descriptions: dbData.scene_descriptions || [],\n  style_reference: dbData.style_reference || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || '',\n  subtitles_enabled: params.subtitles_enabled !== undefined ? params.subtitles_enabled : (dbData.db_subtitles_enabled || false),\n  music_file_key: params.music_file_key || dbData.db_music_file_key || '',\n  music_volume: params.music_volume !== undefined ? params.music_volume : (parseFloat(dbData.db_music_volume) || 0.3)\n}}];"
       },
       "id": "merge-vf",
       "name": "🔗 Объединение данных",
@@ -125,13 +125,23 @@
     },
     {
       "parameters": {
-        "jsCode": "const sessionId = $('🔗 Объединение данных').first().json.session_id;\nreturn [{\n  json: {\n    session_id: sessionId,\n    voice_file_name: `voice_${sessionId}.mp3`,\n    ...$('🔗 Объединение данных').first().json\n  }\n}];"
+        "fileName": "=/home/node/output/voice_{{ $('🔗 Объединение данных').first().json.session_id }}.mp3"
+      },
+      "id": "save-voice-vf",
+      "name": "💾 Сохранить аудио",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [1840, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $('🔗 Объединение данных').first().json.session_id;\nreturn [{\n  json: {\n    session_id: sessionId,\n    voice_file_name: 'voice_' + sessionId + '.mp3',\n    voice_file_path: '/home/node/output/voice_' + sessionId + '.mp3',\n    ...$('🔗 Объединение данных').first().json\n  }\n}];"
       },
       "id": "process-tts-vf",
       "name": "🎵 Обработка TTS",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1900, 560]
+      "position": [2020, 560]
     },
     {
       "parameters": {
@@ -143,7 +153,7 @@
       "name": "📌 Шаг → Видео",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2140, 560],
+      "position": [2260, 560],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -153,13 +163,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\n// Build a detailed video generation prompt\nconst videoPrompt = ctx.prompt_text || `Create a professional vertical video (9:16) showcasing: ${ctx.title}. ${ctx.visual_description || ctx.concept || ''}`;\n\nconst body = JSON.stringify({\n  model: 'video-01',\n  prompt: videoPrompt,\n  first_frame_image: ctx.product_image_url || undefined\n});\n\nreturn [{ json: { body, session_id: ctx.session_id } }];"
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\nconst videoPrompt = ctx.prompt_text || 'Create a professional vertical video (9:16) showcasing: ' + ctx.title + '. ' + (ctx.visual_description || ctx.concept || '');\n\nconst body = JSON.stringify({\n  model: 'video-01',\n  prompt: videoPrompt,\n  first_frame_image: ctx.product_image_url || undefined\n});\n\nreturn [{ json: { body, session_id: ctx.session_id } }];"
       },
       "id": "build-video-req-vf",
       "name": "🏗️ Видео запрос",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2380, 560]
+      "position": [2500, 560]
     },
     {
       "parameters": {
@@ -176,7 +186,7 @@
       "name": "🎥 Генерация видео",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2620, 560],
+      "position": [2740, 560],
       "credentials": {
         "httpHeaderAuth": {
           "id": "YTA7VkJwvfpfaJec",
@@ -192,7 +202,7 @@
       "name": "🔑 Извлечь task_id",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2860, 560]
+      "position": [2980, 560]
     },
     {
       "parameters": { "amount": 15, "unit": "seconds" },
@@ -200,7 +210,7 @@
       "name": "⏳ Ждать 15 сек",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [3100, 560]
+      "position": [3220, 560]
     },
     {
       "parameters": {
@@ -214,7 +224,7 @@
       "name": "🔄 Проверить статус",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3340, 560],
+      "position": [3460, 560],
       "credentials": {
         "httpHeaderAuth": {
           "id": "YTA7VkJwvfpfaJec",
@@ -234,7 +244,7 @@
       "name": "✅ Готово?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3580, 560]
+      "position": [3700, 560]
     },
     {
       "parameters": {
@@ -244,17 +254,17 @@
       "name": "⏳ Ещё не готово",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3820, 760]
+      "position": [3940, 760]
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst videoUrl = response.file_id || response.video_url || '';\nif (!videoUrl) throw new Error('Video provider did not return video URL');\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\nreturn [{ json: { session_id: sessionId, raw_video_url: videoUrl, ...$('🔗 Объединение данных').first().json } }];"
+        "jsCode": "const response = $input.first().json;\nconst fileId = response.file_id || '';\nconst videoUrl = response.video_url || '';\nconst rawVideoUrl = videoUrl || fileId;\nif (!rawVideoUrl) throw new Error('Video provider did not return video URL or file_id');\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: rawVideoUrl,\n  file_id: fileId,\n  ...$('🔗 Объединение данных').first().json\n}}];"
       },
       "id": "got-url-vf",
       "name": "🎬 URL видео",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3820, 400]
+      "position": [3940, 400]
     },
     {
       "parameters": {
@@ -266,7 +276,7 @@
       "name": "📌 Шаг → Монтаж",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4060, 400],
+      "position": [4180, 400],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -276,15 +286,56 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "=https://api.minimaxi.chat/v1/files/retrieve?file_id={{ $('🎬 URL видео').first().json.file_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": { "timeout": 30000 },
+        "onError": "continueRegularOutput"
+      },
+      "id": "retrieve-file-vf",
+      "name": "📥 Получить файл видео",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4420, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nconst sessionId = ctx.session_id;\nconst voicePath = '/home/node/output/voice_' + sessionId + '.mp3';\nconst outputPath = '/home/node/output/final_' + sessionId + '.mp4';\nconst workDir = '/tmp/montage_' + sessionId;\n\n// Определяем URL для скачивания видео\nconst retrieveResp = $('📥 Получить файл видео').first().json;\nconst gotUrlData = $('🎬 URL видео').first().json;\nlet rawVideoUrl = '';\nif (retrieveResp && retrieveResp.file && retrieveResp.file.download_url) {\n  rawVideoUrl = retrieveResp.file.download_url;\n} else if (gotUrlData.raw_video_url && gotUrlData.raw_video_url.startsWith('http')) {\n  rawVideoUrl = gotUrlData.raw_video_url;\n} else {\n  throw new Error('Нет URL для скачивания видео. file_id=' + (gotUrlData.file_id || 'N/A'));\n}\n\nconst subtitlesEnabled = ctx.subtitles_enabled || false;\nconst musicKey = ctx.music_file_key || '';\nconst musicVolume = parseFloat(ctx.music_volume) || 0.3;\n\n// Генерация SRT из timing_marks\nlet srtContent = '';\nif (subtitlesEnabled) {\n  const marks = Array.isArray(ctx.timing_marks) ? ctx.timing_marks : [];\n  const fmtTime = (s) => {\n    const h = String(Math.floor(s / 3600)).padStart(2, '0');\n    const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');\n    const sec = String(Math.floor(s % 60)).padStart(2, '0');\n    const ms = String(Math.round((s % 1) * 1000)).padStart(3, '0');\n    return h + ':' + m + ':' + sec + ',' + ms;\n  };\n  for (let i = 0; i < marks.length; i++) {\n    const startSec = parseFloat(marks[i].time) || 0;\n    const endSec = marks[i + 1] ? parseFloat(marks[i + 1].time) : startSec + 4;\n    srtContent += (i + 1) + '\\n' + fmtTime(startSec) + ' --> ' + fmtTime(endSec) + '\\n' + (marks[i].text || '') + '\\n\\n';\n  }\n}\n\nconst hasSubs = subtitlesEnabled && srtContent.length > 0;\nconst hasMusic = !!musicKey;\n\n// Формируем shell-скрипт\nconst lines = ['set -e', 'mkdir -p ' + workDir];\n\n// Скачать видео\nlines.push('wget -q --timeout=180 -O ' + workDir + '/raw.mp4 \"' + rawVideoUrl.replace(/\"/g, '\\\\\"') + '\"');\n\n// Скачать музыку\nif (hasMusic) {\n  lines.push('wget -q --timeout=60 -O ' + workDir + '/music.mp3 \"http://minio:9000/content-factory/' + musicKey + '\"');\n}\n\n// Записать SRT через base64 (безопасно для спец.символов)\nif (hasSubs) {\n  const srtBase64 = Buffer.from(srtContent, 'utf8').toString('base64');\n  lines.push('echo \"' + srtBase64 + '\" | base64 -d > ' + workDir + '/subs.srt');\n}\n\n// FFmpeg команда\nlet ffCmd = 'ffmpeg -y -i ' + workDir + '/raw.mp4 -i ' + voicePath;\nif (hasMusic) ffCmd += ' -i ' + workDir + '/music.mp3';\n\n// Аудио фильтр\nlet audioFilter;\nif (hasMusic) {\n  audioFilter = '[1:a]volume=1.0[voice];[2:a]volume=' + musicVolume + '[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]';\n} else {\n  audioFilter = '[1:a]anull[aout]';\n}\nffCmd += ' -filter_complex \\'' + audioFilter + '\\'';\n\n// Видео фильтр для субтитров\nif (hasSubs) {\n  const font = ctx.subtitle_font || 'DejaVu Sans';\n  const size = ctx.subtitle_size || 42;\n  const color = ctx.subtitle_color || 'white';\n  const outline = ctx.subtitle_outline || 2;\n  const assColor = color === 'yellow' ? '&H0000FFFF' : color === 'red' ? '&H000000FF' : '&H00FFFFFF';\n  const vf = 'subtitles=' + workDir + '/subs.srt:force_style=\\'FontName=' + font + ',FontSize=' + size + ',PrimaryColour=' + assColor + ',OutlineColour=&H00000000&,Outline=' + outline + ',Alignment=2,MarginV=40\\'';\n  ffCmd += ' -vf \"' + vf + '\"';\n}\n\nffCmd += ' -map 0:v -map \\'[aout]\\' -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -shortest ' + outputPath;\n\nlines.push(ffCmd);\nlines.push('rm -rf ' + workDir);\nlines.push('echo MONTAGE_DONE');\n\nreturn [{ json: { command: lines.join('\\n'), session_id: sessionId, output_path: outputPath } }];"
+      },
+      "id": "prepare-montage-vf",
+      "name": "📝 Подготовка монтажа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4660, 400]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "exec-montage-vf",
+      "name": "⚡ FFmpeg монтаж",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [4900, 400]
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE pipeline_sessions SET status = 'ready_for_review', current_step = 'review', final_video_url = raw_video_url, updated_at = NOW() WHERE id = {{ $json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW() WHERE session_id = {{ $json.session_id }} AND step_name = 'montage';",
+        "query": "=UPDATE pipeline_sessions SET status = 'ready_for_review', current_step = 'review', final_video_url = '{{ $('📝 Подготовка монтажа').first().json.output_path.split(\"'\").join(\"''\") }}', updated_at = NOW() WHERE id = {{ $('📝 Подготовка монтажа').first().json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW() WHERE session_id = {{ $('📝 Подготовка монтажа').first().json.session_id }} AND step_name = 'montage';",
         "options": {}
       },
       "id": "finalize-vf",
       "name": "💾 Финализация",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4300, 400],
+      "position": [5140, 400],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -298,14 +349,14 @@
         "url": "http://dashboard:3001/api/internal/video-ready",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"session_id\": {{ $('🎬 URL видео').first().json.session_id }},\n  \"status\": \"ready_for_review\"\n}",
+        "jsonBody": "={\n  \"session_id\": {{ $('📝 Подготовка монтажа').first().json.session_id }},\n  \"status\": \"ready_for_review\"\n}",
         "options": { "timeout": 10000 }
       },
       "id": "cb-vf",
       "name": "📡 Callback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4540, 400],
+      "position": [5380, 400],
       "onError": "continueRegularOutput"
     }
   ],
@@ -316,7 +367,8 @@
     "🔗 Объединение данных": { "main": [[{ "node": "📌 Шаг → TTS", "type": "main", "index": 0 }]] },
     "📌 Шаг → TTS": { "main": [[{ "node": "🏗️ TTS запрос", "type": "main", "index": 0 }]] },
     "🏗️ TTS запрос": { "main": [[{ "node": "🔊 TTS генерация", "type": "main", "index": 0 }]] },
-    "🔊 TTS генерация": { "main": [[{ "node": "🎵 Обработка TTS", "type": "main", "index": 0 }]] },
+    "🔊 TTS генерация": { "main": [[{ "node": "💾 Сохранить аудио", "type": "main", "index": 0 }]] },
+    "💾 Сохранить аудио": { "main": [[{ "node": "🎵 Обработка TTS", "type": "main", "index": 0 }]] },
     "🎵 Обработка TTS": { "main": [[{ "node": "📌 Шаг → Видео", "type": "main", "index": 0 }]] },
     "📌 Шаг → Видео": { "main": [[{ "node": "🏗️ Видео запрос", "type": "main", "index": 0 }]] },
     "🏗️ Видео запрос": { "main": [[{ "node": "🎥 Генерация видео", "type": "main", "index": 0 }]] },
@@ -327,7 +379,10 @@
     "✅ Готово?": { "main": [[{ "node": "🎬 URL видео", "type": "main", "index": 0 }], [{ "node": "⏳ Ещё не готово", "type": "main", "index": 0 }]] },
     "⏳ Ещё не готово": { "main": [[{ "node": "⏳ Ждать 15 сек", "type": "main", "index": 0 }]] },
     "🎬 URL видео": { "main": [[{ "node": "📌 Шаг → Монтаж", "type": "main", "index": 0 }]] },
-    "📌 Шаг → Монтаж": { "main": [[{ "node": "💾 Финализация", "type": "main", "index": 0 }]] },
+    "📌 Шаг → Монтаж": { "main": [[{ "node": "📥 Получить файл видео", "type": "main", "index": 0 }]] },
+    "📥 Получить файл видео": { "main": [[{ "node": "📝 Подготовка монтажа", "type": "main", "index": 0 }]] },
+    "📝 Подготовка монтажа": { "main": [[{ "node": "⚡ FFmpeg монтаж", "type": "main", "index": 0 }]] },
+    "⚡ FFmpeg монтаж": { "main": [[{ "node": "💾 Финализация", "type": "main", "index": 0 }]] },
     "💾 Финализация": { "main": [[{ "node": "📡 Callback", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" },

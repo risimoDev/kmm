@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
--- Контент Завод — Схема базы данных v3.0
+-- Контент Завод — Схема базы данных v4.0
 -- ═══════════════════════════════════════════════════════════
 -- Идемпотентно: безопасно запускать повторно.
 
@@ -123,7 +123,19 @@ VALUES
   ('auto_generate_enabled',  'false', 'boolean', 'schedule', 'Автогенерация',       'Включена ли автогенерация идей по расписанию', FALSE),
   ('auto_generate_cron',     '0 9 * * 1-5', 'string', 'schedule', 'Cron расписание', 'Расписание автогенерации (cron выражение)', FALSE),
   ('auto_generate_count',    '3',     'number', 'schedule', 'Кол-во идей',         'Сколько идей генерировать за раз', FALSE),
-  ('default_channels',       '["telegram"]', 'json', 'schedule', 'Каналы по умолч.', 'Каналы для автопубликации', FALSE)
+  ('auto_content_type',      'regular', 'string', 'schedule', 'Тип контента',      'Тип контента для автогенерации: regular / a2e', FALSE),
+  ('auto_video_enabled',     'false', 'boolean', 'schedule', 'Авто-видео',          'Автоматически создавать видео из новых идей', FALSE),
+  ('auto_video_type',        'regular', 'string', 'schedule', 'Тип авто-видео',    'Тип видео: regular / a2e / heygen', FALSE),
+  ('auto_video_cron',        '0 10 * * 1-5', 'string', 'schedule', 'Cron видео',   'Расписание авто-создания видео', FALSE),
+  ('auto_video_batch',       '2',     'number', 'schedule', 'Видео за раз',        'Сколько видео создавать за запуск', FALSE),
+  ('auto_subtitles',         'true',  'boolean', 'schedule', 'Субтитры (авто)',     'Включить субтитры при автосоздании', FALSE),
+  ('auto_music_track_id',    '',      'string', 'schedule', 'Музыка (авто)',       'ID трека для автосоздания (пусто = без музыки)', FALSE),
+  ('auto_publish_enabled',   'false', 'boolean', 'schedule', 'Авто-публикация',    'Автоматически публиковать готовые видео', FALSE),
+  ('auto_publish_cron',      '0 12 * * 1-5', 'string', 'schedule', 'Cron публикации', 'Расписание авто-публикации', FALSE),
+  ('auto_publish_batch',     '1',     'number', 'schedule', 'Публ. за раз',       'Сколько видео публиковать за запуск', FALSE),
+  ('default_channels',       '["telegram"]', 'json', 'schedule', 'Каналы по умолч.', 'Каналы для автопубликации', FALSE),
+  -- Branding: music
+  ('music_default_volume',   '0.15',  'string', 'branding', 'Громкость музыки',   'Громкость фоновой музыки (0.0-1.0)', FALSE)
 ON CONFLICT (key) DO NOTHING;
 
 -- ─────────────────────────────────────────
@@ -137,6 +149,7 @@ CREATE TABLE IF NOT EXISTS content_ideas (
   visual_description  TEXT,
   target_audience     VARCHAR(500),
   tone                VARCHAR(100),
+  content_type        VARCHAR(30) DEFAULT 'regular',
   status              VARCHAR(20) DEFAULT 'draft'
                       CHECK (status IN ('draft', 'approved', 'rejected', 'used')),
   created_by          INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -145,8 +158,9 @@ CREATE TABLE IF NOT EXISTS content_ideas (
   created_at          TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_ideas_status  ON content_ideas(status);
-CREATE INDEX IF NOT EXISTS idx_ideas_created ON content_ideas(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ideas_status       ON content_ideas(status);
+CREATE INDEX IF NOT EXISTS idx_ideas_created      ON content_ideas(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ideas_content_type ON content_ideas(content_type);
 
 -- ─────────────────────────────────────────
 -- 5. Контент — Сценарии озвучки
@@ -228,6 +242,11 @@ CREATE TABLE IF NOT EXISTS pipeline_sessions (
   -- Тип видео
   video_type           VARCHAR(30) DEFAULT 'regular'
                        CHECK (video_type IN ('regular', 'gptunnel', 'heygen', 'a2e')),
+
+  -- Субтитры и музыка
+  subtitles_enabled    BOOLEAN DEFAULT TRUE,
+  music_track_id       INTEGER,
+  music_volume         DECIMAL(3,2) DEFAULT 0.15,
 
   -- Управление N8N
   execution_id         VARCHAR(100),
@@ -323,7 +342,26 @@ CREATE INDEX IF NOT EXISTS idx_media_session ON media_files(session_id);
 CREATE INDEX IF NOT EXISTS idx_media_type    ON media_files(file_type);
 
 -- ─────────────────────────────────────────
--- 12. Публикации
+-- 12. Музыкальные треки (библиотека фоновой музыки)
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS music_tracks (
+  id            SERIAL PRIMARY KEY,
+  name          VARCHAR(200) NOT NULL,
+  file_key      VARCHAR(500) NOT NULL,
+  file_name     VARCHAR(255),
+  duration_sec  INTEGER DEFAULT 0,
+  file_size     BIGINT DEFAULT 0,
+  category      VARCHAR(100) DEFAULT 'общий',
+  uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  is_active     BOOLEAN DEFAULT TRUE,
+  created_at    TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_music_tracks_active   ON music_tracks(is_active);
+CREATE INDEX IF NOT EXISTS idx_music_tracks_category ON music_tracks(category);
+
+-- ─────────────────────────────────────────
+-- 13. Публикации
 -- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS publications (
   id             SERIAL PRIMARY KEY,

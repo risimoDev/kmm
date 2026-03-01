@@ -111,7 +111,7 @@ router.get('/ideas/:id', async (req, res, next) => {
 // ─── Генерация контента через N8N ───
 router.post('/generate', generationLimiter, async (req, res, next) => {
   try {
-    const { count = 3, product_name, niche, extra_instructions } = req.body;
+    const { count = 3, product_name, niche, extra_instructions, content_type = 'regular' } = req.body;
 
     // Получить системный промпт из настроек
     let systemPrompt = '';
@@ -130,7 +130,8 @@ router.post('/generate', generationLimiter, async (req, res, next) => {
       product_name: product_name || '',
       niche: niche || '',
       extra_instructions: extra_instructions || '',
-      system_prompt: systemPrompt
+      system_prompt: systemPrompt,
+      content_type: content_type || 'regular'
     }, { timeout: 120000 });
 
     res.json({

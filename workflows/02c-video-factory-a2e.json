@@ -12,24 +12,18 @@
       "name": "📥 Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
-      "position": [
-        200,
-        400
-      ],
+      "position": [200, 400],
       "webhookId": "video-factory-a2e"
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  a2e_avatar_id: body.a2e_avatar_id || '',\n  a2e_voice_id: body.a2e_voice_id || '',\n  a2e_background: body.a2e_background || '',\n  a2e_resolution: body.a2e_resolution || '1080'\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  a2e_avatar_id: body.a2e_avatar_id || '',\n  a2e_voice_id: body.a2e_voice_id || '',\n  a2e_background: body.a2e_background || '',\n  a2e_resolution: body.a2e_resolution || '1080',\n  subtitles_enabled: body.subtitles_enabled != null ? !!body.subtitles_enabled : null,\n  music_file_key: body.music_file_key || '',\n  music_volume: parseFloat(body.music_volume) || 0.3\n}}];"
       },
       "id": "validate-a2e",
       "name": "🔍 Валидация входа",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        440,
-        400
-      ]
+      "position": [440, 400]
     },
     {
       "parameters": {
@@ -41,25 +35,19 @@
       "name": "✅ Ответ 200",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [
-        680,
-        240
-      ]
+      "position": [680, 240]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'a2e_base_url') AS a2e_base_url,\n       (SELECT value FROM app_settings WHERE key = 'a2e_avatar_id') AS default_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_id') AS default_voice_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_country') AS voice_country,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_region') AS voice_region,\n       (SELECT value FROM app_settings WHERE key = 'a2e_speech_rate') AS speech_rate,\n       (SELECT value FROM app_settings WHERE key = 'a2e_resolution') AS default_resolution,\n       (SELECT value FROM app_settings WHERE key = 'a2e_background') AS default_background,\n       (SELECT value FROM app_settings WHERE key = 'a2e_captions') AS captions_enabled\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'a2e_base_url') AS a2e_base_url,\n       (SELECT value FROM app_settings WHERE key = 'a2e_avatar_id') AS default_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_id') AS default_voice_id,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_country') AS voice_country,\n       (SELECT value FROM app_settings WHERE key = 'a2e_voice_region') AS voice_region,\n       (SELECT value FROM app_settings WHERE key = 'a2e_speech_rate') AS speech_rate,\n       (SELECT value FROM app_settings WHERE key = 'a2e_resolution') AS default_resolution,\n       (SELECT value FROM app_settings WHERE key = 'a2e_background') AS default_background,\n       (SELECT value FROM app_settings WHERE key = 'a2e_captions') AS captions_enabled,\n       ps.subtitles_enabled AS db_subtitles_enabled,\n       ps.music_volume AS db_music_volume,\n       mt.file_key AS db_music_file_key\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nLEFT JOIN music_tracks mt ON mt.id = ps.music_track_id\nWHERE ps.id = {{ $json.session_id }};",
         "options": {}
       },
       "id": "load-data-a2e",
       "name": "📂 Загрузка данных",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        680,
-        560
-      ],
+      "position": [680, 560],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -69,16 +57,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst baseUrl = (dbData.a2e_base_url || 'https://video.a2e.ai').replace(/\\/+$/, '');\nconst avatarId = params.a2e_avatar_id || dbData.default_avatar_id || '';\nconst voiceId = params.a2e_voice_id || dbData.default_voice_id || '';\nconst voiceCountry = dbData.voice_country || 'ru';\nconst voiceRegion = dbData.voice_region || '';\nconst speechRate = parseFloat(dbData.speech_rate) || 1.0;\nconst resolution = parseInt(params.a2e_resolution || dbData.default_resolution) || 1080;\nconst background = params.a2e_background || dbData.default_background || '';\nconst captionsEnabled = dbData.captions_enabled === 'true';\n\nif (!avatarId) throw new Error('A2E avatar_id not set');\nif (!voiceId) throw new Error('A2E voice_id not set');\n\nreturn [{ json: {\n  ...params,\n  a2e_base_url: baseUrl,\n  a2e_avatar_id: avatarId,\n  a2e_voice_id: voiceId,\n  voice_country: voiceCountry,\n  voice_region: voiceRegion,\n  speech_rate: speechRate,\n  resolution: resolution,\n  background: background,\n  captions_enabled: captionsEnabled,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst baseUrl = (dbData.a2e_base_url || 'https://video.a2e.ai').replace(/\\/+$/, '');\nconst avatarId = params.a2e_avatar_id || dbData.default_avatar_id || '';\nconst voiceId = params.a2e_voice_id || dbData.default_voice_id || '';\nconst voiceCountry = dbData.voice_country || 'ru';\nconst voiceRegion = dbData.voice_region || '';\nconst speechRate = parseFloat(dbData.speech_rate) || 1.0;\nconst resolution = parseInt(params.a2e_resolution || dbData.default_resolution) || 1080;\nconst background = params.a2e_background || dbData.default_background || '';\n\n// Субтитры: webhook > pipeline_sessions > app_settings\nconst captionsEnabled = params.subtitles_enabled != null\n  ? !!params.subtitles_enabled\n  : (dbData.db_subtitles_enabled != null\n    ? !!dbData.db_subtitles_enabled\n    : dbData.captions_enabled === 'true');\n\n// Музыка\nconst musicFileKey = params.music_file_key || dbData.db_music_file_key || '';\nconst musicVolume = params.music_volume != null ? parseFloat(params.music_volume) : (parseFloat(dbData.db_music_volume) || 0.3);\n\nif (!avatarId) throw new Error('A2E avatar_id not set');\nif (!voiceId) throw new Error('A2E voice_id not set');\n\nreturn [{ json: {\n  ...params,\n  a2e_base_url: baseUrl,\n  a2e_avatar_id: avatarId,\n  a2e_voice_id: voiceId,\n  voice_country: voiceCountry,\n  voice_region: voiceRegion,\n  speech_rate: speechRate,\n  resolution: resolution,\n  background: background,\n  captions_enabled: captionsEnabled,\n  music_file_key: musicFileKey,\n  music_volume: musicVolume,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
       },
       "id": "merge-a2e",
       "name": "🔗 Объединение данных",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        940,
-        560
-      ]
+      "position": [940, 560]
     },
     {
       "parameters": {
@@ -86,18 +71,13 @@
         "url": "={{ $json.a2e_base_url }}/api/v1/user/remainingCoins",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "timeout": 15000
-        }
+        "options": { "timeout": 15000 }
       },
       "id": "check-balance-a2e",
       "name": "💰 Проверка баланса",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1060,
-        400
-      ],
+      "position": [1060, 400],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_A2E_CRED_ID",
@@ -108,16 +88,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nconst balanceResp = $input.first().json;\n\n// Проверяем баланс A2E (если API ответил)\nconst coins = balanceResp?.data?.remainingCoins ?? balanceResp?.data ?? null;\nif (coins !== null && typeof coins === 'number' && coins < 10) {\n  throw new Error('A2E баланс слишком низкий: ' + coins + ' coins. Пополните аккаунт.');\n}\n\nreturn [{ json: { ...ctx, a2e_balance: coins } }];"
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nconst balanceResp = $input.first().json;\n\nconst coins = balanceResp?.data?.remainingCoins ?? balanceResp?.data ?? null;\nif (coins !== null && typeof coins === 'number' && coins < 10) {\n  throw new Error('A2E баланс слишком низкий: ' + coins + ' coins. Пополните аккаунт.');\n}\n\nreturn [{ json: { ...ctx, a2e_balance: coins } }];"
       },
       "id": "validate-balance-a2e",
       "name": "⚖️ Проверка коинов",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1060,
-        560
-      ]
+      "position": [1060, 560]
     },
     {
       "parameters": {
@@ -129,10 +106,7 @@
       "name": "📌 Шаг → TTS",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        1180,
-        560
-      ],
+      "position": [1180, 560],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -149,18 +123,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"msg\": {{ JSON.stringify($('🔗 Объединение данных').first().json.script_text) }},\n  \"tts_id\": {{ JSON.stringify($('🔗 Объединение данных').first().json.a2e_voice_id) }},\n  \"speechRate\": {{ $('🔗 Объединение данных').first().json.speech_rate }},\n  \"country\": {{ JSON.stringify($('🔗 Объединение данных').first().json.voice_country) }},\n  \"region\": {{ JSON.stringify($('🔗 Объединение данных').first().json.voice_region) }}\n}",
-        "options": {
-          "timeout": 120000
-        }
+        "options": { "timeout": 120000 }
       },
       "id": "a2e-tts",
       "name": "🗣️ A2E TTS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1420,
-        560
-      ],
+      "position": [1420, 560],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_A2E_CRED_ID",
@@ -176,10 +145,7 @@
       "name": "🎵 Извлечь аудио URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1660,
-        560
-      ]
+      "position": [1660, 560]
     },
     {
       "parameters": {
@@ -191,10 +157,7 @@
       "name": "📌 Шаг → Видео",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        1900,
-        560
-      ],
+      "position": [1900, 560],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -204,16 +167,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🎵 Извлечь аудио URL').first().json;\n\n// Build A2E video generation request\nconst a2eBody = {\n  title: ctx.title || 'Video ' + ctx.session_id,\n  anchor_id: ctx.a2e_avatar_id,\n  anchor_type: 0,\n  audioSrc: ctx.audio_url,\n  resolution: ctx.resolution || 1080,\n  isSkipRs: true,\n  isCaptionEnabled: ctx.captions_enabled || false,\n  msg: ctx.script_text || ''\n};\n\n// Background: color (#RRGGBB) or leave default\nif (ctx.background) {\n  if (ctx.background.startsWith('#')) {\n    // Convert #RRGGBB to [R,G,B]\n    const hex = ctx.background.replace('#', '');\n    a2eBody.color = [\n      parseInt(hex.substring(0,2), 16),\n      parseInt(hex.substring(2,4), 16),\n      parseInt(hex.substring(4,6), 16)\n    ];\n  } else {\n    a2eBody.back_id = ctx.background;\n  }\n}\n\nreturn [{ json: {\n  body: JSON.stringify(a2eBody),\n  a2e_base_url: ctx.a2e_base_url,\n  session_id: ctx.session_id\n}}];"
+        "jsCode": "const ctx = $('🎵 Извлечь аудио URL').first().json;\n\nconst a2eBody = {\n  title: ctx.title || 'Video ' + ctx.session_id,\n  anchor_id: ctx.a2e_avatar_id,\n  anchor_type: 0,\n  audioSrc: ctx.audio_url,\n  resolution: ctx.resolution || 1080,\n  isSkipRs: true,\n  isCaptionEnabled: ctx.captions_enabled || false,\n  msg: ctx.script_text || ''\n};\n\nif (ctx.background) {\n  if (ctx.background.startsWith('#')) {\n    const hex = ctx.background.replace('#', '');\n    a2eBody.color = [\n      parseInt(hex.substring(0,2), 16),\n      parseInt(hex.substring(2,4), 16),\n      parseInt(hex.substring(4,6), 16)\n    ];\n  } else {\n    a2eBody.back_id = ctx.background;\n  }\n}\n\nreturn [{ json: {\n  body: JSON.stringify(a2eBody),\n  a2e_base_url: ctx.a2e_base_url,\n  session_id: ctx.session_id\n}}];"
       },
       "id": "build-a2e",
       "name": "🏗️ A2E запрос",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2140,
-        560
-      ]
+      "position": [2140, 560]
     },
     {
       "parameters": {
@@ -224,18 +184,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.body }}",
-        "options": {
-          "timeout": 60000
-        }
+        "options": { "timeout": 60000 }
       },
       "id": "a2e-create",
       "name": "🎭 A2E создание видео",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2380,
-        560
-      ],
+      "position": [2380, 560],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_A2E_CRED_ID",
@@ -251,24 +206,15 @@
       "name": "🔑 Извлечь video_id",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2620,
-        560
-      ]
+      "position": [2620, 560]
     },
     {
-      "parameters": {
-        "amount": 20,
-        "unit": "seconds"
-      },
+      "parameters": { "amount": 20, "unit": "seconds" },
       "id": "wait-a2e",
       "name": "⏳ Ждать 20 сек",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [
-        2860,
-        560
-      ]
+      "position": [2860, 560]
     },
     {
       "parameters": {
@@ -279,18 +225,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"_id\": \"{{ $json.video_id }}\" }",
-        "options": {
-          "timeout": 30000
-        }
+        "options": { "timeout": 30000 }
       },
       "id": "poll-a2e",
       "name": "🔄 Проверить статус",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        3100,
-        560
-      ],
+      "position": [3100, 560],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_A2E_CRED_ID",
@@ -301,22 +242,8 @@
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": false,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "a2r",
-              "leftValue": "={{ $json.data?.[0]?.status || '' }}",
-              "rightValue": "success",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "a2r", "leftValue": "={{ $json.data?.[0]?.status || '' }}", "rightValue": "success", "operator": { "type": "string", "operation": "equals" } }],
           "combinator": "and"
         }
       },
@@ -324,23 +251,17 @@
       "name": "✅ Готово?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        3340,
-        560
-      ]
+      "position": [3340, 560]
     },
     {
       "parameters": {
-        "jsCode": "const prev = $input.first().json;\nconst statusData = prev.data?.[0] || {};\nconst status = (statusData.status || 'unknown').toLowerCase();\n\n// Немедленная остановка при ошибке\nif (status === 'fail' || status === 'error' || status === 'failed') {\n  throw new Error('A2E генерация провалилась: ' + JSON.stringify(statusData));\n}\n\n// Счётчик poll — читаем из ТЕКУЩЕГО item, а не из статической ноды\nconst pollCount = (prev.poll_count || 0) + 1;\nif (pollCount > 90) {\n  throw new Error('A2E timeout: ' + pollCount + ' polls (' + Math.round(pollCount * 20 / 60) + ' min)');\n}\n\nreturn [{ json: {\n  video_id: prev.video_id || $('🔑 Извлечь video_id').first().json.video_id,\n  session_id: prev.session_id || $('🔑 Извлечь video_id').first().json.session_id,\n  a2e_base_url: prev.a2e_base_url || $('🔑 Извлечь video_id').first().json.a2e_base_url,\n  poll_count: pollCount\n}}];"
+        "jsCode": "const prev = $input.first().json;\nconst statusData = prev.data?.[0] || {};\nconst status = (statusData.status || 'unknown').toLowerCase();\n\nif (status === 'fail' || status === 'error' || status === 'failed') {\n  throw new Error('A2E генерация провалилась: ' + JSON.stringify(statusData));\n}\n\nconst pollCount = (prev.poll_count || 0) + 1;\nif (pollCount > 90) {\n  throw new Error('A2E timeout: ' + pollCount + ' polls (' + Math.round(pollCount * 20 / 60) + ' min)');\n}\n\nreturn [{ json: {\n  video_id: prev.video_id || $('🔑 Извлечь video_id').first().json.video_id,\n  session_id: prev.session_id || $('🔑 Извлечь video_id').first().json.session_id,\n  a2e_base_url: prev.a2e_base_url || $('🔑 Извлечь video_id').first().json.a2e_base_url,\n  poll_count: pollCount\n}}];"
       },
       "id": "retry-a2e",
       "name": "⏳ Ещё не готово",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        3580,
-        760
-      ]
+      "position": [3580, 760]
     },
     {
       "parameters": {
@@ -350,25 +271,39 @@
       "name": "🎬 URL видео",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        3580,
-        400
-      ]
+      "position": [3580, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nconst sessionId = ctx.session_id;\nconst rawVideoUrl = $('🎬 URL видео').first().json.raw_video_url;\nconst musicKey = ctx.music_file_key || '';\nconst musicVolume = parseFloat(ctx.music_volume) || 0.3;\n\nif (!musicKey) {\n  // Без музыки — используем оригинальное видео от A2E\n  return [{ json: {\n    session_id: sessionId,\n    raw_video_url: rawVideoUrl,\n    final_video_url: rawVideoUrl,\n    command: 'echo NO_MUSIC_NEEDED'\n  }}];\n}\n\n// С музыкой — FFmpeg миксинг\nconst outputPath = '/home/node/output/a2e_final_' + sessionId + '.mp4';\nconst workDir = '/tmp/a2e_mix_' + sessionId;\n\nconst lines = [\n  'set -e',\n  'mkdir -p ' + workDir,\n  'wget -q --timeout=180 -O ' + workDir + '/video.mp4 \"' + rawVideoUrl.replace(/\"/g, '\\\\\"') + '\"',\n  'wget -q --timeout=60 -O ' + workDir + '/music.mp3 \"http://minio:9000/content-factory/' + musicKey + '\"',\n  \"ffmpeg -y -i \" + workDir + \"/video.mp4 -i \" + workDir + \"/music.mp3 -filter_complex '[0:a]volume=1.0[voice];[1:a]volume=\" + musicVolume + \"[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]' -map 0:v -map '[aout]' -c:v copy -c:a aac -b:a 192k -shortest \" + outputPath,\n  'rm -rf ' + workDir,\n  'echo MUSIC_DONE'\n];\n\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: rawVideoUrl,\n  final_video_url: outputPath,\n  command: lines.join('\\n')\n}}];"
+      },
+      "id": "post-process-a2e",
+      "name": "📝 Пост-обработка",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3820, 400]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "exec-music-a2e",
+      "name": "⚡ Наложить музыку",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [4060, 400]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=UPDATE pipeline_sessions SET\n  status = 'ready_for_review',\n  current_step = 'review',\n  raw_video_url = '{{ $json.raw_video_url.replace(/'/g, \"''\") }}',\n  final_video_url = '{{ $json.raw_video_url.replace(/'/g, \"''\") }}',\n  updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $json.session_id }} AND step_name = 'a2e_video';",
+        "query": "=UPDATE pipeline_sessions SET\n  status = 'ready_for_review',\n  current_step = 'review',\n  raw_video_url = '{{ $('📝 Пост-обработка').first().json.raw_video_url.replace(/'/g, \"''\") }}',\n  final_video_url = '{{ $('📝 Пост-обработка').first().json.final_video_url.replace(/'/g, \"''\") }}',\n  updated_at = NOW()\nWHERE id = {{ $('📝 Пост-обработка').first().json.session_id }};\n\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $('📝 Пост-обработка').first().json.session_id }} AND step_name = 'a2e_video';",
         "options": {}
       },
       "id": "finalize-a2e",
       "name": "💾 Финализация",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        3820,
-        400
-      ],
+      "position": [4300, 400],
       "credentials": {
         "postgres": {
           "id": "BXL7joPD69X9xNOu",
@@ -382,247 +317,40 @@
         "url": "http://dashboard:3001/api/internal/video-ready",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"session_id\": {{ $json.session_id }},\n  \"status\": \"ready_for_review\"\n}",
-        "options": {
-          "timeout": 10000
-        }
+        "jsonBody": "={\n  \"session_id\": {{ $('📝 Пост-обработка').first().json.session_id }},\n  \"status\": \"ready_for_review\"\n}",
+        "options": { "timeout": 10000 }
       },
       "id": "cb-a2e",
       "name": "📡 Callback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        4060,
-        400
-      ],
+      "position": [4540, 400],
       "onError": "continueRegularOutput"
     }
   ],
   "connections": {
-    "📥 Webhook": {
-      "main": [
-        [
-          {
-            "node": "🔍 Валидация входа",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🔍 Валидация входа": {
-      "main": [
-        [
-          {
-            "node": "✅ Ответ 200",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "📂 Загрузка данных",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "📂 Загрузка данных": {
-      "main": [
-        [
-          {
-            "node": "🔗 Объединение данных",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🔗 Объединение данных": {
-      "main": [
-        [
-          {
-            "node": "💰 Проверка баланса",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "📌 Шаг → TTS": {
-      "main": [
-        [
-          {
-            "node": "🗣️ A2E TTS",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🗣️ A2E TTS": {
-      "main": [
-        [
-          {
-            "node": "🎵 Извлечь аудио URL",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🎵 Извлечь аудио URL": {
-      "main": [
-        [
-          {
-            "node": "📌 Шаг → Видео",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "📌 Шаг → Видео": {
-      "main": [
-        [
-          {
-            "node": "🏗️ A2E запрос",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🏗️ A2E запрос": {
-      "main": [
-        [
-          {
-            "node": "🎭 A2E создание видео",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🎭 A2E создание видео": {
-      "main": [
-        [
-          {
-            "node": "🔑 Извлечь video_id",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🔑 Извлечь video_id": {
-      "main": [
-        [
-          {
-            "node": "⏳ Ждать 20 сек",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "⏳ Ждать 20 сек": {
-      "main": [
-        [
-          {
-            "node": "🔄 Проверить статус",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🔄 Проверить статус": {
-      "main": [
-        [
-          {
-            "node": "✅ Готово?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "✅ Готово?": {
-      "main": [
-        [
-          {
-            "node": "🎬 URL видео",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "⏳ Ещё не готово",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "⏳ Ещё не готово": {
-      "main": [
-        [
-          {
-            "node": "⏳ Ждать 20 сек",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "🎬 URL видео": {
-      "main": [
-        [
-          {
-            "node": "💾 Финализация",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "💾 Финализация": {
-      "main": [
-        [
-          {
-            "node": "📡 Callback",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "💰 Проверка баланса": {
-      "main": [
-        [
-          {
-            "node": "⚖️ Проверка коинов",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "⚖️ Проверка коинов": {
-      "main": [
-        [
-          {
-            "node": "📌 Шаг → TTS",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "📥 Webhook": { "main": [[{ "node": "🔍 Валидация входа", "type": "main", "index": 0 }]] },
+    "🔍 Валидация входа": { "main": [[{ "node": "✅ Ответ 200", "type": "main", "index": 0 }, { "node": "📂 Загрузка данных", "type": "main", "index": 0 }]] },
+    "📂 Загрузка данных": { "main": [[{ "node": "🔗 Объединение данных", "type": "main", "index": 0 }]] },
+    "🔗 Объединение данных": { "main": [[{ "node": "💰 Проверка баланса", "type": "main", "index": 0 }]] },
+    "💰 Проверка баланса": { "main": [[{ "node": "⚖️ Проверка коинов", "type": "main", "index": 0 }]] },
+    "⚖️ Проверка коинов": { "main": [[{ "node": "📌 Шаг → TTS", "type": "main", "index": 0 }]] },
+    "📌 Шаг → TTS": { "main": [[{ "node": "🗣️ A2E TTS", "type": "main", "index": 0 }]] },
+    "🗣️ A2E TTS": { "main": [[{ "node": "🎵 Извлечь аудио URL", "type": "main", "index": 0 }]] },
+    "🎵 Извлечь аудио URL": { "main": [[{ "node": "📌 Шаг → Видео", "type": "main", "index": 0 }]] },
+    "📌 Шаг → Видео": { "main": [[{ "node": "🏗️ A2E запрос", "type": "main", "index": 0 }]] },
+    "🏗️ A2E запрос": { "main": [[{ "node": "🎭 A2E создание видео", "type": "main", "index": 0 }]] },
+    "🎭 A2E создание видео": { "main": [[{ "node": "🔑 Извлечь video_id", "type": "main", "index": 0 }]] },
+    "🔑 Извлечь video_id": { "main": [[{ "node": "⏳ Ждать 20 сек", "type": "main", "index": 0 }]] },
+    "⏳ Ждать 20 сек": { "main": [[{ "node": "🔄 Проверить статус", "type": "main", "index": 0 }]] },
+    "🔄 Проверить статус": { "main": [[{ "node": "✅ Готово?", "type": "main", "index": 0 }]] },
+    "✅ Готово?": { "main": [[{ "node": "🎬 URL видео", "type": "main", "index": 0 }], [{ "node": "⏳ Ещё не готово", "type": "main", "index": 0 }]] },
+    "⏳ Ещё не готово": { "main": [[{ "node": "⏳ Ждать 20 сек", "type": "main", "index": 0 }]] },
+    "🎬 URL видео": { "main": [[{ "node": "📝 Пост-обработка", "type": "main", "index": 0 }]] },
+    "📝 Пост-обработка": { "main": [[{ "node": "⚡ Наложить музыку", "type": "main", "index": 0 }]] },
+    "⚡ Наложить музыку": { "main": [[{ "node": "💾 Финализация", "type": "main", "index": 0 }]] },
+    "💾 Финализация": { "main": [[{ "node": "📡 Callback", "type": "main", "index": 0 }]] }
   },
-  "settings": {
-    "executionOrder": "v1"
-  },
+  "settings": { "executionOrder": "v1" },
   "tags": []
 }
