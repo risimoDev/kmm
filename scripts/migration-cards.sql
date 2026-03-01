@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS product_cards (
   rich_content_blocks   JSONB DEFAULT '[]',
   infographic_prompts   JSONB DEFAULT '[]',
   a_plus_content        JSONB DEFAULT '{}',
+
+  -- Сгенерированная инфографика
+  infographic_url       TEXT,
   
   -- Настройки
   style                 VARCHAR(50) DEFAULT 'modern',
@@ -80,3 +83,13 @@ DO $$ BEGIN
 END $$;
 
 COMMENT ON TABLE product_cards IS E'\u041a\u0430\u0440\u0442\u043e\u0447\u043a\u0438 \u0442\u043e\u0432\u0430\u0440\u043e\u0432 (AI-\u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043f\u043e \u0444\u043e\u0442\u043e)';
+
+-- ─────────────────────────────────────────
+-- Миграция: добавить infographic_url если отсутствует
+-- ─────────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'product_cards' AND column_name = 'infographic_url') THEN
+    ALTER TABLE product_cards ADD COLUMN infographic_url TEXT;
+  END IF;
+END $$;

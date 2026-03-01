@@ -63,7 +63,7 @@ router.get('/', async (req, res, next) => {
     );
 
     const dataResult = await query(
-      `SELECT id, product_name, image_url, marketplace, artikuls,
+      `SELECT id, product_name, image_url, infographic_url, marketplace, artikuls,
               main_title, subtitle, status, style, created_at, updated_at
        FROM product_cards ${where}
        ORDER BY ${safeSort} ${safeOrder}

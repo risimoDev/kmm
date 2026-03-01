@@ -629,7 +629,7 @@
         <input type="text" id="cards-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadCards()">
       </div>
       <div class="card"><table><thead><tr>
-        <th>ID</th><th>Фото</th><th>Товар</th><th>Маркетплейс</th><th>Заголовок</th><th>Статус</th><th>Дата</th><th>Действия</th>
+        <th>ID</th><th>Фото</th><th>Товар</th><th>Маркетплейс</th><th>Заголовок</th><th>Инфографика</th><th>Статус</th><th>Дата</th><th>Действия</th>
       </tr></thead><tbody id="cards-table"></tbody></table></div>
     </div>
 
@@ -1709,7 +1709,7 @@ async function loadCards() {
     const tbody = document.getElementById('cards-table');
 
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Нет карточек. Генерируйте!</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Нет карточек. Генерируйте!</td></tr>';
       return;
     }
 
@@ -1719,18 +1719,20 @@ async function loadCards() {
       <td>${esc(c.product_name || '—')}</td>
       <td>${esc(c.marketplace || '—')}</td>
       <td title="${esc(c.main_title || '')}">${esc((c.main_title || '—').substring(0, 50))}</td>
+      <td>${c.infographic_url ? `<img src="${esc(c.infographic_url)}" style="width:40px;height:56px;object-fit:cover;border-radius:4px;" title="Инфографика">` : '<span style="color:var(--text3)">—</span>'}</td>
       <td><span class="badge badge-${c.status}">${c.status}</span></td>
       <td>${fmtDate(c.created_at)}</td>
       <td>
         <div class="btn-group">
           <button class="btn btn-sm btn-outline" onclick="openCardDetail(${c.id})">${ico('eye')}</button>
+          ${c.infographic_url ? `<button class="btn btn-sm btn-outline" onclick="downloadCardImage(${c.id}, '${esc(c.infographic_url)}')" title="Скачать инфографику">⬇</button>` : ''}
           ${c.status === 'generated' ? `<button class="btn btn-sm btn-success" onclick="approveCard(${c.id})">✓</button><button class="btn btn-sm btn-danger" onclick="rejectCard(${c.id})">✗</button>` : ''}
           <button class="btn btn-sm btn-danger" onclick="deleteCard(${c.id})">${ico('trash')}</button>
         </div>
       </td>
     </tr>`).join('');
   } catch (e) {
-    document.getElementById('cards-table').innerHTML = `<tr><td colspan="8">Ошибка: ${e.message}</td></tr>`;
+    document.getElementById('cards-table').innerHTML = `<tr><td colspan="9">Ошибка: ${e.message}</td></tr>`;
   }
 }
 
@@ -1805,6 +1807,24 @@ async function openCardDetail(id) {
       <div class="detail-field"><div class="label">Статус</div><div class="value"><span class="badge badge-${c.status}">${c.status}</span></div></div>
       <div class="detail-field"><div class="label">Создано</div><div class="value">${fmtDate(c.created_at)}</div></div>
     </div>`;
+
+    // Инфографика (сгенерированная Seedream)
+    const infraUrl = c.infographic_url || (c.a_plus_content && c.a_plus_content.infographic_url) || null;
+    if (infraUrl) {
+      html += `<div class="card"><h3>🖼️ Инфографика</h3>
+        <img src="${esc(infraUrl)}" style="max-width:100%;max-height:500px;border-radius:8px;margin-bottom:12px;cursor:pointer;" onclick="window.open('${esc(infraUrl)}','_blank')" title="Открыть в новой вкладке">
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary" onclick="downloadCardImage(${c.id}, '${esc(infraUrl)}')">⬇ Скачать инфографику</button>
+          <button class="btn btn-outline" onclick="window.open('${esc(infraUrl)}','_blank')">🔗 Открыть</button>
+        </div>
+      </div>`;
+    } else {
+      html += `<div class="card"><h3>🖼️ Инфографика</h3>
+        <div style="padding:30px;text-align:center;color:var(--text3);background:var(--bg);border-radius:8px;">
+          ${c.status === 'generated' ? '⏳ Инфографика генерируется...' : 'Инфографика не сгенерирована'}
+        </div>
+      </div>`;
+    }
 
     // Заголовок и тексты
     html += `<div class="card"><h3>AI-контент</h3>
@@ -1895,6 +1915,27 @@ async function deleteCard(id) {
     toast('Удалено', 'success');
     loadCards();
   } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+async function downloadCardImage(cardId, url) {
+  try {
+    toast('Скачивание...', 'info');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Не удалось скачать');
+    const blob = await res.blob();
+    const ext = url.match(/\.(png|jpg|jpeg|webp)$/i)?.[1] || 'png';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `card-${cardId}-infographic.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    toast('Скачано!', 'success');
+  } catch (e) {
+    // Если fetch не работает (CORS), открываем в новой вкладке
+    window.open(url, '_blank');
+  }
 }
 
 // ═══════════════════════════════════════════════════
