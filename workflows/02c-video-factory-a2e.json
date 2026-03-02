@@ -167,7 +167,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🎵 Извлечь аудио URL').first().json;\n\nconst a2eBody = {\n  title: ctx.title || 'Video ' + ctx.session_id,\n  anchor_id: ctx.a2e_avatar_id,\n  anchor_type: 0,\n  audioSrc: ctx.audio_url,\n  resolution: ctx.resolution || 1080,\n  isSkipRs: true,\n  isCaptionEnabled: ctx.captions_enabled || false,\n  msg: ctx.script_text || ''\n};\n\nif (ctx.background) {\n  if (ctx.background.startsWith('#')) {\n    const hex = ctx.background.replace('#', '');\n    a2eBody.color = [\n      parseInt(hex.substring(0,2), 16),\n      parseInt(hex.substring(2,4), 16),\n      parseInt(hex.substring(4,6), 16)\n    ];\n  } else {\n    a2eBody.back_id = ctx.background;\n  }\n}\n\nreturn [{ json: {\n  body: JSON.stringify(a2eBody),\n  a2e_base_url: ctx.a2e_base_url,\n  session_id: ctx.session_id\n}}];"
+        "jsCode": "const ctx = $('🎵 Извлечь аудио URL').first().json;\n\nconst result = {\n  session_id: ctx.session_id,\n  a2e_base_url: ctx.a2e_base_url,\n  title: ctx.title || 'Video ' + ctx.session_id,\n  anchor_id: ctx.a2e_avatar_id,\n  anchor_type: 0,\n  audioSrc: ctx.audio_url,\n  resolution: ctx.resolution || 1080,\n  isSkipRs: true,\n  isCaptionEnabled: ctx.captions_enabled || false,\n  msg: ctx.script_text || '',\n  bg_color: null,\n  back_id: null\n};\n\nif (ctx.background) {\n  if (ctx.background.startsWith('#')) {\n    const hex = ctx.background.replace('#', '');\n    result.bg_color = [\n      parseInt(hex.substring(0,2), 16),\n      parseInt(hex.substring(2,4), 16),\n      parseInt(hex.substring(4,6), 16)\n    ];\n  } else {\n    result.back_id = ctx.background;\n  }\n}\n\n// Диагностика: логируем что отправляем\nconsole.log('A2E generate request:', JSON.stringify(result, null, 2));\n\nreturn [{ json: result }];"
       },
       "id": "build-a2e",
       "name": "🏗️ A2E запрос",
@@ -183,8 +183,11 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json.body }}",
-        "options": { "timeout": 60000 }
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"anchor_id\": {{ JSON.stringify($json.anchor_id) }},\n  \"anchor_type\": {{ $json.anchor_type }},\n  \"audioSrc\": {{ JSON.stringify($json.audioSrc) }},\n  \"resolution\": {{ $json.resolution }},\n  \"isSkipRs\": {{ $json.isSkipRs }},\n  \"isCaptionEnabled\": {{ $json.isCaptionEnabled }},\n  \"msg\": {{ JSON.stringify($json.msg) }}{{ $json.bg_color ? ', \"color\": ' + JSON.stringify($json.bg_color) : '' }}{{ $json.back_id ? ', \"back_id\": ' + JSON.stringify($json.back_id) : '' }}\n}",
+        "options": {
+          "timeout": 60000,
+          "response": { "response": { "fullResponse": true } }
+        }
       },
       "id": "a2e-create",
       "name": "🎭 A2E создание видео",
@@ -196,11 +199,12 @@
           "id": "REPLACE_A2E_CRED_ID",
           "name": "A2E API"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nif (response.code !== 0) {\n  throw new Error('A2E video creation failed: ' + (response.msg || JSON.stringify(response)));\n}\n\nconst videoId = response.data?._id;\nif (!videoId) throw new Error('A2E did not return video _id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ A2E запрос').first().json.session_id,\n  a2e_base_url: $('🏗️ A2E запрос').first().json.a2e_base_url,\n  poll_count: 0\n}}];"
+        "jsCode": "const response = $input.first().json;\n\n// Обработка HTTP-ошибок (onError: continueRegularOutput)\nif (response.error || response.statusCode >= 400) {\n  const errBody = response.body || response.data || response;\n  const statusCode = response.statusCode || 'unknown';\n  const errMsg = errBody?.msg || errBody?.message || errBody?.error || JSON.stringify(errBody).substring(0, 500);\n  throw new Error(\n    'A2E video/generate HTTP ' + statusCode + ': ' + errMsg +\n    '\\n\\nОтправленный запрос: ' + JSON.stringify($('🏗️ A2E запрос').first().json, null, 2).substring(0, 1000)\n  );\n}\n\nif (response.code !== undefined && response.code !== 0) {\n  throw new Error('A2E video creation failed (code=' + response.code + '): ' + (response.msg || JSON.stringify(response).substring(0, 500)));\n}\n\nconst videoId = response.data?._id || response._id;\nif (!videoId) {\n  throw new Error(\n    'A2E did not return video _id. Full response: ' +\n    JSON.stringify(response).substring(0, 1000)\n  );\n}\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ A2E запрос').first().json.session_id,\n  a2e_base_url: $('🏗️ A2E запрос').first().json.a2e_base_url,\n  poll_count: 0\n}}];"
       },
       "id": "extract-vid-a2e",
       "name": "🔑 Извлечь video_id",
