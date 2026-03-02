@@ -185,8 +185,7 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"anchor_id\": {{ JSON.stringify($json.anchor_id) }},\n  \"anchor_type\": {{ $json.anchor_type }},\n  \"audioSrc\": {{ JSON.stringify($json.audioSrc) }},\n  \"resolution\": {{ $json.resolution }},\n  \"isSkipRs\": {{ $json.isSkipRs }},\n  \"isCaptionEnabled\": {{ $json.isCaptionEnabled }},\n  \"msg\": {{ JSON.stringify($json.msg) }}{{ $json.bg_color ? ', \"color\": ' + JSON.stringify($json.bg_color) : '' }}{{ $json.back_id ? ', \"back_id\": ' + JSON.stringify($json.back_id) : '' }}\n}",
         "options": {
-          "timeout": 60000,
-          "response": { "response": { "fullResponse": true } }
+          "timeout": 60000
         }
       },
       "id": "a2e-create",
@@ -204,7 +203,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\n\n// Обработка HTTP-ошибок (onError: continueRegularOutput)\nif (response.error || response.statusCode >= 400) {\n  const errBody = response.body || response.data || response;\n  const statusCode = response.statusCode || 'unknown';\n  const errMsg = errBody?.msg || errBody?.message || errBody?.error || JSON.stringify(errBody).substring(0, 500);\n  throw new Error(\n    'A2E video/generate HTTP ' + statusCode + ': ' + errMsg +\n    '\\n\\nОтправленный запрос: ' + JSON.stringify($('🏗️ A2E запрос').first().json, null, 2).substring(0, 1000)\n  );\n}\n\nif (response.code !== undefined && response.code !== 0) {\n  throw new Error('A2E video creation failed (code=' + response.code + '): ' + (response.msg || JSON.stringify(response).substring(0, 500)));\n}\n\nconst videoId = response.data?._id || response._id;\nif (!videoId) {\n  throw new Error(\n    'A2E did not return video _id. Full response: ' +\n    JSON.stringify(response).substring(0, 1000)\n  );\n}\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ A2E запрос').first().json.session_id,\n  a2e_base_url: $('🏗️ A2E запрос').first().json.a2e_base_url,\n  poll_count: 0\n}}];"
+        "jsCode": "const response = $input.first().json;\nconst dump = (v) => typeof v === 'object' ? JSON.stringify(v).substring(0, 800) : String(v);\n\n// onError: continueRegularOutput — ошибки приходят как объект в response\nif (response.error) {\n  const errObj = response.error;\n  const errMsg = typeof errObj === 'string' ? errObj : (errObj.message || dump(errObj));\n  const body = response.body || response.data;\n  const bodyStr = body ? dump(body) : 'no body';\n  throw new Error(\n    'A2E video/generate FAILED: ' + errMsg +\n    '\\nResponse body: ' + bodyStr +\n    '\\nStatus: ' + (response.statusCode || 'N/A') +\n    '\\n\\nОтправлено: ' + dump($('🏗️ A2E запрос').first().json)\n  );\n}\n\nif (response.code !== undefined && response.code !== 0) {\n  throw new Error('A2E video creation failed (code=' + response.code + '): ' + (response.msg || dump(response)));\n}\n\nconst videoId = response.data?._id || response._id;\nif (!videoId) {\n  throw new Error('A2E did not return video _id. Full response: ' + dump(response));\n}\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ A2E запрос').first().json.session_id,\n  a2e_base_url: $('🏗️ A2E запрос').first().json.a2e_base_url,\n  poll_count: 0\n}}];"
       },
       "id": "extract-vid-a2e",
       "name": "🔑 Извлечь video_id",
