@@ -1,7 +1,13 @@
 FROM alpine:3.20 AS fetcher
 
-# Скачиваем статически собранный ffmpeg + шрифты (в hardened-образе n8n нет пакетного менеджера)
+# Шрифты, ffmpeg, Python3 + yt-dlp
+# Python3 нужен потому что официального musl-бинарника yt-dlp не существует —
+# штатный yt-dlp_linux слинкован с glibc (libpython3.13 → posix_fallocate64
+# которого нет в musl), поэтому ставим через pip из Alpine/musl Python.
 RUN apk add --no-cache wget xz fontconfig ttf-dejavu font-noto font-noto-cjk \
+     python3 py3-pip \
+     && pip3 install --break-system-packages --no-cache-dir yt-dlp \
+     && yt-dlp --version \
      && wget -qO /tmp/ffmpeg.tar.xz \
      https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
      && mkdir -p /tmp/ffmpeg \
@@ -14,7 +20,19 @@ USER root
 # Копируем статические бинарники ffmpeg (работают на любом Linux без зависимостей)
 COPY --from=fetcher /tmp/ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 COPY --from=fetcher /tmp/ffmpeg/ffprobe /usr/local/bin/ffprobe
-RUN chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
+
+# Python3 (musl-совместимый от Alpine) + yt-dlp
+# n8n тоже Alpine/musl → Python3-libs совместимы
+COPY --from=fetcher /usr/bin/python3.12 /usr/bin/python3
+COPY --from=fetcher /usr/lib/python3.12 /usr/lib/python3.12
+COPY --from=fetcher /usr/lib/libpython3.12.so.1.0 /usr/lib/libpython3.12.so.1.0
+COPY --from=fetcher /usr/bin/yt-dlp /usr/local/bin/yt-dlp
+
+# libffi нужен для Python ctypes/ssl модулей
+COPY --from=fetcher /usr/lib/libffi* /usr/lib/
+
+RUN chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe /usr/local/bin/yt-dlp \
+     && ln -sf /usr/lib/libpython3.12.so.1.0 /usr/lib/libpython3.12.so
 
 # Шрифты для субтитров (кириллица, латиница, Font Discovery)
 # n8nio/n8n:latest — Docker Hardened Image (Alpine без apk/apt) → копируем из fetcher

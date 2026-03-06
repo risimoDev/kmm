@@ -27,10 +27,12 @@ const analyticsRoutes = require('./src/routes/analytics');
 const settingsRoutes = require('./src/routes/settings');
 const errorsRoutes = require('./src/routes/errors');
 const mediaRoutes = require('./src/routes/media');
-const cardsRoutes = require('./src/routes/cards');
-const usersRoutes = require('./src/routes/users');
-const internalRoutes = require('./src/routes/internal');
-const healthRoutes = require('./src/routes/health');
+const cardsRoutes      = require('./src/routes/cards');
+const usersRoutes      = require('./src/routes/users');
+const internalRoutes   = require('./src/routes/internal');
+const healthRoutes     = require('./src/routes/health');
+const referencesRoutes = require('./src/routes/references');
+const composerRoutes   = require('./src/routes/composer');
 
 // ─── Config ───
 const PORT = process.env.DASHBOARD_PORT || 3001;
@@ -113,8 +115,10 @@ app.use('/api/settings',  authMiddleware, settingsRoutes);
 app.use('/api/errors',    authMiddleware, errorsRoutes);
 app.use('/api/cards',     authMiddleware, cardsRoutes);
 app.use('/api/users',     authMiddleware, usersRoutes);
-app.use('/api/internal',  internalRoutes);  // Для N8N callbacks — без auth, по Docker сети
-app.use('/api/health',    healthRoutes);
+app.use('/api/internal',    internalRoutes);    // Для N8N callbacks — без auth, по Docker сети
+app.use('/api/health',      healthRoutes);
+app.use('/api/references',  authMiddleware, referencesRoutes);
+app.use('/api/composer',    authMiddleware, composerRoutes);
 
 // ─── SPA Fallback ───
 app.get('*', (req, res) => {

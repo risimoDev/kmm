@@ -1,0 +1,174 @@
+{
+  "name": "05 — Анализатор вирусного контента",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-analyzer",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-ca",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "webhookId": "content-analyzer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst url = (body.url || '').trim();\nif (!url) throw new Error('url is required');\n\n// Basic URL validation — only allow http/https\nif (!/^https?:\\/\\//i.test(url)) throw new Error('Invalid URL: must start with http:// or https://');\n\n// Detect platform\nlet platform = 'other';\nif (/youtube\\.com|youtu\\.be/i.test(url)) platform = 'youtube';\nelse if (/tiktok\\.com/i.test(url)) platform = 'tiktok';\nelse if (/instagram\\.com/i.test(url)) platform = 'instagram';\n\nreturn [{ json: {\n  url,\n  platform,\n  analysis_focus: body.analysis_focus || '',\n  reference_id: body.reference_id || null\n}}];"
+      },
+      "id": "validate-ca",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT key, value FROM app_settings WHERE key IN ('ai_base_url', 'ai_model');",
+        "options": {}
+      },
+      "id": "load-settings-ca",
+      "name": "⚙️ Настройки AI",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('⚙️ Настройки AI').all().map(i => i.json);\nconst settings = {};\nfor (const r of rows) { if (r.key) settings[r.key] = r.value; }\nconst params = $('🔍 Валидация входа').first().json;\nreturn [{ json: {\n  ...params,\n  ai_base_url: settings.ai_base_url || 'https://gptunnel.ru/v1',\n  ai_model: settings.ai_model || 'gpt-4o'\n}}];"
+      },
+      "id": "merge-settings-ca",
+      "name": "🔧 Слияние настроек",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\n// Sanitize URL — escape single quotes to prevent command injection\nconst safeUrl = ctx.url.replace(/'/g, \"'\\\\''\");\n// Run yt-dlp: dump JSON metadata only (no download), timeout 60s\nconst cmd = [\n  'set -e',\n  `yt-dlp -j --no-playlist --socket-timeout 60 --no-warnings '${safeUrl}' 2>&1 | head -c 80000`\n].join('\\n');\nreturn [{ json: { command: cmd, ctx } }];"
+      },
+      "id": "build-ytdlp-cmd-ca",
+      "name": "🛠️ Команда yt-dlp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "exec-ytdlp-ca",
+      "name": "▶️ Запуск yt-dlp",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nconst ctx = $('🛠️ Команда yt-dlp').first().json.ctx;\n\nconst stdout = (result.stdout || result.output || '').trim();\nif (!stdout || stdout.startsWith('ERROR')) {\n  throw new Error('yt-dlp failed: ' + (stdout || result.stderr || 'no output').substring(0, 300));\n}\n\nlet meta;\ntry {\n  // Take first complete JSON object (playlist returns multiple lines)\n  const firstLine = stdout.split('\\n').find(l => l.trim().startsWith('{'));\n  meta = JSON.parse(firstLine || stdout);\n} catch (e) {\n  throw new Error('Failed to parse yt-dlp output: ' + e.message);\n}\n\nconst tags = (meta.tags || []).slice(0, 20);\nconst description = (meta.description || '').substring(0, 600);\n\nreturn [{ json: {\n  ...ctx,\n  meta_title: meta.title || '',\n  meta_description: description,\n  meta_view_count: meta.view_count || 0,\n  meta_like_count: meta.like_count || 0,\n  meta_duration: Math.round(meta.duration || 0),\n  meta_tags: tags,\n  meta_channel: meta.uploader || meta.channel || '',\n  meta_upload_date: meta.upload_date || '',\n  meta_thumbnail: meta.thumbnail || '',\n  meta_extractor: meta.extractor || ctx.platform\n}}];"
+      },
+      "id": "parse-meta-ca",
+      "name": "📊 Парсинг метаданных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\n\nconst systemPrompt = 'Ты — эксперт по вирусному видеоконтенту и контент-маркетингу для маркетплейсов (Wildberries, Ozon) и соцсетей (TikTok, Reels, Shorts).\\n\\nТвоя задача: разобрать видео по косточкам и выявить точные триггеры вирусности.\\n\\nПравила:\\n- Только достоверные наблюдения, не выдумывай факты.\\n- Анализируй структуру, хук, монтаж и психологические триггеры.\\n- Давай конкретные советы по адаптации для продуктового контента.\\n\\nОтвечай СТРОГО в JSON.';\n\nconst durationMin = Math.floor(ctx.meta_duration / 60);\nconst durationSec = ctx.meta_duration % 60;\nconst durationStr = durationMin > 0 ? `${durationMin}м ${durationSec}с` : `${durationSec}с`;\n\nconst userMsg = `Проанализируй это видео:\\n\\nПлатформа: ${ctx.platform}\\nНазвание: ${ctx.meta_title}\\nПросмотры: ${(ctx.meta_view_count || 0).toLocaleString('ru')}\\nЛайки: ${(ctx.meta_like_count || 0).toLocaleString('ru')}\\nДлительность: ${durationStr}\\nКанал / автор: ${ctx.meta_channel}\\nТеги (до 15): ${(ctx.meta_tags || []).slice(0,15).join(', ') || 'нет'}\\nОписание (до 600 символов):\\n${ctx.meta_description}\\n\\n${ctx.analysis_focus ? 'Фокус анализа: ' + ctx.analysis_focus + '\\n\\n' : ''}Верни JSON строго такой структуры:\\n{\\n  \"hook_type\": \"тип хука первых 2-3 сек: вопрос / шоковый-факт / обещание-результата / загадка / провокация / юмор\",\\n  \"video_structure\": \"краткое описание структуры видео (2-3 предложения)\",\\n  \"editing_style\": \"быстрый-монтаж / медленный / динамичный / POV / лайфстайл / продуктовый / talking-head\",\\n  \"viral_reasons\": [\"причина 1\", \"причина 2\", \"причина 3\"],\\n  \"viral_score\": 8,\\n  \"key_techniques\": [\"техника 1\", \"техника 2\", \"техника 3\"],\\n  \"adaptation_tips\": [\"конкретный совет 1 для продуктового видео\", \"совет 2\", \"совет 3\"],\\n  \"recommended_hooks\": [\"готовый хук 1\", \"готовый хук 2\"]\\n}`;\n\nreturn [{ json: {\n  url: ctx.ai_base_url + '/chat/completions',\n  body: JSON.stringify({\n    model: ctx.ai_model,\n    temperature: 0.5,\n    max_tokens: 2000,\n    response_format: { type: 'json_object' },\n    messages: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: userMsg }\n    ]\n  }),\n  ctx\n}}];"
+      },
+      "id": "build-prompt-ca",
+      "name": "🏗️ Промпт анализа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "analyze-ca",
+      "name": "🧠 LLM Анализ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2120, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst ctx = $('🏗️ Промпт анализа').first().json.ctx;\n\nlet analysis;\ntry {\n  const content = (response.body || response).choices[0].message.content;\n  analysis = JSON.parse(content);\n} catch (e) {\n  throw new Error('Failed to parse LLM analysis: ' + e.message);\n}\n\nreturn [{ json: {\n  ctx,\n  analysis,\n  viral_score: Math.min(10, Math.max(0, parseInt(analysis.viral_score) || 0)),\n  hook_type: (analysis.hook_type || '').substring(0, 200),\n  editing_style: (analysis.editing_style || '').substring(0, 200)\n}}];"
+      },
+      "id": "parse-analysis-ca",
+      "name": "📋 Парсинг анализа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2360, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO viral_references (\n  url, platform, title, description,\n  view_count, like_count, duration_sec,\n  tags, channel_name, upload_date, thumbnail_url,\n  analysis, viral_score, hook_type, editing_style,\n  status, analyzed_at\n) VALUES (\n  '{{ $json.ctx.url.replace(/'/g, \"''\") }}',\n  '{{ $json.ctx.platform }}',\n  '{{ ($json.ctx.meta_title || '').replace(/'/g, \"''\") }}',\n  '{{ ($json.ctx.meta_description || '').replace(/'/g, \"''\") }}',\n  {{ $json.ctx.meta_view_count || 0 }},\n  {{ $json.ctx.meta_like_count || 0 }},\n  {{ $json.ctx.meta_duration || 0 }},\n  ARRAY[{{ ($json.ctx.meta_tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') || \"''\" }}],\n  '{{ ($json.ctx.meta_channel || '').replace(/'/g, \"''\") }}',\n  '{{ $json.ctx.meta_upload_date || '' }}',\n  '{{ ($json.ctx.meta_thumbnail || '').replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json.analysis).replace(/'/g, \"''\") }}'::jsonb,\n  {{ $json.viral_score }},\n  '{{ $json.hook_type.replace(/'/g, \"''\") }}',\n  '{{ $json.editing_style.replace(/'/g, \"''\") }}',\n  'analyzed',\n  NOW()\n)\nON CONFLICT DO NOTHING\nRETURNING id, url, viral_score, hook_type, status;",
+        "options": {}
+      },
+      "id": "save-ca",
+      "name": "💾 Сохранить референс",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2600, 300],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $('💾 Сохранить референс').first().json;\nconst ctx = $('📋 Парсинг анализа').first().json.ctx;\nconst analysis = $('📋 Парсинг анализа').first().json.analysis;\nreturn [{ json: {\n  success: true,\n  reference_id: saved.id,\n  url: ctx.url,\n  platform: ctx.platform,\n  title: ctx.meta_title,\n  viral_score: saved.viral_score,\n  hook_type: saved.hook_type,\n  analysis\n}}];"
+      },
+      "id": "respond-ca",
+      "name": "📤 Ответ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2840, 300]
+    }
+  ],
+  "connections": {
+    "📥 Webhook":           { "main": [[{ "node": "🔍 Валидация входа",    "type": "main", "index": 0 }]] },
+    "🔍 Валидация входа":   { "main": [[{ "node": "⚙️ Настройки AI",       "type": "main", "index": 0 }]] },
+    "⚙️ Настройки AI":      { "main": [[{ "node": "🔧 Слияние настроек",   "type": "main", "index": 0 }]] },
+    "🔧 Слияние настроек":  { "main": [[{ "node": "🛠️ Команда yt-dlp",     "type": "main", "index": 0 }]] },
+    "🛠️ Команда yt-dlp":    { "main": [[{ "node": "▶️ Запуск yt-dlp",       "type": "main", "index": 0 }]] },
+    "▶️ Запуск yt-dlp":      { "main": [[{ "node": "📊 Парсинг метаданных", "type": "main", "index": 0 }]] },
+    "📊 Парсинг метаданных": { "main": [[{ "node": "🏗️ Промпт анализа",    "type": "main", "index": 0 }]] },
+    "🏗️ Промпт анализа":    { "main": [[{ "node": "🧠 LLM Анализ",         "type": "main", "index": 0 }]] },
+    "🧠 LLM Анализ":         { "main": [[{ "node": "📋 Парсинг анализа",   "type": "main", "index": 0 }]] },
+    "📋 Парсинг анализа":    { "main": [[{ "node": "💾 Сохранить референс", "type": "main", "index": 0 }]] },
+    "💾 Сохранить референс": { "main": [[{ "node": "📤 Ответ",              "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "staticData": null,
+  "tags": []
+}

@@ -57,7 +57,7 @@
 | 3 | ✅ Ответ 200 | Немедленный ответ (async processing) |
 | 4 | 📂 Загрузка данных | Загружает сценарий, промпт, данные из БД |
 | 5 | 🔊 TTS генерация | Озвучка через OpenAI TTS API |
-| 6 | 🎥 Minimax видео | Генерация видео через Minimax API |
+| 6 | 🎥 GPTunnel видео | Генерация видео через GPTunnel Veo-3.1 |
 | 7 | 🔄 Полинг статуса | Цикл ожидания готовности видео (до 10 мин) |
 | 8 | 📝 Субтитры SRT | Генерация файла субтитров |
 | 9 | 🎞️ FFmpeg монтаж | Сборка: видео + аудио + субтитры + водяной знак |
@@ -67,7 +67,7 @@
 **Credentials:**
 
 - `httpHeaderAuth` → **TTS Provider** (OpenAI / ElevenLabs)
-- `httpHeaderAuth` → **Minimax Video API**
+- `httpHeaderAuth` → **AI Provider (GPTunnel)** — для TTS и видео
 - `httpHeaderAuth` → **Telegram Bot** (опционально)
 - `postgres` → **Content Factory DB**
 
@@ -141,14 +141,7 @@
 3. **Header Value:** `Bearer ВАШ_OPENAI_KEY` (или ElevenLabs key)
 4. **Имя:** `TTS Provider (OpenAI / ElevenLabs)`
 
-### Шаг 4: Minimax Credential
-
-1. Тип: **Header Auth**
-2. **Header Name:** `Authorization`
-3. **Header Value:** `Bearer ВАШ_MINIMAX_KEY`
-4. **Имя:** `Minimax Video API`
-
-### Шаг 5: Telegram Bot Credential
+### Шаг 4: Telegram Bot Credential
 
 1. Тип: **Header Auth**
 2. **Header Name:** оставьте пустым (токен передаётся в URL)
@@ -203,14 +196,14 @@ volumes:
 
 В JSON файлах используются плейсхолдеры. После импорта замените на реальные ID:
 
-| Плейсхолдер              | На что менять                 |
-| ------------------------ | ----------------------------- |
-| `POSTGRES_CREDENTIAL_ID` | ID вашего Postgres credential |
-| `AI_CREDENTIAL_ID`       | ID вашего AI credential       |
-| `TTS_CREDENTIAL_ID`      | ID TTS credential             |
-| `MINIMAX_CREDENTIAL_ID`  | ID Minimax credential         |
-| `TELEGRAM_CREDENTIAL_ID` | ID Telegram credential        |
-| `VK_CREDENTIAL_ID`       | ID VK credential              |
+| Плейсхолдер              | На что менять                  |
+| ------------------------ | ------------------------------ |
+| `POSTGRES_CREDENTIAL_ID` | ID вашего Postgres credential  |
+| `AI_CREDENTIAL_ID`       | ID вашего AI credential        |
+| `TTS_CREDENTIAL_ID`      | ID TTS credential              |
+| `GPTUNNEL_CREDENTIAL_ID` | ID GPTunnel credential (video) |
+| `TELEGRAM_CREDENTIAL_ID` | ID Telegram credential         |
+| `VK_CREDENTIAL_ID`       | ID VK credential               |
 
 > 💡 **Как найти ID:** в N8N откройте credential → посмотрите ID в адресной строке браузера
 

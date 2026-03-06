@@ -14,13 +14,16 @@
       --border: #2e3348;
       --text: #e4e4e7;
       --text2: #9ca3af;
+      --text3: #6b7280;
       --accent: #6366f1;
       --accent2: #818cf8;
       --green: #22c55e;
       --red: #ef4444;
+      --danger: #ef4444;
       --yellow: #eab308;
       --blue: #3b82f6;
       --radius: 10px;
+      --sidebar-w: 220px;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
@@ -112,6 +115,8 @@
     .toast { position:fixed; bottom:20px; right:20px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:12px 20px; z-index:200; animation: slideIn 0.3s; }
     .toast.success { border-color:var(--green); }
     .toast.error { border-color:var(--red); }
+    .toast.info { border-color:var(--blue); }
+    .toast.warning { border-color:var(--yellow); }
     @keyframes slideIn { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
 
     .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -217,10 +222,34 @@
     .nav-item:hover { background:rgba(99,102,241,0.08); transform:translateX(3px); }
     .nav-item.active { background:rgba(99,102,241,0.12); border-right-color:var(--accent); box-shadow:inset 0 0 20px rgba(99,102,241,0.05); }
 
+    /* ═══ Dashboard ═══ */
     .stat-card { position:relative; overflow:hidden; transition:transform 0.2s,border-color 0.2s; }
     .stat-card::after { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); opacity:0.8; }
+    .stat-card.stat-green::after { background:linear-gradient(90deg,#16a34a,#22c55e); }
+    .stat-card.stat-yellow::after { background:linear-gradient(90deg,#ca8a04,#eab308); }
+    .stat-card.stat-red::after { background:linear-gradient(90deg,#dc2626,#ef4444); }
+    .stat-card.stat-blue::after { background:linear-gradient(90deg,#2563eb,#3b82f6); }
     .stat-card:hover { border-color:rgba(99,102,241,0.3); transform:translateY(-2px); }
     .stat-card .stat-value { background:linear-gradient(135deg,#e4e4e7,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .stat-card.stat-green .stat-value { background:linear-gradient(135deg,#bbf7d0,#22c55e); -webkit-background-clip:text; background-clip:text; }
+    .stat-card.stat-yellow .stat-value { background:linear-gradient(135deg,#fef08a,#eab308); -webkit-background-clip:text; background-clip:text; }
+    .stat-card.stat-red .stat-value { background:linear-gradient(135deg,#fecaca,#ef4444); -webkit-background-clip:text; background-clip:text; }
+    .stat-card.stat-blue .stat-value { background:linear-gradient(135deg,#bfdbfe,#3b82f6); -webkit-background-clip:text; background-clip:text; }
+    .stat-card .stat-icon { position:absolute; right:14px; top:50%; transform:translateY(-50%); opacity:0.07; }
+    .stat-card .stat-icon svg { width:48px; height:48px; }
+    .quick-action-btn { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border); cursor:pointer; transition:all 0.2s; margin-bottom:8px; width:100%; text-align:left; color:var(--text); font-size:13px; }
+    .quick-action-btn:hover { border-color:var(--accent); background:rgba(99,102,241,0.08); transform:translateX(3px); }
+    .quick-action-btn .qa-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .quick-action-btn .qa-text strong { display:block; font-size:13px; }
+    .quick-action-btn .qa-text span { font-size:11px; color:var(--text2); }
+    /* Recent video rows */
+    .recent-video-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s; border-radius:6px; padding:8px; margin:-8px; }
+    .recent-video-row:last-child { border-bottom:none; }
+    .recent-video-row:hover { background:rgba(99,102,241,0.05); }
+    .recent-video-row .rvr-icon { width:36px; height:36px; border-radius:6px; background:var(--bg3); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .recent-video-row .rvr-body { flex:1; min-width:0; }
+    .recent-video-row .rvr-title { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-video-row .rvr-meta { font-size:11px; color:var(--text2); margin-top:2px; }
 
     .card { transition:border-color 0.2s; }
     .card:hover { border-color:rgba(99,102,241,0.2); }
@@ -268,6 +297,14 @@
     .mobile-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:35; }
     .mobile-overlay.active { display:block; }
 
+    /* Mobile bottom navigation */
+    .mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; z-index:50; background:var(--bg2); border-top:1px solid var(--border); padding:6px 0 env(safe-area-inset-bottom,6px); }
+    .mobile-bottom-nav .nav-items { display:flex; justify-content:space-around; align-items:center; }
+    .mobile-bottom-nav .m-nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 8px; color:var(--text2); cursor:pointer; border-radius:8px; min-width:52px; transition:color 0.15s; }
+    .mobile-bottom-nav .m-nav-item.active { color:var(--accent2); }
+    .mobile-bottom-nav .m-nav-item svg { width:20px; height:20px; }
+    .mobile-bottom-nav .m-nav-item span { font-size:10px; }
+
     /* ═══ Table scroll wrapper ═══ */
     .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 
@@ -275,7 +312,11 @@
     @media (max-width:768px) {
       .sidebar { display:none; position:fixed; width:260px; height:100vh; }
       .mobile-menu-btn { display:block; }
-      .main { margin-left:0; padding:16px; padding-top:52px; }
+      .mobile-bottom-nav { display:block; }
+      .main { margin-left:0; padding:16px; padding-top:52px; padding-bottom:72px; }
+
+      /* Dashboard bottom grid */
+      #dashboard-bottom-grid { grid-template-columns:1fr !important; }
 
       /* Page header */
       .page-header { flex-direction:column; align-items:flex-start; gap:10px; }
@@ -386,6 +427,133 @@
       .btn { font-size:12px; padding:6px 10px; }
       .btn-sm { padding:3px 6px; font-size:10px; }
     }
+
+    /* ═══ Nav Section Labels ═══ */
+    .nav-section-label { padding:14px 20px 4px; font-size:10px; font-weight:700; letter-spacing:0.9px; text-transform:uppercase; color:var(--text3); pointer-events:none; }
+    .nav-sep { height:1px; background:var(--border); margin:6px 12px; }
+
+    /* ═══ Viral References ═══ */
+    .ref-platform-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+    .ref-platform-youtube { background:rgba(255,0,0,0.15); color:#ff5252; }
+    .ref-platform-tiktok { background:rgba(0,242,234,0.15); color:#00e5db; }
+    .ref-platform-other { background:rgba(156,163,175,0.15); color:#9ca3af; }
+    .ref-analysis-tag { display:inline-block; padding:3px 8px; background:rgba(99,102,241,0.12); color:var(--accent2); border-radius:4px; font-size:11px; margin:2px; border:1px solid rgba(99,102,241,0.2); }
+
+    /* ═══ Style Packs ═══ */
+    .pack-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+    .pack-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; transition:all 0.2s; position:relative; overflow:hidden; }
+    .pack-card:hover { border-color:rgba(99,102,241,0.4); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.2); }
+    .pack-card-bar { height:4px; margin:-16px -16px 14px; border-radius:10px 10px 0 0; }
+    .pack-swatch { display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,0.15); vertical-align:middle; }
+    .new-badge { display:inline-block; padding:2px 6px; background:linear-gradient(135deg,#6366f1,#a855f7); color:#fff; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.3px; margin-left:6px; vertical-align:middle; }
+
+    /* ═══ Feature Banner ═══ */
+    .feature-banner { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:10px; border:1px solid rgba(99,102,241,0.2); background:rgba(99,102,241,0.05); margin-bottom:10px; cursor:pointer; transition:all 0.2s; text-decoration:none; color:var(--text); }
+    .feature-banner:hover { border-color:rgba(99,102,241,0.4); background:rgba(99,102,241,0.1); transform:translateX(3px); }
+    .feature-banner .fb-icon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .feature-banner .fb-title { font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+    .feature-banner .fb-desc { font-size:11px; color:var(--text2); margin-top:2px; }
+
+    @media (max-width:768px) {
+      .pack-cards-grid { grid-template-columns:1fr; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       Create Video — Redesign
+    ═══════════════════════════════════════════════════ */
+    .cv-step-label { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--text2); margin-bottom:10px; }
+    .cv-step-num { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:var(--accent); color:#fff; font-size:10px; font-weight:700; flex-shrink:0; }
+
+    /* Type cards */
+    .cv-type-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:22px; }
+    @media(max-width:580px){ .cv-type-grid { grid-template-columns:1fr; } }
+
+    /* ═══ Pipeline / Schedule ═══ */
+    .pl-master { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:22px 24px; margin-bottom:22px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; transition:all 0.3s; }
+    .pl-master.running { border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.04); }
+    .pl-status-dot { width:12px; height:12px; border-radius:50%; background:var(--text3); flex-shrink:0; transition:all 0.3s; }
+    .pl-status-dot.running { background:var(--green); box-shadow:0 0 0 4px rgba(34,197,94,0.2); animation:pulse 1.5s infinite; }
+    .pl-status-dot.partial { background:var(--yellow); }
+    .pl-launch-btn { padding:12px 26px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:9px; transition:all 0.2s; box-shadow:0 4px 16px rgba(34,197,94,0.3); white-space:nowrap; }
+    .pl-launch-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(34,197,94,0.42); }
+    .pl-launch-btn.stop { background:linear-gradient(135deg,#ef4444,#dc2626); box-shadow:0 4px 16px rgba(239,68,68,0.3); }
+    .pl-launch-btn.stop:hover { box-shadow:0 8px 24px rgba(239,68,68,0.42); }
+    .pipeline-flow { display:grid; grid-template-columns:1fr 28px 1fr 28px 1fr 28px 1fr; gap:0; margin-bottom:22px; align-items:start; }
+    @media(max-width:1024px){ .pipeline-flow { grid-template-columns:1fr 24px 1fr; } .pf-hide-mobile { display:none; } }
+    @media(max-width:640px){ .pipeline-flow { grid-template-columns:1fr; } .pipeline-connector { transform:rotate(90deg); justify-self:center; margin:2px 0; } }
+    .pipeline-connector { display:flex; align-items:flex-start; justify-content:center; padding-top:34px; color:var(--text3); }
+    .pipeline-stage { background:var(--bg2); border:2px solid var(--border); border-radius:14px; padding:16px; transition:all 0.25s; }
+    .pipeline-stage.stage-active { border-color:rgba(99,102,241,0.45); background:rgba(99,102,241,0.04); box-shadow:0 4px 16px rgba(99,102,241,0.1); }
+    .pipeline-stage-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border); gap:8px; }
+    .pipeline-stage-title { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; min-width:0; }
+    .pipeline-stage-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .stage-field { margin-bottom:10px; }
+    .stage-field:last-child { margin-bottom:0; }
+    .stage-field > label { display:block; font-size:10px; font-weight:700; letter-spacing:0.7px; text-transform:uppercase; color:var(--text3); margin-bottom:4px; }
+    .stage-field input, .stage-field select { width:100%; }
+    .stage-run-btn { width:100%; margin-top:14px; padding:8px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:8px; color:var(--accent2); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .stage-run-btn:hover { background:rgba(99,102,241,0.2); }
+    .sched-channel-lbl { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--text); cursor:pointer; padding:5px 0; user-select:none; }
+    .sched-channel-lbl input { accent-color:var(--accent); cursor:pointer; width:14px; height:14px; }
+    .cv-type-card { position:relative; padding:16px 10px 14px; border:2px solid var(--border); border-radius:14px; background:var(--bg2); cursor:pointer; text-align:center; transition:all 0.2s; user-select:none; }
+    .cv-type-card:hover { border-color:rgba(99,102,241,0.45); background:var(--bg3); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.18); }
+    .cv-type-card.active { border-color:var(--accent); background:rgba(99,102,241,0.09); box-shadow:0 0 0 1px var(--accent), 0 6px 20px rgba(99,102,241,0.15); transform:translateY(-2px); }
+    .cv-type-icon { width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; }
+    .cv-type-name { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .cv-type-hint { font-size:11px; color:var(--text2); line-height:1.3; }
+    .cv-type-badge { position:absolute; top:7px; right:7px; font-size:9px; font-weight:700; padding:2px 6px; border-radius:20px; background:rgba(251,146,60,0.2); color:#fb923c; letter-spacing:0.5px; }
+    .cv-type-badge-ai { background:rgba(99,102,241,0.2); color:var(--accent2); }
+    .cv-type-check { position:absolute; bottom:7px; right:7px; width:16px; height:16px; border-radius:50%; background:var(--accent); display:none; align-items:center; justify-content:center; }
+    .cv-type-card.active .cv-type-check { display:flex; }
+
+    /* Two-column layout */
+    .cv-layout { display:grid; grid-template-columns:1fr 310px; gap:20px; align-items:start; }
+    @media(max-width:1020px){ .cv-layout { grid-template-columns:1fr; } }
+
+    /* Sections */
+    .cv-section { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px; }
+    .cv-section-header { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--text); margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+    .cv-section-header > svg { flex-shrink:0; opacity:0.65; }
+
+    /* Idea preview */
+    .cv-idea-preview { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    @media(max-width:600px){ .cv-idea-preview { grid-template-columns:1fr; } }
+    .cv-preview-col { background:var(--bg3); border-radius:10px; padding:12px; border:1px solid var(--border); }
+    .cv-preview-label { font-size:10px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--text3); margin-bottom:6px; }
+    .cv-preview-text { font-size:12px; color:var(--text2); line-height:1.6; max-height:90px; overflow-y:auto; }
+
+    /* Toggle switches */
+    .cv-option-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); gap:12px; }
+    .cv-option-row:last-child { border-bottom:none; padding-bottom:0; }
+    .cv-option-name { font-size:13px; font-weight:500; color:var(--text); }
+    .cv-option-desc { font-size:11px; color:var(--text2); margin-top:2px; }
+    .cv-toggle-switch { position:relative; display:inline-block; width:38px; height:22px; flex-shrink:0; }
+    .cv-toggle-switch input { opacity:0; width:0; height:0; position:absolute; }
+    .cv-toggle-knob { position:absolute; cursor:pointer; inset:0; background:var(--bg3); border:1px solid var(--border); border-radius:22px; transition:all 0.22s; }
+    .cv-toggle-knob::before { content:''; position:absolute; width:16px; height:16px; left:2px; top:50%; transform:translateY(-50%); background:var(--text3); border-radius:50%; transition:all 0.22s; }
+    .cv-toggle-switch input:checked + .cv-toggle-knob { background:var(--accent); border-color:var(--accent); }
+    .cv-toggle-switch input:checked + .cv-toggle-knob::before { transform:translate(16px,-50%); background:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+
+    /* Music volume row */
+    .cv-music-vol-row { display:flex; align-items:center; gap:10px; margin-top:12px; }
+    .cv-music-vol-row > label { font-size:12px; color:var(--text2); white-space:nowrap; }
+    .cv-music-vol-row > input[type=range] { flex:1; }
+    .cv-music-vol-row > span { font-size:12px; color:var(--accent2); font-weight:600; min-width:34px; text-align:right; }
+
+    /* Launch button */
+    .cv-launch-btn { width:100%; padding:15px; background:linear-gradient(135deg,var(--accent) 0%,#a855f7 100%); color:#fff; border:none; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:opacity 0.15s,transform 0.12s,box-shadow 0.15s; margin-bottom:14px; box-shadow:0 4px 18px rgba(99,102,241,0.35); letter-spacing:0.3px; }
+    .cv-launch-btn:hover { opacity:0.94; transform:translateY(-2px); box-shadow:0 8px 28px rgba(99,102,241,0.45); }
+    .cv-launch-btn:active { transform:translateY(0); }
+    .cv-launch-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
+    /* Progress card */
+    .cv-progress-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:16px; }
+
+    @media (max-width:768px) {
+      .cv-type-grid { gap:8px; }
+      .cv-type-card { padding:12px 8px; }
+      .cv-type-icon { width:40px; height:40px; border-radius:10px; }
+    }
   </style>
 </head>
 <body>
@@ -407,15 +575,52 @@
 <!-- ═══ Main App ═══ -->
 <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileMenu()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
 <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
+
+<!-- Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <div class="nav-items">
+    <div class="m-nav-item active" data-page="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
+      <span>Главная</span>
+    </div>
+    <div class="m-nav-item" data-page="videos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+      <span>Видео</span>
+    </div>
+    <div class="m-nav-item" data-page="create-video" style="position:relative;">
+      <div style="background:var(--accent);border-radius:50%;padding:8px;margin-top:-14px;border:3px solid var(--bg);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+      <span>Создать</span>
+    </div>
+    <div class="m-nav-item" data-page="cards">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      <span>Карточки</span>
+    </div>
+    <div class="m-nav-item" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Настройки</span>
+    </div>
+  </div>
+</nav>
 <div id="app" class="app">
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M2 20V8l7-3v5l7-3v5l6-3v11H2z"/></svg> Контент Завод</div>
+    <div class="nav-section-label">Главная</div>
     <div class="nav-item active" data-page="dashboard"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg></span> Дашборд</div>
+    <div class="nav-sep"></div>
+    <div class="nav-section-label">Производство</div>
     <div class="nav-item" data-page="content"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.9V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.1A7 7 0 0 0 12 2z"/></svg></span> Контент-банк</div>
     <div class="nav-item" data-page="create-video"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4z"/><path d="M4 11l3.5-5.5L11 11"/><path d="M11 11l3.5-5.5L18 11"/><path d="M4 11h16"/></svg></span> Создать видео</div>
     <div class="nav-item" data-page="videos"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></span> Видео</div>
     <div class="nav-item" data-page="cards"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Карточки товаров</div>
+    <div class="nav-sep"></div>
+    <div class="nav-section-label">AI Аналитика</div>
+    <div class="nav-item" data-page="references"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span> Вирусные ссылки <span class="new-badge">NEW</span></div>
+    <div class="nav-sep"></div>
+    <div class="nav-section-label">Постпродакшн</div>
+    <div class="nav-item" data-page="composer"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.02-.23-.27-.38-.62-.38-1.01 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.17-4.49-9-10-9z"/></svg></span> Стиль-паки <span class="new-badge">NEW</span></div>
+    <div class="nav-sep"></div>
+    <div class="nav-section-label">Система</div>
     <div class="nav-item" data-page="generations"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Генерации</div>
     <div class="nav-item" data-page="schedule"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Расписание</div>
     <div class="nav-item" data-page="errors"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Ошибки</div>
@@ -435,9 +640,21 @@
   <main class="main">
     <!-- Dashboard -->
     <div id="page-dashboard" class="page active">
-      <div class="page-header"><h2>Дашборд</h2></div>
+      <div class="page-header">
+        <div>
+          <h2>Дашборд</h2>
+          <p id="dashboard-greeting" style="font-size:13px;color:var(--text2);margin-top:2px;"></p>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('content')" style="gap:4px;display:flex;align-items:center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Идеи</button>
+          <button class="btn btn-primary btn-sm" onclick="navigateTo('create-video')" style="gap:4px;display:flex;align-items:center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Создать видео</button>
+        </div>
+      </div>
       <div class="stats-grid" id="dashboard-stats"></div>
-      <div class="card"><h3>Последние видео</h3><div id="dashboard-recent"></div></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;" id="dashboard-bottom-grid">
+        <div class="card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3 style="margin:0;">Последние видео</h3><button class="btn btn-outline btn-sm" onclick="navigateTo('videos')">Все видео →</button></div><div id="dashboard-recent"></div></div>
+        <div class="card" style="margin-bottom:0;"><h3 style="margin-bottom:12px;">Быстрые действия</h3><div id="dashboard-quick-actions"></div></div>
+      </div>
     </div>
 
     <!-- Content Bank -->
@@ -465,152 +682,278 @@
 
     <!-- Create Video -->
     <div id="page-create-video" class="page">
-      <div class="page-header"><h2>Создать видео</h2></div>
-      <div class="card">
-        <!-- Тип видео -->
-        <div class="form-group" style="margin-bottom:14px;">
-          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Тип видео</label>
-          <select id="cv-video-type" style="width:100%;" onchange="toggleVideoTypeFields()">
-            <option value="regular">Обычное видео (TTS + Minimax)</option>
-            <option value="gptunnel">GPTunnel видео (TTS + Veo-3)</option>
-            <option value="a2e">A2E аватар (говорящий аватар)</option>
-            <option value="heygen">HeyGen аватар (говорящий аватар)</option>
-          </select>
+      <div class="page-header">
+        <div>
+          <h2>Создать видео</h2>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">Выберите формат, заполните данные и запустите производство</p>
         </div>
-        <div class="form-group" style="margin-bottom:14px;">
-          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Выберите идею *</label>
-          <select id="cv-idea-select" style="width:100%;" onchange="loadIdeaDetails()">
-            <option value="">-- Выберите идею --</option>
-          </select>
-        </div>
-        <div id="cv-idea-details" style="display:none;margin-bottom:16px;">
-          <div class="detail-grid">
-            <div class="detail-field"><div class="label">Сценарий</div><div class="value" id="cv-script-text">—</div></div>
-            <div class="detail-field"><div class="label">Видео-промпт</div><div class="value" id="cv-prompt-text">—</div></div>
+      </div>
+
+      <!-- Hidden select for JS compatibility -->
+      <select id="cv-video-type" style="display:none;" onchange="toggleVideoTypeFields()">
+        <option value="regular">Обычное видео</option>
+        <option value="a2e">A2E Видео</option>
+        <option value="heygen">HeyGen Аватар</option>
+      </select>
+
+      <!-- Step 1: Video type selection -->
+      <div class="cv-step-label"><span class="cv-step-num">1</span> Формат видео</div>
+      <div class="cv-type-grid">
+        <div class="cv-type-card active" data-type="regular" onclick="selectVideoType('regular')">
+          <div class="cv-type-icon" style="background:rgba(34,197,94,0.12);color:#4ade80;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           </div>
+          <div class="cv-type-name">Обычное видео</div>
+          <div class="cv-type-hint">GPTunnel AI</div>
+          <div class="cv-type-check"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Название продукта</label>
-            <input type="text" id="cv-product-name" style="width:100%;">
+        <div class="cv-type-card" data-type="a2e" onclick="selectVideoType('a2e')">
+          <div class="cv-type-icon" style="background:rgba(251,146,60,0.12);color:#fb923c;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Артикул</label>
-            <input type="text" id="cv-artikul" style="width:100%;">
-          </div>
+          <div class="cv-type-name">A2E Видео</div>
+          <div class="cv-type-hint">Автоматический конвейер</div>
+          <div class="cv-type-check"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Изображение продукта</label>
-            <div class="upload-zone" id="cv-upload-zone" onclick="document.getElementById('cv-upload-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleUpload(event.dataTransfer.files[0],'cv')">
-              <input type="file" id="cv-upload-input" accept="image/*" onchange="handleUpload(this.files[0],'cv')">
-              <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
-              <div class="upload-text"><strong>Нажмите</strong> или перетащите фото</div>
+        <div class="cv-type-card" data-type="heygen" onclick="selectVideoType('heygen')">
+          <div class="cv-type-icon" style="background:rgba(168,85,247,0.12);color:#c084fc;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="cv-type-name">HeyGen</div>
+          <div class="cv-type-hint">Аватар с lip-sync</div>
+          <div class="cv-type-check"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+        </div>
+      </div>
+
+      <!-- Two-column layout -->
+      <div class="cv-layout">
+
+        <!-- ── Left/Main column ── -->
+        <div class="cv-main">
+
+          <!-- Section 2: Idea -->
+          <div class="cv-step-label"><span class="cv-step-num">2</span> Контент</div>
+          <div class="cv-section">
+            <div class="cv-section-header">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.9V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.1A7 7 0 0 0 12 2z"/></svg>
+              <span>Идея из контент-банка</span>
+              <span style="color:var(--red);font-weight:400;margin-left:2px;">*</span>
+              <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:auto;">Статус: approved</span>
             </div>
-            <div id="cv-upload-preview" class="upload-preview" style="display:none;"></div>
-            <div id="cv-upload-progress" class="upload-progress" style="display:none;">
-              <div class="progress-bar"><div class="fill" id="cv-upload-fill" style="width:0%"></div></div>
+            <select id="cv-idea-select" style="width:100%;" onchange="loadIdeaDetails()">
+              <option value="">— Выберите идею из контент-банка —</option>
+            </select>
+            <div id="cv-idea-details" style="display:none;">
+              <div class="cv-idea-preview">
+                <div class="cv-preview-col">
+                  <div class="cv-preview-label">📜 Сценарий</div>
+                  <div class="cv-preview-text" id="cv-script-text">—</div>
+                </div>
+                <div class="cv-preview-col">
+                  <div class="cv-preview-label">🎬 Видео-промпт</div>
+                  <div class="cv-preview-text" id="cv-prompt-text">—</div>
+                </div>
+              </div>
             </div>
-            <div class="upload-or">или вставьте ссылку</div>
-            <input type="text" id="cv-product-image" style="width:100%;" placeholder="https://...">
           </div>
-          <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">
-            <label><input type="checkbox" id="cv-show-artikul"> Показать артикул на видео</label>
+
+          <!-- Section 3: Product -->
+          <div class="cv-step-label"><span class="cv-step-num">3</span> Продукт <span style="font-size:10px;font-weight:400;color:var(--text2);text-transform:none;letter-spacing:0;margin-left:4px;">(необязательно)</span></div>
+          <div class="cv-section">
+            <div class="cv-section-header">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              <span>Информация о продукте</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+              <div class="form-group" style="margin:0;">
+                <label>Название продукта</label>
+                <input type="text" id="cv-product-name" style="width:100%;" placeholder="Например: Крем для рук">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Артикул / SKU</label>
+                <input type="text" id="cv-artikul" style="width:100%;" placeholder="WB-12345">
+              </div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Изображение продукта</label>
+              <div class="upload-zone" id="cv-upload-zone" onclick="document.getElementById('cv-upload-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleUpload(event.dataTransfer.files[0],'cv')">
+                <input type="file" id="cv-upload-input" accept="image/*" onchange="handleUpload(this.files[0],'cv')">
+                <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+                <div class="upload-text"><strong>Нажмите</strong> или перетащите фото</div>
+              </div>
+              <div id="cv-upload-preview" class="upload-preview" style="display:none;"></div>
+              <div id="cv-upload-progress" class="upload-progress" style="display:none;">
+                <div class="progress-bar"><div class="fill" id="cv-upload-fill" style="width:0%"></div></div>
+              </div>
+              <div class="upload-or">или вставьте ссылку</div>
+              <input type="text" id="cv-product-image" style="width:100%;" placeholder="https://example.com/image.jpg">
+            </div>
           </div>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <label><input type="checkbox" id="cv-auto-publish"> Автопубликация</label>
-          <label><input type="checkbox" id="cv-subtitles" checked> Субтитры</label>
-        </div>
-        <!-- Музыка -->
-        <div class="form-group" style="margin-top:14px;">
-          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фоновая музыка</label>
-          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;">
+
+          <!-- A2E fields -->
+          <div id="cv-a2e-fields" style="display:none;">
+            <div class="cv-step-label"><span class="cv-step-num">4</span> Аватар A2E</div>
+            <div class="cv-section" style="border-color:rgba(6,182,212,0.3);background:rgba(6,182,212,0.03);">
+              <div class="cv-section-header" style="border-color:rgba(6,182,212,0.2);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span style="color:#22d3ee;">Настройки A2E аватара</span>
+                <span id="cv-a2e-credits" style="font-size:11px;font-weight:normal;color:var(--text2);margin-left:auto;"></span>
+              </div>
+              <div class="form-group" style="margin-bottom:14px;">
+                <label>Аватар</label>
+                <input type="hidden" id="cv-a2e-avatar" value="">
+                <div id="cv-a2e-avatar-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding:4px;"></div>
+                <div id="cv-a2e-avatar-loading" style="font-size:12px;color:var(--text2);padding:8px;">Загрузка аватаров...</div>
+              </div>
+              <div class="form-group" style="margin-bottom:14px;">
+                <label>TTS Голос</label>
+                <input type="hidden" id="cv-a2e-voice" value="">
+                <div id="cv-a2e-voice-list" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg);"></div>
+                <div id="cv-a2e-voice-loading" style="font-size:12px;color:var(--text2);padding:8px;">Загрузка голосов...</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group" style="margin:0;">
+                  <label>Фон (#RRGGBB или ID)</label>
+                  <input type="text" id="cv-a2e-bg" style="width:100%;" placeholder="Пусто = фон аватара">
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label>Разрешение</label>
+                  <select id="cv-a2e-resolution" style="width:100%;">
+                    <option value="1080">1080p (Full HD)</option>
+                    <option value="720">720p (HD)</option>
+                    <option value="480">480p (SD)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HeyGen fields -->
+          <div id="cv-heygen-fields" style="display:none;">
+            <div class="cv-step-label"><span class="cv-step-num">4</span> HeyGen</div>
+            <div class="cv-section" style="border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.03);">
+              <div class="cv-section-header" style="border-color:rgba(168,85,247,0.2);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span style="color:#c084fc;">Настройки HeyGen аватара</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group" style="margin:0;">
+                  <label>Avatar ID</label>
+                  <input type="text" id="cv-heygen-avatar" style="width:100%;" placeholder="Из настроек или свой ID">
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label>Voice ID</label>
+                  <input type="text" id="cv-heygen-voice" style="width:100%;" placeholder="Из настроек или свой ID">
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label>Фон</label>
+                  <input type="text" id="cv-heygen-bg" style="width:100%;" placeholder="#ffffff или URL изображения">
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label>Соотношение сторон</label>
+                  <select id="cv-heygen-ratio" style="width:100%;">
+                    <option value="16:9">16:9 — Горизонтальное (YouTube)</option>
+                    <option value="9:16">9:16 — Вертикальное (Shorts)</option>
+                    <option value="1:1">1:1 — Квадрат</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /cv-main -->
+
+        <!-- ── Right/Sidebar column ── -->
+        <div class="cv-sidebar">
+          <!-- Parameters -->
+          <div class="cv-section">
+            <div class="cv-section-header">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>Параметры</span>
+            </div>
+            <div class="cv-option-row">
+              <div>
+                <div class="cv-option-name">Субтитры</div>
+                <div class="cv-option-desc">Текст поверх видео</div>
+              </div>
+              <label class="cv-toggle-switch">
+                <input type="checkbox" id="cv-subtitles" checked>
+                <span class="cv-toggle-knob"></span>
+              </label>
+            </div>
+            <div class="cv-option-row">
+              <div>
+                <div class="cv-option-name">Автопубликация</div>
+                <div class="cv-option-desc">Отправить на YouTube</div>
+              </div>
+              <label class="cv-toggle-switch">
+                <input type="checkbox" id="cv-auto-publish">
+                <span class="cv-toggle-knob"></span>
+              </label>
+            </div>
+            <div class="cv-option-row">
+              <div>
+                <div class="cv-option-name">Показать артикул</div>
+                <div class="cv-option-desc">Вывести SKU на видео</div>
+              </div>
+              <label class="cv-toggle-switch">
+                <input type="checkbox" id="cv-show-artikul">
+                <span class="cv-toggle-knob"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Music -->
+          <div class="cv-section">
+            <div class="cv-section-header">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <span>Фоновая музыка</span>
+            </div>
             <select id="cv-music-track" style="width:100%;">
               <option value="">— Без музыки —</option>
             </select>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <label style="font-size:12px;color:var(--text2);white-space:nowrap;">Громкость</label>
-              <input type="range" id="cv-music-volume" min="0" max="0.5" step="0.05" value="0.15" style="width:80px;">
-              <span id="cv-music-volume-label" style="font-size:12px;color:var(--text2);min-width:30px;">15%</span>
+            <div class="cv-music-vol-row">
+              <label>Громкость</label>
+              <input type="range" id="cv-music-volume" min="0" max="0.5" step="0.05" value="0.15">
+              <span id="cv-music-volume-label">15%</span>
             </div>
-          </div>
-        </div>
-        <!-- A2E поля (скрыты по умолчанию) -->
-        <div id="cv-a2e-fields" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
-          <h4 style="margin-bottom:10px;font-size:14px;">Настройки A2E аватара <span id="cv-a2e-credits" style="font-size:12px;font-weight:normal;color:var(--text2);"></span></h4>
-
-          <!-- Аватар — визуальная сетка с превью -->
-          <div class="form-group" style="margin-bottom:14px;">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:6px;">Аватар</label>
-            <input type="hidden" id="cv-a2e-avatar" value="">
-            <div id="cv-a2e-avatar-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding:4px;"></div>
-            <div id="cv-a2e-avatar-loading" style="font-size:12px;color:var(--text2);padding:8px;">Загрузка аватаров...</div>
           </div>
 
-          <!-- Голос — список с аудио-превью -->
-          <div class="form-group" style="margin-bottom:14px;">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:6px;">TTS Голос</label>
-            <input type="hidden" id="cv-a2e-voice" value="">
-            <div id="cv-a2e-voice-list" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:var(--bg);"></div>
-            <div id="cv-a2e-voice-loading" style="font-size:12px;color:var(--text2);padding:8px;">Загрузка голосов...</div>
+          <!-- Launch button -->
+          <button class="cv-launch-btn" onclick="createVideo()" id="cv-submit-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Запустить производство
+          </button>
+
+          <!-- Progress -->
+          <div id="cv-progress" style="display:none;">
+            <div class="cv-progress-card">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;flex-shrink:0;"></div>
+                <span style="font-size:13px;font-weight:600;">В производстве</span>
+              </div>
+              <div class="progress-bar" style="margin-bottom:8px;"><div class="fill" id="cv-progress-fill" style="width:0%"></div></div>
+              <p id="cv-progress-text" style="font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 12px;"></p>
+              <button class="btn btn-outline btn-sm" style="width:100%;" onclick="navigateTo('videos')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                Перейти к видео →
+              </button>
+            </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-            <div class="form-group">
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фон (#RRGGBB или ID)</label>
-              <input type="text" id="cv-a2e-bg" style="width:100%;" placeholder="Пусто = фон аватара">
-            </div>
-            <div class="form-group">
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Разрешение</label>
-              <select id="cv-a2e-resolution" style="width:100%;">
-                <option value="1080">1080p (Full HD)</option>
-                <option value="720">720p (HD)</option>
-                <option value="480">480p (SD)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <!-- HeyGen поля (скрыты по умолчанию) -->
-        <div id="cv-heygen-fields" style="display:none;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
-          <h4 style="margin-bottom:10px;font-size:14px;">Настройки HeyGen аватара</h4>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-            <div class="form-group">
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Avatar ID</label>
-              <input type="text" id="cv-heygen-avatar" style="width:100%;" placeholder="Из настроек или свой ID">
-            </div>
-            <div class="form-group">
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Voice ID</label>
-              <input type="text" id="cv-heygen-voice" style="width:100%;" placeholder="Из настроек или свой ID">
-            </div>
-            <div class="form-group">
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фон</label>
-              <input type="text" id="cv-heygen-bg" style="width:100%;" placeholder="#ffffff или URL изображения">
-            </div>
-            <div class="form-group">
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Соотношение сторон</label>
-              <select id="cv-heygen-ratio" style="width:100%;">
-                <option value="16:9">16:9 (горизонтальное)</option>
-                <option value="9:16">9:16 (вертикальное / Shorts)</option>
-                <option value="1:1">1:1 (квадрат)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div style="margin-top:20px;">
-          <button class="btn btn-primary" onclick="createVideo()" id="cv-submit-btn">Запустить производство</button>
-        </div>
-        <div id="cv-progress" style="display:none;margin-top:16px;" class="card">
-          <h3>Прогресс</h3>
-          <div class="progress-bar"><div class="fill" id="cv-progress-fill" style="width:0%"></div></div>
-          <p id="cv-progress-text" style="margin-top:8px;font-size:13px;color:var(--text2);"></p>
-        </div>
-      </div>
+        </div><!-- /cv-sidebar -->
+      </div><!-- /cv-layout -->
     </div>
 
     <!-- Videos -->
     <div id="page-videos" class="page">
-      <div class="page-header"><h2>Видео</h2></div>
+      <div class="page-header">
+        <h2>Видео</h2>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" id="videos-view-table" onclick="setVideosView('table')" title="Таблица" style="padding:6px 10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+          <button class="btn btn-primary btn-sm" id="videos-view-grid" onclick="setVideosView('grid')" title="Карточки" style="padding:6px 10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+        </div>
+      </div>
       <div class="filters">
         <select id="videos-filter-status" onchange="loadVideos()">
           <option value="">Все статусы</option>
@@ -624,9 +967,12 @@
         </select>
         <input type="text" id="videos-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadVideos()">
       </div>
-      <div class="card"><table><thead><tr>
+      <!-- Table view -->
+      <div id="videos-table-view" class="card"><table><thead><tr>
         <th>ID</th><th>Идея</th><th>Продукт</th><th>Шаг</th><th>Статус</th><th>Дата</th><th>Действия</th>
       </tr></thead><tbody id="videos-table"></tbody></table></div>
+      <!-- Grid view -->
+      <div id="videos-grid-view" style="display:none;"><div class="gallery-grid" id="videos-grid"></div></div>
     </div>
 
     <!-- Video Detail Modal (inline page) -->
@@ -642,7 +988,11 @@
     <div id="page-cards" class="page">
       <div class="page-header">
         <h2>Карточки товаров</h2>
-        <button class="btn btn-primary" onclick="openCardGenerateModal()">Генерировать карточку</button>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" id="cards-view-table" onclick="setCardsView('table')" title="Таблица" style="padding:6px 10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+          <button class="btn btn-primary btn-sm" id="cards-view-grid" onclick="setCardsView('grid')" title="Карточки" style="padding:6px 10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+          <button class="btn btn-primary" onclick="openCardGenerateModal()">Генерировать карточку</button>
+        </div>
       </div>
       <div class="filters">
         <select id="cards-filter-status" onchange="loadCards()">
@@ -661,9 +1011,12 @@
         </select>
         <input type="text" id="cards-search" placeholder="Поиск..." onkeyup="if(event.key==='Enter')loadCards()">
       </div>
-      <div class="card"><table><thead><tr>
+      <!-- Table view -->
+      <div id="cards-table-view" class="card"><table><thead><tr>
         <th>ID</th><th>Фото</th><th>Товар</th><th>МП</th><th>Концепт</th><th>Заголовок</th><th>Инфографика</th><th>Статус</th><th>Дата</th><th>Действия</th>
       </tr></thead><tbody id="cards-table"></tbody></table></div>
+      <!-- Grid view -->
+      <div id="cards-grid-view" style="display:none;"><div class="gallery-grid" id="cards-grid"></div></div>
     </div>
 
     <!-- Card Detail Page -->
@@ -677,140 +1030,218 @@
 
     <!-- Schedule -->
     <div id="page-schedule" class="page">
-      <div class="page-header"><h2>Расписание</h2></div>
-
-      <!-- Блок 1: Генерация идей -->
-      <div class="card" style="margin-bottom:16px;">
-        <h3 style="margin-bottom:12px;">📝 Генерация идей</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автогенерация идей</label>
-            <select id="sched-ideas-enabled" style="width:100%;">
-              <option value="false">Выключена</option>
-              <option value="true">Включена</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
-            <input type="text" id="sched-ideas-cron" value="0 9 * * 1-5" style="width:100%;">
-          </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Кол-во идей за раз</label>
-            <input type="number" id="sched-ideas-count" value="3" min="1" max="10" style="width:100%;">
-          </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Тип контента</label>
-            <select id="sched-content-type" style="width:100%;">
-              <option value="regular">Обычное видео</option>
-              <option value="a2e">A2E аватар</option>
-            </select>
-          </div>
+      <div class="page-header">
+        <div>
+          <h2>Конвейер контента</h2>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">Замкнутый цикл автоматизации без вашего участия</p>
         </div>
-        <div style="margin-top:10px;">
-          <button class="btn btn-outline" onclick="runGenerateNow()" style="font-size:13px;">▶ Запустить сейчас</button>
-        </div>
+        <button class="btn btn-outline" onclick="saveSchedule()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Сохранить
+        </button>
       </div>
 
-      <!-- Блок 2: Автосоздание видео -->
-      <div class="card" style="margin-bottom:16px;">
-        <h3 style="margin-bottom:12px;">🎬 Автосоздание видео</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автосоздание видео</label>
-            <select id="sched-video-enabled" style="width:100%;">
-              <option value="false">Выключено</option>
-              <option value="true">Включено</option>
-            </select>
+      <!-- Master control -->
+      <div class="pl-master" id="pl-master">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="pl-status-dot" id="pl-dot"></div>
+          <div>
+            <div style="font-size:16px;font-weight:700;" id="pl-title">Конвейер остановлен</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:center;gap:6px;">
+              <span>Идеи</span><span style="opacity:0.4;">&#8594;</span>
+              <span>Видео</span><span style="opacity:0.4;">&#8594;</span>
+              <span>Одобрение</span><span style="opacity:0.4;">&#8594;</span>
+              <span>Публикация</span><span style="opacity:0.4;">&#8594;</span>
+              <span>Повтор</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
-            <input type="text" id="sched-video-cron" value="0 10 * * 1-5" style="width:100%;">
+        </div>
+        <button class="pl-launch-btn" id="pl-btn" onclick="togglePipeline()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Запустить конвейер
+        </button>
+      </div>
+
+      <!-- 4-stage pipeline flow -->
+      <div class="pipeline-flow">
+
+        <!-- Stage 1: Ideas -->
+        <div class="pipeline-stage" id="pl-s1">
+          <div class="pipeline-stage-header">
+            <div class="pipeline-stage-title">
+              <div class="pipeline-stage-icon" style="background:rgba(99,102,241,0.12);color:var(--accent2);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.9V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.1A7 7 0 0 0 12 2z"/></svg>
+              </div>
+              <span>Генерация идей</span>
+            </div>
+            <label class="cv-toggle-switch">
+              <input type="checkbox" id="sched-ideas-enabled" onchange="updatePipelineStatus()">
+              <span class="cv-toggle-knob"></span>
+            </label>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Тип видео</label>
-            <select id="sched-video-type" style="width:100%;">
+          <div class="stage-field">
+            <label>Cron-расписание</label>
+            <input type="text" id="sched-ideas-cron" value="0 9 * * 1-5">
+          </div>
+          <div class="stage-field">
+            <label>Идей за раз</label>
+            <input type="number" id="sched-ideas-count" value="3" min="1" max="20">
+          </div>
+          <div class="stage-field">
+            <label>Тип контента</label>
+            <select id="sched-content-type">
               <option value="regular">Обычное видео</option>
-              <option value="a2e">A2E аватар</option>
-              <option value="heygen">HeyGen аватар</option>
+              <option value="a2e">A2E Видео</option>
             </select>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Видео за раз</label>
-            <input type="number" id="sched-video-batch" value="2" min="1" max="5" style="width:100%;">
+          <button class="stage-run-btn" onclick="runGenerateNow()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Запустить сейчас
+          </button>
+        </div>
+
+        <!-- Connector 1 -->
+        <div class="pipeline-connector">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <!-- Stage 2: Video production -->
+        <div class="pipeline-stage" id="pl-s2">
+          <div class="pipeline-stage-header">
+            <div class="pipeline-stage-title">
+              <div class="pipeline-stage-icon" style="background:rgba(34,197,94,0.12);color:#4ade80;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              </div>
+              <span>Создание видео</span>
+            </div>
+            <label class="cv-toggle-switch">
+              <input type="checkbox" id="sched-video-enabled" onchange="updatePipelineStatus()">
+              <span class="cv-toggle-knob"></span>
+            </label>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Субтитры</label>
-            <select id="sched-video-subtitles" style="width:100%;">
+          <div class="stage-field">
+            <label>Тип видео</label>
+            <select id="sched-video-type">
+              <option value="regular">Обычное видео</option>
+              <option value="a2e">A2E Видео</option>
+              <option value="heygen">HeyGen Avatar</option>
+            </select>
+          </div>
+          <div class="stage-field">
+            <label>Видео за раз</label>
+            <input type="number" id="sched-video-batch" value="2" min="1" max="10">
+          </div>
+          <div class="stage-field">
+            <label>Субтитры</label>
+            <select id="sched-video-subtitles">
               <option value="true">Включены</option>
               <option value="false">Выключены</option>
             </select>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Фоновая музыка</label>
-            <select id="sched-video-music" style="width:100%;">
-              <option value="">Без музыки</option>
-            </select>
+          <div class="stage-field">
+            <label>Фоновая музыка</label>
+            <select id="sched-video-music"><option value="">Без музыки</option></select>
           </div>
         </div>
-      </div>
 
-      <!-- Блок 3: Автопубликация -->
-      <div class="card" style="margin-bottom:16px;">
-        <h3 style="margin-bottom:12px;">📢 Автопубликация</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Автопубликация</label>
-            <select id="sched-publish-enabled" style="width:100%;">
-              <option value="false">Выключена</option>
-              <option value="true">Включена</option>
-            </select>
+        <!-- Connector 2 -->
+        <div class="pipeline-connector">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <!-- Stage 3: Auto-approve -->
+        <div class="pipeline-stage" id="pl-s3">
+          <div class="pipeline-stage-header">
+            <div class="pipeline-stage-title">
+              <div class="pipeline-stage-icon" style="background:rgba(234,179,8,0.12);color:#facc15;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+              <span>Авто-одобрение</span>
+            </div>
+            <label class="cv-toggle-switch">
+              <input type="checkbox" id="sched-auto-approve" onchange="updatePipelineStatus()">
+              <span class="cv-toggle-knob"></span>
+            </label>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Cron расписание</label>
-            <input type="text" id="sched-publish-cron" value="0 12 * * 1-5" style="width:100%;">
+          <p style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:12px;">Видео автоматически переходят из «На ревью» в «Одобрено» без ручной проверки.</p>
+          <div class="stage-field">
+            <label>Задержка перед одобрением</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="number" id="sched-approve-delay" value="30" min="0" max="1440" style="width:80px;flex:none;">
+              <span style="font-size:12px;color:var(--text2);">минут</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Публикаций за раз</label>
-            <input type="number" id="sched-publish-batch" value="1" min="1" max="5" style="width:100%;">
+          <div style="margin-top:12px;padding:10px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.2);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.5;">
+            При выключении — ручная проверка через раздел «Видео» перед публикацией.
           </div>
-          <div class="form-group">
-            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Каналы по умолчанию</label>
-            <select id="sched-channels" multiple style="width:100%;height:80px;">
+        </div>
+
+        <!-- Connector 3 -->
+        <div class="pipeline-connector">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <!-- Stage 4: Publish -->
+        <div class="pipeline-stage" id="pl-s4">
+          <div class="pipeline-stage-header">
+            <div class="pipeline-stage-title">
+              <div class="pipeline-stage-icon" style="background:rgba(236,72,153,0.12);color:#f472b6;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+              <span>Публикация</span>
+            </div>
+            <label class="cv-toggle-switch">
+              <input type="checkbox" id="sched-publish-enabled" onchange="updatePipelineStatus()">
+              <span class="cv-toggle-knob"></span>
+            </label>
+          </div>
+          <div class="stage-field">
+            <label>Cron-расписание</label>
+            <input type="text" id="sched-publish-cron" value="0 12 * * 1-5">
+          </div>
+          <div class="stage-field">
+            <label>Публикаций за раз</label>
+            <input type="number" id="sched-publish-batch" value="1" min="1" max="10">
+          </div>
+          <div class="stage-field">
+            <label>Каналы</label>
+            <div style="margin-top:4px;">
+              <label class="sched-channel-lbl"><input type="checkbox" id="ch-telegram"> Telegram</label>
+              <label class="sched-channel-lbl"><input type="checkbox" id="ch-vk"> VK</label>
+              <label class="sched-channel-lbl"><input type="checkbox" id="ch-youtube"> YouTube Shorts</label>
+            </div>
+            <select id="sched-channels" multiple style="display:none;">
               <option value="telegram">Telegram</option>
               <option value="vk">VK</option>
               <option value="youtube_shorts">YouTube Shorts</option>
             </select>
           </div>
         </div>
-      </div>
 
-      <!-- Сохранить -->
-      <div style="display:flex;gap:10px;margin-bottom:16px;">
-        <button class="btn btn-primary" onclick="saveSchedule()">Сохранить всё</button>
-      </div>
+      </div><!-- /pipeline-flow -->
 
-      <!-- Музыкальная библиотека -->
-      <div class="card">
-        <h3 style="margin-bottom:12px;">🎵 Библиотека музыки</h3>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Загрузите фоновые треки (MP3/WAV/OGG). Они будут доступны при создании видео и в автоматизации.</p>
-
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+      <!-- Music library -->
+      <div class="cv-section">
+        <div class="cv-section-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <span>Музыкальная библиотека</span>
+        </div>
+        <p style="font-size:12px;color:var(--text2);margin:-4px 0 14px;line-height:1.5;">Загрузите фоновые треки (MP3/WAV/OGG/AAC). Они доступны при создании видео и в автоматизации.</p>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
           <input type="file" id="music-upload-input" accept=".mp3,.wav,.ogg,.flac,.aac,audio/*" style="display:none;" onchange="uploadMusicTrack()">
-          <input type="text" id="music-upload-name" placeholder="Название трека (необязательно)" style="flex:1;">
-          <select id="music-upload-category" style="width:150px;">
+          <input type="text" id="music-upload-name" placeholder="Название трека (необязательно)" style="flex:1;min-width:120px;">
+          <select id="music-upload-category" style="min-width:130px;">
             <option value="общий">Общий</option>
             <option value="энергичный">Энергичный</option>
             <option value="спокойный">Спокойный</option>
             <option value="корпоративный">Корпоративный</option>
             <option value="весёлый">Весёлый</option>
           </select>
-          <button class="btn btn-outline" onclick="document.getElementById('music-upload-input').click()">📁 Загрузить</button>
+          <button class="btn btn-outline" onclick="document.getElementById('music-upload-input').click()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>Загрузить
+          </button>
         </div>
-
         <table>
-          <thead><tr>
-            <th>Название</th><th>Категория</th><th>Размер</th><th>Дата</th><th>Действия</th>
-          </tr></thead>
+          <thead><tr><th>Название</th><th>Категория</th><th>Размер</th><th>Дата</th><th></th></tr></thead>
           <tbody id="music-tracks-table">
             <tr><td colspan="5" class="empty-state" style="text-align:center;padding:20px;">Нет загруженных треков</td></tr>
           </tbody>
@@ -877,7 +1308,138 @@
         <div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><p>Загрузка...</p></div>
       </div>
     </div>
+
+    <!-- Viral References -->
+    <div id="page-references" class="page">
+      <div class="page-header">
+        <div>
+          <h2>Вирусные ссылки</h2>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">AI-анализ вирусного контента YouTube / TikTok</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddReferenceModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>Добавить ссылку</button>
+      </div>
+      <div class="filters">
+        <select id="ref-filter-platform" onchange="loadReferences()">
+          <option value="">Все платформы</option>
+          <option value="youtube">YouTube</option>
+          <option value="tiktok">TikTok</option>
+          <option value="other">Другое</option>
+        </select>
+        <select id="ref-filter-status" onchange="loadReferences()">
+          <option value="">Все статусы</option>
+          <option value="pending">В обработке</option>
+          <option value="analyzed">Проанализировано</option>
+          <option value="error">Ошибка</option>
+        </select>
+        <input type="text" id="ref-search" placeholder="Поиск по названию или каналу..." onkeyup="if(event.key==='Enter')loadReferences()">
+      </div>
+      <div id="refs-grid" class="gallery-grid"></div>
+    </div>
+
+    <!-- Style Packs & Composer -->
+    <div id="page-composer" class="page">
+      <div class="page-header">
+        <div>
+          <h2>Стиль-паки</h2>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">Управление стилями субтитров и видеокомпозитинг</p>
+        </div>
+        <button class="btn btn-primary" onclick="openStylePackModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>Создать стиль-пак</button>
+      </div>
+      <div id="packs-grid" class="pack-cards-grid"></div>
+      <div style="margin-top:28px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;">Видео для компоновки</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadComposeSessions()">Обновить</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div id="compose-sessions-list"></div>
+        </div>
+      </div>
+    </div>
   </main>
+</div>
+
+<!-- Add Reference Modal -->
+<div class="modal-overlay" id="add-reference-modal">
+  <div class="modal" style="width:520px;">
+    <h3>Анализировать вирусный контент</h3>
+    <p style="font-size:13px;color:var(--text2);margin:-4px 0 16px;">AI проанализирует структуру, хуки и приёмы вирусного видео (YouTube или TikTok).</p>
+    <div class="form-group">
+      <label>Ссылка на видео <span style="color:var(--red);">*</span></label>
+      <input type="url" id="ref-new-url" style="width:100%;" placeholder="https://www.youtube.com/watch?v=... или https://vm.tiktok.com/...">
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-outline" onclick="closeModal('add-reference-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="analyzeReference()" id="ref-analyze-btn">Запустить анализ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Style Pack Modal -->
+<div class="modal-overlay" id="style-pack-modal">
+  <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto;">
+    <h3 id="spm-title">Стиль-пак</h3>
+    <input type="hidden" id="spm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Название <span style="color:var(--red);">*</span></label>
+        <input type="text" id="spm-name" style="width:100%;" placeholder="Например: Яркий Reels">
+      </div>
+      <div class="form-group">
+        <label>Шрифт субтитров</label>
+        <select id="spm-font" style="width:100%;">
+          <option value="Arial">Arial</option>
+          <option value="Impact">Impact</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Montserrat">Montserrat</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Размер шрифта (px)</label>
+        <input type="number" id="spm-font-size" value="42" min="20" max="80" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Цвет текста</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="color" id="spm-primary-color" value="#ffffff" style="width:44px;height:36px;padding:2px;border-radius:6px;cursor:pointer;" onchange="document.getElementById('spm-primary-color-text').value=this.value.toUpperCase()">
+          <input type="text" id="spm-primary-color-text" value="#FFFFFF" maxlength="7" style="flex:1;" oninput="syncColorInput('spm-primary-color','spm-primary-color-text',this.value)">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Цвет обводки</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="color" id="spm-outline-color" value="#000000" style="width:44px;height:36px;padding:2px;border-radius:6px;cursor:pointer;" onchange="document.getElementById('spm-outline-color-text').value=this.value.toUpperCase()">
+          <input type="text" id="spm-outline-color-text" value="#000000" maxlength="7" style="flex:1;" oninput="syncColorInput('spm-outline-color','spm-outline-color-text',this.value)">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Позиция субтитров</label>
+        <select id="spm-position" style="width:100%;">
+          <option value="bottom">Снизу</option>
+          <option value="center">По центру</option>
+          <option value="top">Сверху</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Эффект появления</label>
+        <select id="spm-animation" style="width:100%;">
+          <option value="fade">Fade — плавное</option>
+          <option value="slide">Slide — снизу вверх</option>
+          <option value="scale">Scale — масштаб</option>
+          <option value="none">Без анимации</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Описание (необязательно)</label>
+        <input type="text" id="spm-description" style="width:100%;" placeholder="Краткое описание стиля">
+      </div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('style-pack-modal')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveStylePack()" id="spm-submit">Сохранить</button>
+    </div>
+  </div>
 </div>
 
 <!-- Generate Ideas Modal -->
@@ -1278,6 +1840,8 @@ let token = localStorage.getItem('cf_token') || '';
 let currentUser = null;
 let socket = null;
 let currentPage = 'dashboard';
+let videosView = 'grid';   // 'table' | 'grid'
+let cardsView = 'grid';    // 'table' | 'grid'
 
 // ═══════════════════════════════════════════════════
 // Mobile menu helpers
@@ -1366,6 +1930,13 @@ function showApp() {
     });
   });
 
+  // Init mobile bottom navigation
+  document.querySelectorAll('.m-nav-item[data-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      navigateTo(el.dataset.page);
+    });
+  });
+
   // Idea modal tabs
   document.querySelectorAll('[data-idea-tab]').forEach(el => {
     el.addEventListener('click', () => {
@@ -1395,11 +1966,15 @@ function navigateTo(page) {
   currentPage = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  // Mobile bottom nav sync
+  document.querySelectorAll('.m-nav-item').forEach(n => n.classList.remove('active'));
 
   const pageEl = document.getElementById(`page-${page}`);
   if (pageEl) pageEl.classList.add('active');
   const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
   if (navEl) navEl.classList.add('active');
+  const mNavEl = document.querySelector(`.m-nav-item[data-page="${page}"]`);
+  if (mNavEl) mNavEl.classList.add('active');
 
   // Load data
   switch (page) {
@@ -1413,6 +1988,8 @@ function navigateTo(page) {
     case 'errors': loadErrors(); break;
     case 'settings': loadSettings(); break;
     case 'users': loadUsers(); break;
+    case 'references': loadReferences(); break;
+    case 'composer': loadComposer(); break;
   }
 }
 
@@ -1433,6 +2010,23 @@ function initWebSocket() {
 // Dashboard
 // ═══════════════════════════════════════════════════
 async function loadDashboard() {
+  // Greeting
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
+  const el = document.getElementById('dashboard-greeting');
+  if (el) el.textContent = `${greet}, ${currentUser?.first_name || currentUser?.login || 'пользователь'} 👋`;
+
+  // Quick actions
+  const qa = document.getElementById('dashboard-quick-actions');
+  if (qa) qa.innerHTML = `
+    <button class="quick-action-btn" onclick="openGenerateModal()"><div class="qa-icon" style="background:rgba(99,102,241,0.15);color:var(--accent2);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div><div class="qa-text"><strong>Генерировать идеи</strong><span>AI создаст контент-план</span></div></button>
+    <button class="quick-action-btn" onclick="navigateTo('create-video')"><div class="qa-icon" style="background:rgba(34,197,94,0.15);color:var(--green);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div><div class="qa-text"><strong>Создать видео</strong><span>Запустить производство</span></div></button>
+    <button class="quick-action-btn" onclick="openCardGenerateModal()"><div class="qa-icon" style="background:rgba(59,130,246,0.15);color:var(--blue);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div class="qa-text"><strong>Карточка товара</strong><span>Генерация инфографики</span></div></button>
+    <button class="quick-action-btn" onclick="navigateTo('generations')"><div class="qa-icon" style="background:rgba(234,179,8,0.15);color:var(--yellow);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><div class="qa-text"><strong>Галерея генераций</strong><span>Все медиа-файлы</span></div></button>
+    <button class="quick-action-btn" onclick="navigateTo('references')"><div class="qa-icon" style="background:rgba(6,182,212,0.15);color:#22d3ee;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="qa-text"><strong>Вирусные ссылки</strong><span>AI-анализ контента<span class="new-badge" style="margin-left:4px;font-size:9px;">NEW</span></span></div></button>
+    <button class="quick-action-btn" onclick="navigateTo('composer')"><div class="qa-icon" style="background:rgba(168,85,247,0.15);color:#c084fc;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.02-.23-.27-.38-.62-.38-1.01 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.17-4.49-9-10-9z"/></svg></div><div class="qa-text"><strong>Стиль-паки</strong><span>Видеокомпозитинг<span class="new-badge" style="margin-left:4px;font-size:9px;">NEW</span></span></div></button>
+  `;
+
   try {
     const [analyticsRes, videosRes] = await Promise.all([
       api('GET', '/api/analytics/summary'),
@@ -1441,25 +2035,24 @@ async function loadDashboard() {
 
     const s = analyticsRes.data || {};
     document.getElementById('dashboard-stats').innerHTML = `
-      <div class="stat-card"><div class="stat-label">${ico('lightbulb')} Идей</div><div class="stat-value">${s.total_ideas || 0}</div></div>
-      <div class="stat-card"><div class="stat-label">${ico('clapperboard')} Видео</div><div class="stat-value">${s.total_sessions || 0}</div></div>
-      <div class="stat-card"><div class="stat-label">${ico('eye')} На ревью</div><div class="stat-value">${s.review_count || 0}</div></div>
-      <div class="stat-card"><div class="stat-label">${ico('check')} Опубликовано</div><div class="stat-value">${s.published_count || 0}</div></div>
-      <div class="stat-card"><div class="stat-label">${ico('alertTriangle')} Ошибки</div><div class="stat-value">${s.error_count || 0}</div></div>
+      <div class="stat-card"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M12 5v14M5 12h14"/></svg></div><div class="stat-label">Идей</div><div class="stat-value">${s.total_ideas || 0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">в контент-банке</div></div>
+      <div class="stat-card"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div><div class="stat-label">Видео</div><div class="stat-value">${s.total_sessions || 0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">сессий создано</div></div>
+      <div class="stat-card stat-yellow"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="stat-label">На ревью</div><div class="stat-value">${s.review_count || 0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">${(s.review_count || 0) > 0 ? '<span style="color:var(--yellow);">требуют проверки</span>' : 'всё проверено'}</div></div>
+      <div class="stat-card stat-green"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polyline points="20 6 9 17 4 12"/></svg></div><div class="stat-label">Опубликовано</div><div class="stat-value">${s.published_count || 0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">видео в эфире</div></div>
+      <div class="stat-card stat-red"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></div><div class="stat-label">Ошибки</div><div class="stat-value">${s.error_count || 0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">${(s.error_count || 0) > 0 ? '<span style="color:var(--red);">требуют внимания</span>' : 'нет ошибок'}</div></div>
     `;
 
+    const statusColor = { created:'var(--text2)', processing:'var(--yellow)', ready_for_review:'var(--blue)', approved:'var(--green)', published:'var(--green)', error:'var(--red)', cancelled:'var(--text3)' };
     const videos = videosRes.data || [];
     if (videos.length === 0) {
-      document.getElementById('dashboard-recent').innerHTML = '<div class="empty-state"><p>Пока нет видео</p></div>';
+      document.getElementById('dashboard-recent').innerHTML = '<div class="empty-state" style="padding:30px 0;"><p>Видео ещё не создавались</p><button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="navigateTo(\'create-video\')">Создать первое видео</button></div>';
     } else {
-      document.getElementById('dashboard-recent').innerHTML = `<table><thead><tr><th>ID</th><th>Идея</th><th>Статус</th><th>Дата</th></tr></thead><tbody>${
-        videos.map(v => `<tr style="cursor:pointer" onclick="openVideoDetail(${v.id})">
-          <td>#${v.id}</td>
-          <td>${esc(v.idea_title || v.product_name || '—')}</td>
-          <td><span class="badge badge-${v.status}">${v.status}</span></td>
-          <td>${fmtDate(v.created_at)}</td>
-        </tr>`).join('')
-      }</tbody></table>`;
+      document.getElementById('dashboard-recent').innerHTML = videos.map(v => `
+        <div class="recent-video-row" onclick="openVideoDetail(${v.id})">
+          <div class="rvr-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${statusColor[v.status] || 'var(--text2)'}" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+          <div class="rvr-body"><div class="rvr-title">${esc(v.idea_title || v.product_name || 'Без названия')}</div><div class="rvr-meta">#${v.id} · ${fmtDate(v.created_at)}</div></div>
+          <span class="badge badge-${v.status}" style="flex-shrink:0;">${v.status}</span>
+        </div>`).join('');
     }
   } catch (e) {
     document.getElementById('dashboard-stats').innerHTML = `<div class="stat-card"><div class="stat-label">Ошибка загрузки</div><div class="stat-value">—</div></div>`;
@@ -1625,11 +2218,17 @@ async function deleteIdea(id) {
 function useIdea(id) {
   // Navigate to create-video with idea pre-selected
   navigateTo('create-video');
-  setTimeout(() => {
+  // Ждём загрузки списка идей через poll вместо хрупкого timeout
+  const pollForIdea = setInterval(() => {
     const sel = document.getElementById('cv-idea-select');
-    sel.value = id;
-    loadIdeaDetails();
-  }, 300);
+    if (sel && sel.options.length > 1) {
+      clearInterval(pollForIdea);
+      sel.value = id;
+      loadIdeaDetails();
+    }
+  }, 100);
+  // Максимум 3 секунды
+  setTimeout(() => clearInterval(pollForIdea), 3000);
 }
 
 // Generate ideas modal
@@ -1663,6 +2262,17 @@ async function generateIdeas() {
 // ═══════════════════════════════════════════════════
 // Create Video
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// Create Video
+// ═══════════════════════════════════════════════════
+function selectVideoType(type) {
+  document.querySelectorAll('.cv-type-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.type === type);
+  });
+  document.getElementById('cv-video-type').value = type;
+  toggleVideoTypeFields();
+}
+
 async function loadCreateVideo() {
   try {
     const res = await api('GET', '/api/content/ideas?status=approved&limit=100');
@@ -1724,7 +2334,12 @@ async function createVideo() {
       a2e_avatar_id: document.getElementById('cv-a2e-avatar').value,
       a2e_voice_id: document.getElementById('cv-a2e-voice').value,
       a2e_background: document.getElementById('cv-a2e-bg').value,
-      a2e_resolution: document.getElementById('cv-a2e-resolution').value
+      a2e_resolution: document.getElementById('cv-a2e-resolution').value,
+      hedra_character_id: '',
+      hedra_voice_id: '',
+      hedra_ratio: '9:16',
+      hedra_quality: 'high',
+      hedra_avatar_url: ''
     });
 
     toast(`Видео #${res.data.id} запущено в производство!`, 'success');
@@ -1737,6 +2352,8 @@ async function createVideo() {
 
     // Watch progress via WS
     if (socket) {
+      // Убираем старый листенер чтобы не было утечек при повторном создании
+      socket.off('step-update');
       socket.on('step-update', (data) => {
         if (data.sessionId == res.data.id) {
           const pct = getStepProgress(data.stepName);
@@ -1773,8 +2390,10 @@ async function toggleVideoTypeFields() {
     try {
       const sRes = await api('GET', '/api/settings');
       if (sRes.ok && sRes.data) {
+        // sRes.data — объект {category: [...items]}, выравниваем в плоский массив
+        const allSettings = Object.values(sRes.data).flat();
         const s = {};
-        (sRes.data || []).forEach(row => { s[row.key] = row.value; });
+        allSettings.forEach(row => { s[row.key] = row.value; });
         defaultAvatar = s.a2e_avatar_id || '';
         defaultVoice  = s.a2e_voice_id  || '';
         defaultBg     = s.a2e_background || '';
@@ -1794,6 +2413,17 @@ async function toggleVideoTypeFields() {
 // ═══════════════════════════════════════════════════
 // Product Cards
 // ═══════════════════════════════════════════════════
+function setCardsView(view) {
+  cardsView = view;
+  document.getElementById('cards-table-view').style.display = view === 'table' ? 'block' : 'none';
+  document.getElementById('cards-grid-view').style.display  = view === 'grid'  ? 'block' : 'none';
+  document.getElementById('cards-view-table').className = 'btn btn-sm ' + (view === 'table' ? 'btn-primary' : 'btn-outline');
+  document.getElementById('cards-view-grid').className  = 'btn btn-sm ' + (view === 'grid'  ? 'btn-primary' : 'btn-outline');
+  document.getElementById('cards-view-table').style.padding = '6px 10px';
+  document.getElementById('cards-view-grid').style.padding  = '6px 10px';
+  loadCards();
+}
+
 async function loadCards() {
   const status = document.getElementById('cards-filter-status').value;
   const marketplace = document.getElementById('cards-filter-marketplace').value;
@@ -1807,15 +2437,18 @@ async function loadCards() {
     const res = await api('GET', `/api/cards?${params}`);
     const items = res.data || [];
     const tbody = document.getElementById('cards-table');
+    const grid  = document.getElementById('cards-grid');
 
     if (items.length === 0) {
+      const empty = '<div class="empty-state" style="padding:40px;"><p>Нет карточек. Генерируйте!</p></div>';
       tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Нет карточек. Генерируйте!</td></tr>';
+      grid.innerHTML = empty;
       return;
     }
 
     const conceptIcons = { studio: '📸', lifestyle: '🏠', flatlay: '🎨', minimal: '✨', model: '👤' };
 
-    tbody.innerHTML = items.map(c => {
+    items.forEach(c => {
       let varCount = 0;
       if (c.infographic_variants) {
         try {
@@ -1823,14 +2456,18 @@ async function loadCards() {
           varCount = Array.isArray(v) ? v.filter(u => u).length : 0;
         } catch(e) {}
       }
-      return `<tr>
+      c._varCount = varCount;
+    });
+
+    // Table view
+    tbody.innerHTML = items.map(c => `<tr>
       <td>#${c.id}</td>
       <td>${c.image_url ? `<img src="${esc(c.image_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '—'}</td>
       <td>${esc(c.product_name || '—')}</td>
       <td>${esc(c.marketplace || '—')}</td>
       <td><span title="${c.concept || 'studio'}">${conceptIcons[c.concept] || '📸'} ${esc(c.concept || 'studio')}</span></td>
       <td title="${esc(c.main_title || '')}">${esc((c.main_title || '—').substring(0, 40))}</td>
-      <td>${c.infographic_url ? `<img src="${esc(c.infographic_url)}" style="width:40px;height:56px;object-fit:cover;border-radius:4px;" title="Инфографика"> ${varCount > 1 ? '<span style="font-size:11px;color:var(--text3);">×' + varCount + '</span>' : ''}` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${c.infographic_url ? `<img src="${esc(c.infographic_url)}" style="width:40px;height:56px;object-fit:cover;border-radius:4px;" title="Инфографика"> ${c._varCount > 1 ? '<span style="font-size:11px;color:var(--text3);">×' + c._varCount + '</span>' : ''}` : '<span style="color:var(--text3)">—</span>'}</td>
       <td><span class="badge badge-${c.status}">${c.status}</span></td>
       <td>${fmtDate(c.created_at)}</td>
       <td>
@@ -1841,8 +2478,36 @@ async function loadCards() {
           <button class="btn btn-sm btn-danger" onclick="deleteCard(${c.id})">${ico('trash')}</button>
         </div>
       </td>
-    </tr>`;
+    </tr>`).join('');
+
+    // Grid view
+    grid.innerHTML = items.map(c => {
+      const img = c.infographic_url || c.image_url || '';
+      const preview = img
+        ? `<div class="g-preview"><img src="${esc(img)}" style="width:100%;height:100%;object-fit:cover;"></div>`
+        : `<div class="g-preview"><div class="g-placeholder">${ico('package')}</div></div>`;
+      return `<div class="gallery-card">
+        ${preview}
+        <div class="g-body">
+          <div class="g-title">${esc(c.product_name || 'Карточка #' + c.id)}</div>
+          <div class="g-meta" style="margin-top:6px;justify-content:space-between;">
+            <span class="badge badge-${c.status}">${c.status}</span>
+            <span style="color:var(--text2);">${esc(c.marketplace || '')}</span>
+          </div>
+          ${c.main_title ? `<div style="font-size:11px;color:var(--text2);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.main_title)}</div>` : ''}
+        </div>
+        <div class="g-actions">
+          <button class="btn btn-sm btn-outline" onclick="openCardDetail(${c.id})" style="flex:1;">${ico('eye')} Открыть</button>
+          ${c.infographic_url ? `<button class="btn btn-sm btn-outline" onclick="downloadCardImage(${c.id}, '${esc(c.infographic_url)}')" title="Скачать">⬇</button>` : ''}
+          ${c.status === 'generated' ? `<button class="btn btn-sm btn-success" onclick="approveCard(${c.id})">✓</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteCard(${c.id})">${ico('trash')}</button>
+        </div>
+      </div>`;
     }).join('');
+
+    // Sync visibility
+    document.getElementById('cards-table-view').style.display = cardsView === 'table' ? 'block' : 'none';
+    document.getElementById('cards-grid-view').style.display  = cardsView === 'grid'  ? 'block' : 'none';
   } catch (e) {
     document.getElementById('cards-table').innerHTML = `<tr><td colspan="9">Ошибка: ${e.message}</td></tr>`;
   }
@@ -2184,6 +2849,17 @@ async function downloadCardImage(cardId, url) {
 // ═══════════════════════════════════════════════════
 // Videos
 // ═══════════════════════════════════════════════════
+function setVideosView(view) {
+  videosView = view;
+  document.getElementById('videos-table-view').style.display = view === 'table' ? 'block' : 'none';
+  document.getElementById('videos-grid-view').style.display  = view === 'grid'  ? 'block' : 'none';
+  document.getElementById('videos-view-table').className = 'btn btn-sm ' + (view === 'table' ? 'btn-primary' : 'btn-outline');
+  document.getElementById('videos-view-grid').className  = 'btn btn-sm ' + (view === 'grid'  ? 'btn-primary' : 'btn-outline');
+  document.getElementById('videos-view-table').style.padding = '6px 10px';
+  document.getElementById('videos-view-grid').style.padding  = '6px 10px';
+  loadVideos();
+}
+
 async function loadVideos() {
   const status = document.getElementById('videos-filter-status').value;
   const search = document.getElementById('videos-search').value;
@@ -2191,16 +2867,22 @@ async function loadVideos() {
   if (status) params.set('status', status);
   if (search) params.set('search', search);
 
+  const statusLabel = { created:'Создано', processing:'В работе', ready_for_review:'На ревью', approved:'Одобрено', published:'Опубликовано', error:'Ошибка', cancelled:'Отменено' };
+
   try {
     const res = await api('GET', `/api/videos?${params}`);
     const items = res.data || [];
     const tbody = document.getElementById('videos-table');
+    const grid  = document.getElementById('videos-grid');
 
     if (items.length === 0) {
+      const empty = '<div class="empty-state" style="padding:40px;"><p>Нет видео</p></div>';
       tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Нет видео</td></tr>';
+      grid.innerHTML = empty;
       return;
     }
 
+    // Table view
     tbody.innerHTML = items.map(v => `<tr>
       <td>#${v.id}</td>
       <td>${esc(v.idea_title || '—')}</td>
@@ -2216,6 +2898,34 @@ async function loadVideos() {
         </div>
       </td>
     </tr>`).join('');
+
+    // Grid view
+    grid.innerHTML = items.map(v => {
+      const hasVideo = !!v.final_video_url;
+      const preview = hasVideo
+        ? `<video src="${esc(v.final_video_url)}" class="g-preview" style="width:100%;height:160px;object-fit:cover;" muted playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>`
+        : `<div class="g-preview"><div class="g-placeholder">${ico('video')}</div></div>`;
+      return `<div class="gallery-card">
+        ${preview}
+        <div class="g-body">
+          <div class="g-title">${esc(v.idea_title || v.product_name || 'Видео #' + v.id)}</div>
+          <div class="g-meta" style="margin-top:6px;justify-content:space-between;">
+            <span class="badge badge-${v.status}">${statusLabel[v.status] || v.status}</span>
+            <span>${fmtDate(v.created_at)}</span>
+          </div>
+          ${v.current_step ? `<div style="font-size:11px;color:var(--text2);margin-top:4px;">Шаг: ${esc(v.current_step)}</div>` : ''}
+        </div>
+        <div class="g-actions">
+          <button class="btn btn-sm btn-outline" onclick="openVideoDetail(${v.id})" style="flex:1;">${ico('eye')} Открыть</button>
+          ${v.status === 'ready_for_review' ? `<button class="btn btn-sm btn-success" onclick="approveVideo(${v.id})">✓</button><button class="btn btn-sm btn-danger" onclick="rejectVideo(${v.id})">✗</button>` : ''}
+          ${['approved','ready_for_review'].includes(v.status) ? `<button class="btn btn-sm btn-primary" onclick="openPublishModal(${v.id})">${ico('megaphone')}</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Sync visibility
+    document.getElementById('videos-table-view').style.display = videosView === 'table' ? 'block' : 'none';
+    document.getElementById('videos-grid-view').style.display  = videosView === 'grid'  ? 'block' : 'none';
   } catch (e) {
     document.getElementById('videos-table').innerHTML = `<tr><td colspan="7">Ошибка: ${e.message}</td></tr>`;
   }
@@ -2358,36 +3068,39 @@ async function loadSchedule() {
     const res = await api('GET', '/api/schedule');
     const d = res.data || {};
 
-    // Идеи
-    document.getElementById('sched-ideas-enabled').value = String(d.auto_generate_enabled || false);
+    // Stage 1: Ideas
+    document.getElementById('sched-ideas-enabled').checked = Boolean(d.auto_generate_enabled);
     document.getElementById('sched-ideas-cron').value = d.auto_generate_cron || '0 9 * * 1-5';
     document.getElementById('sched-ideas-count').value = d.auto_generate_count || 3;
     document.getElementById('sched-content-type').value = d.auto_content_type || 'regular';
 
-    // Видео
-    document.getElementById('sched-video-enabled').value = String(d.auto_video_enabled || false);
-    document.getElementById('sched-video-cron').value = d.auto_video_cron || '0 10 * * 1-5';
+    // Stage 2: Video
+    document.getElementById('sched-video-enabled').checked = Boolean(d.auto_video_enabled);
     document.getElementById('sched-video-type').value = d.auto_video_type || 'regular';
     document.getElementById('sched-video-batch').value = d.auto_video_batch || 2;
     document.getElementById('sched-video-subtitles').value = String(d.auto_subtitles !== undefined ? d.auto_subtitles : true);
 
-    // Публикация
-    document.getElementById('sched-publish-enabled').value = String(d.auto_publish_enabled || false);
+    // Stage 3: Auto-approve
+    document.getElementById('sched-auto-approve').checked = Boolean(d.auto_approve_enabled);
+    document.getElementById('sched-approve-delay').value = d.auto_approve_delay || 30;
+
+    // Stage 4: Publish
+    document.getElementById('sched-publish-enabled').checked = Boolean(d.auto_publish_enabled);
     document.getElementById('sched-publish-cron').value = d.auto_publish_cron || '0 12 * * 1-5';
     document.getElementById('sched-publish-batch').value = d.auto_publish_batch || 1;
 
-    // Каналы
-    const channels = d.default_channels || ['telegram'];
-    document.querySelectorAll('#sched-channels option').forEach(opt => {
-      opt.selected = channels.includes(opt.value);
-    });
+    // Channels as individual checkboxes
+    const channels = d.default_channels || [];
+    document.getElementById('ch-telegram').checked = channels.includes('telegram');
+    document.getElementById('ch-vk').checked = channels.includes('vk');
+    document.getElementById('ch-youtube').checked = channels.includes('youtube_shorts');
 
-    // Музыка для расписания
+    // Music
     await loadMusicTracks();
     const musicSel = document.getElementById('sched-video-music');
-    if (musicSel && d.auto_music_track_id) {
-      musicSel.value = d.auto_music_track_id;
-    }
+    if (musicSel && d.auto_music_track_id) musicSel.value = d.auto_music_track_id;
+
+    updatePipelineStatus();
   } catch (e) {
     toast('Ошибка загрузки расписания: ' + e.message, 'error');
   }
@@ -2395,27 +3108,30 @@ async function loadSchedule() {
 
 async function saveSchedule() {
   try {
-    const channels = Array.from(document.getElementById('sched-channels').selectedOptions).map(o => o.value);
+    const channels = [];
+    if (document.getElementById('ch-telegram').checked) channels.push('telegram');
+    if (document.getElementById('ch-vk').checked) channels.push('vk');
+    if (document.getElementById('ch-youtube').checked) channels.push('youtube_shorts');
+
     await api('PUT', '/api/schedule', {
-      // Идеи
-      auto_generate_enabled: document.getElementById('sched-ideas-enabled').value === 'true',
+      auto_generate_enabled: document.getElementById('sched-ideas-enabled').checked,
       auto_generate_cron: document.getElementById('sched-ideas-cron').value,
-      auto_generate_count: parseInt(document.getElementById('sched-ideas-count').value),
+      auto_generate_count: parseInt(document.getElementById('sched-ideas-count').value) || 3,
       auto_content_type: document.getElementById('sched-content-type').value,
-      // Видео
-      auto_video_enabled: document.getElementById('sched-video-enabled').value === 'true',
-      auto_video_cron: document.getElementById('sched-video-cron').value,
+      auto_video_enabled: document.getElementById('sched-video-enabled').checked,
       auto_video_type: document.getElementById('sched-video-type').value,
-      auto_video_batch: parseInt(document.getElementById('sched-video-batch').value),
+      auto_video_batch: parseInt(document.getElementById('sched-video-batch').value) || 2,
       auto_subtitles: document.getElementById('sched-video-subtitles').value === 'true',
       auto_music_track_id: document.getElementById('sched-video-music').value || '',
-      // Публикация
-      auto_publish_enabled: document.getElementById('sched-publish-enabled').value === 'true',
+      auto_approve_enabled: document.getElementById('sched-auto-approve').checked,
+      auto_approve_delay: parseInt(document.getElementById('sched-approve-delay').value) || 30,
+      auto_publish_enabled: document.getElementById('sched-publish-enabled').checked,
       auto_publish_cron: document.getElementById('sched-publish-cron').value,
-      auto_publish_batch: parseInt(document.getElementById('sched-publish-batch').value),
+      auto_publish_batch: parseInt(document.getElementById('sched-publish-batch').value) || 1,
       default_channels: channels
     });
-    toast('Расписание сохранено', 'success');
+    toast('Настройки сохранены', 'success');
+    updatePipelineStatus();
   } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
 }
 
@@ -2428,6 +3144,56 @@ async function runGenerateNow() {
     });
     toast('Идеи сгенерированы!', 'success');
   } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+function updatePipelineStatus() {
+  const ideasOn   = document.getElementById('sched-ideas-enabled')?.checked;
+  const videoOn   = document.getElementById('sched-video-enabled')?.checked;
+  const approveOn = document.getElementById('sched-auto-approve')?.checked;
+  const publishOn = document.getElementById('sched-publish-enabled')?.checked;
+  const allOn = ideasOn && videoOn && publishOn;
+  const anyOn = ideasOn || videoOn || publishOn;
+
+  const dot    = document.getElementById('pl-dot');
+  const title  = document.getElementById('pl-title');
+  const btn    = document.getElementById('pl-btn');
+  const master = document.getElementById('pl-master');
+
+  const playIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+  const stopIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>`;
+
+  if (dot) { dot.className = 'pl-status-dot' + (allOn ? ' running' : anyOn ? ' partial' : ''); dot.style.background = ''; }
+  master?.classList.toggle('running', allOn);
+
+  if (allOn) {
+    if (title) title.textContent = 'Конвейер активен' + (approveOn ? ' · авто-одобрение' : '');
+    if (btn) { btn.innerHTML = stopIcon + ' Остановить конвейер'; btn.classList.add('stop'); }
+  } else if (anyOn) {
+    const parts = [ideasOn&&'Идеи', videoOn&&'Видео', publishOn&&'Публикация'].filter(Boolean);
+    if (title) title.textContent = 'Частично активен: ' + parts.join(', ');
+    if (btn) { btn.innerHTML = playIcon + ' Включить всё'; btn.classList.remove('stop'); }
+  } else {
+    if (title) title.textContent = 'Конвейер остановлен';
+    if (btn) { btn.innerHTML = playIcon + ' Запустить конвейер'; btn.classList.remove('stop'); }
+  }
+
+  [['pl-s1', ideasOn], ['pl-s2', videoOn], ['pl-s3', approveOn], ['pl-s4', publishOn]].forEach(([id, on]) => {
+    document.getElementById(id)?.classList.toggle('stage-active', !!on);
+  });
+}
+
+async function togglePipeline() {
+  const allOn = document.getElementById('sched-ideas-enabled').checked
+    && document.getElementById('sched-video-enabled').checked
+    && document.getElementById('sched-publish-enabled').checked;
+  const newState = !allOn;
+  document.getElementById('sched-ideas-enabled').checked   = newState;
+  document.getElementById('sched-video-enabled').checked   = newState;
+  document.getElementById('sched-publish-enabled').checked = newState;
+  if (newState) document.getElementById('sched-auto-approve').checked = true;
+  updatePipelineStatus();
+  await saveSchedule();
+  toast(newState ? 'Конвейер запущен! Всё будет работать автоматически.' : 'Конвейер остановлен', newState ? 'success' : 'info');
 }
 
 // ═══════════════════════════════════════════════════
@@ -2517,11 +3283,11 @@ async function uploadMusicTrack() {
   formData.append('category', document.getElementById('music-upload-category').value || 'общий');
 
   try {
-    toast('Загрузка трека...', 'success');
+    toast('Загрузка трека...', 'info');
     const resp = await fetch('/api/media/music', {
       method: 'POST',
-      body: formData,
-      credentials: 'include'
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
     });
     const result = await resp.json();
     if (!result.ok) throw new Error(result.error || 'Ошибка загрузки');
@@ -2606,10 +3372,7 @@ const PROVIDER_OPTIONS = {
     { value: 'azure', label: 'Azure TTS' }
   ],
   video_provider: [
-    { value: 'gptunnel', label: 'GPTunnel (Veo-3.1)' },
-    { value: 'minimax', label: 'Minimax' },
-    { value: 'runway', label: 'Runway' },
-    { value: 'kling', label: 'Kling' }
+    { value: 'gptunnel', label: 'GPTunnel (Veo-3.1)' }
   ],
   card_image_provider: [
     { value: 'gptunnel', label: 'GPTunnel Media' },
@@ -2926,8 +3689,10 @@ async function loadA2EVoiceList(defaultVal) {
   let country = 'ru';
   try {
     const sRes = await api('GET', '/api/settings');
-    if (sRes.ok) {
-      const row = (sRes.data || []).find(r => r.key === 'a2e_voice_country');
+    if (sRes.ok && sRes.data) {
+      // sRes.data — объект {category: [...items]}, выравниваем в плоский массив
+      const allSettings = Object.values(sRes.data).flat();
+      const row = allSettings.find(r => r.key === 'a2e_voice_country');
       if (row?.value) country = row.value;
     }
   } catch (e) { /* fallback ru */ }
@@ -3197,7 +3962,7 @@ function esc(s) {
   if (!s) return '';
   const d = document.createElement('div');
   d.textContent = String(s);
-  return d.innerHTML;
+  return d.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
 
 function fmtDate(d) {
@@ -3458,6 +4223,335 @@ document.getElementById('auth-login').addEventListener('keyup', (e) => {
 document.getElementById('auth-password').addEventListener('keyup', (e) => {
   if (e.key === 'Enter') doLogin();
 });
+
+// ═══════════════════════════════════════════════════
+// Viral References
+// ═══════════════════════════════════════════════════
+function openAddReferenceModal() {
+  document.getElementById('ref-new-url').value = '';
+  openModal('add-reference-modal');
+}
+
+async function analyzeReference() {
+  const url = document.getElementById('ref-new-url').value.trim();
+  if (!url) { toast('Введите ссылку на видео', 'error'); return; }
+  const btn = document.getElementById('ref-analyze-btn');
+  btn.disabled = true; btn.textContent = 'Отправка...';
+  try {
+    await api('POST', '/api/references/analyze', { url });
+    toast('Анализ запущен! Обычно занимает 1–2 мин.', 'success');
+    closeModal('add-reference-modal');
+    setTimeout(loadReferences, 3000);
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Запустить анализ';
+  }
+}
+
+async function loadReferences() {
+  const platform = document.getElementById('ref-filter-platform')?.value || '';
+  const status   = document.getElementById('ref-filter-status')?.value || '';
+  const search   = document.getElementById('ref-search')?.value || '';
+  const params = new URLSearchParams();
+  if (platform) params.set('platform', platform);
+  if (status)   params.set('status', status);
+  if (search)   params.set('search', search);
+  const grid = document.getElementById('refs-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:40px;"><p>Загрузка...</p></div>';
+  try {
+    const res = await api('GET', `/api/references?${params}`);
+    const items = res.data || [];
+    if (items.length === 0) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:60px;">
+        <div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+        <p>Нет вирусных ссылок</p>
+        <p style="font-size:13px;color:var(--text2);margin-top:4px;">Добавьте YouTube или TikTok видео для AI-анализа</p>
+        <button class="btn btn-primary" style="margin-top:16px;" onclick="openAddReferenceModal()">+ Добавить ссылку</button>
+      </div>`;
+      return;
+    }
+    const platColors = { youtube:{bg:'rgba(255,0,0,0.12)',color:'#ff4d4d'}, tiktok:{bg:'rgba(0,242,234,0.12)',color:'#00f2ea'}, other:{bg:'rgba(156,163,175,0.12)',color:'#9ca3af'} };
+    const statusMap  = { pending:'badge-created', analyzed:'badge-approved', error:'badge-error' };
+    grid.innerHTML = items.map(r => {
+      const plt = (r.platform || 'other').toLowerCase();
+      const pc  = platColors[plt] || platColors.other;
+      let analysis = r.analysis ? (typeof r.analysis === 'string' ? JSON.parse(r.analysis) : r.analysis) : null;
+      return `<div class="gallery-card" onclick="openReferenceDetail(${r.id})" style="cursor:pointer;">
+        <div class="g-preview" style="background:var(--bg3);">
+          ${r.thumbnail_url
+            ? `<img src="${esc(r.thumbnail_url)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+            : `<div class="g-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>`}
+          <div style="position:absolute;top:8px;left:8px;">
+            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:${pc.bg};color:${pc.color};backdrop-filter:blur(4px);">${plt.toUpperCase()}</span>
+          </div>
+          <div style="position:absolute;top:8px;right:8px;">
+            <span class="badge ${statusMap[r.status]||'badge-created'}" style="font-size:10px;">${r.status}</span>
+          </div>
+        </div>
+        <div class="g-body">
+          <div class="g-title">${esc(r.video_title || r.url || 'Без названия')}</div>
+          <div class="g-meta">
+            ${r.channel_name ? `<span>@${esc(r.channel_name)}</span>` : ''}
+            ${r.views_count  ? `<span>${Number(r.views_count).toLocaleString()} просм.</span>` : ''}
+          </div>
+          ${analysis?.hook ? `<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">🎯 ${esc(analysis.hook)}</div>` : ''}
+        </div>
+        <div class="g-actions">
+          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openReferenceDetail(${r.id})">Просмотр</button>
+          <button class="btn btn-sm btn-danger"  onclick="event.stopPropagation();deleteRef(${r.id})">${ico('trash')}</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Ошибка: ${e.message}</div>`;
+  }
+}
+
+async function openReferenceDetail(id) {
+  try {
+    const res = await api('GET', `/api/references/${id}`);
+    const r = res.data;
+    let analysis = r.analysis ? (typeof r.analysis === 'string' ? JSON.parse(r.analysis) : r.analysis) : null;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.innerHTML = `<div class="modal" style="width:700px;max-height:88vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <h3 style="margin:0;flex:1;padding-right:12px;">${esc(r.video_title || 'Анализ видео')}</h3>
+        <button class="btn btn-outline btn-sm" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      </div>
+      <a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--accent2);word-break:break-all;display:block;margin-bottom:16px;">${esc(r.url)}</a>
+      ${analysis ? `<div style="display:grid;gap:10px;">
+          ${analysis.hook ? `<div class="card" style="padding:12px;margin:0;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">🎯 КРЮЧОК (HOOK)</div><div style="font-size:13px;line-height:1.5;">${esc(analysis.hook)}</div></div>` : ''}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            ${analysis.format   ? `<div class="card" style="padding:12px;margin:0;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">📐 ФОРМАТ</div><div style="font-size:13px;">${esc(analysis.format)}</div></div>` : ''}
+            ${analysis.duration ? `<div class="card" style="padding:12px;margin:0;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">⏱ ДЛИТЕЛЬНОСТЬ</div><div style="font-size:13px;">${esc(String(analysis.duration))}</div></div>` : ''}
+          </div>
+          ${analysis.structure           ? `<div class="card" style="padding:12px;margin:0;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">🏗 СТРУКТУРА</div><div style="font-size:13px;line-height:1.5;">${esc(analysis.structure)}</div></div>` : ''}
+          ${analysis.emotional_triggers  ? `<div class="card" style="padding:12px;margin:0;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">💡 ЭМОЦИОНАЛЬНЫЕ ТРИГГЕРЫ</div><div style="font-size:13px;line-height:1.5;">${esc(analysis.emotional_triggers)}</div></div>` : ''}
+          ${analysis.recommendations     ? `<div class="card" style="padding:12px;margin:0;background:rgba(99,102,241,0.06);border-color:rgba(99,102,241,0.25);"><div style="font-size:11px;color:var(--accent2);margin-bottom:4px;">✅ РЕКОМЕНДАЦИИ</div><div style="font-size:13px;line-height:1.5;">${esc(analysis.recommendations)}</div></div>` : ''}
+          ${analysis.raw_summary         ? `<div style="background:var(--bg3);border-radius:8px;padding:14px;font-size:12px;line-height:1.6;color:var(--text2);">${esc(analysis.raw_summary)}</div>` : ''}
+        </div>` : `<div class="empty-state" style="padding:40px;">${r.status === 'pending' ? '⏳ Анализ в процессе...' : 'Нет данных анализа'}</div>`}
+    </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  } catch (e) {
+    toast('Ошибка загрузки: ' + e.message, 'error');
+  }
+}
+
+async function deleteRef(id) {
+  if (!confirm('Удалить ссылку?')) return;
+  try {
+    await api('DELETE', `/api/references/${id}`);
+    toast('Удалено', 'success');
+    loadReferences();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Video Composer + Style Packs
+// ═══════════════════════════════════════════════════
+async function loadComposer() {
+  await Promise.all([loadStylePacks(), loadComposeSessions()]);
+}
+
+async function loadStylePacks() {
+  const grid = document.getElementById('packs-grid');
+  if (!grid) return;
+  try {
+    const res = await api('GET', '/api/composer/style-packs');
+    const packs = res.data || [];
+    if (packs.length === 0) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:40px;">
+        <div class="icon">🎨</div>
+        <p>Нет стиль-паков</p>
+        <button class="btn btn-primary" style="margin-top:12px;" onclick="openStylePackModal()">+ Создать первый</button>
+      </div>`;
+      return;
+    }
+    const gradients = [
+      'linear-gradient(135deg,#6366f1,#818cf8)',
+      'linear-gradient(135deg,#22c55e,#4ade80)',
+      'linear-gradient(135deg,#f59e0b,#fcd34d)',
+      'linear-gradient(135deg,#ef4444,#f87171)',
+      'linear-gradient(135deg,#8b5cf6,#a78bfa)',
+      'linear-gradient(135deg,#ec4899,#f9a8d4)',
+    ];
+    grid.innerHTML = packs.map(p => {
+      const g = gradients[p.id % gradients.length];
+      return `<div class="pack-card" style="border-color:${p.is_active ? 'rgba(99,102,241,0.45)' : 'var(--border)'};">
+        <div style="height:4px;background:${g};margin:-16px -16px 14px;border-radius:10px 10px 0 0;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:2px;">${esc(p.name)}</div>
+            ${p.description ? `<div style="font-size:12px;color:var(--text2);">${esc(p.description)}</div>` : ''}
+          </div>
+          ${p.is_active ? '<span class="badge badge-approved">active</span>' : '<span class="badge" style="background:var(--bg3);">off</span>'}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:var(--text2);margin-bottom:14px;">
+          <div><span style="opacity:0.55;font-size:10px;">ШРИФТ</span> ${esc(p.subtitle_font||'Arial')} ${p.subtitle_font_size||42}px</div>
+          <div><span style="opacity:0.55;font-size:10px;">ПОЗИЦИЯ</span> ${p.subtitle_position||'bottom'}</div>
+          <div><span style="opacity:0.55;font-size:10px;">ЭФФЕКТ</span> ${esc(p.subtitle_animation||'fade')}</div>
+          <div style="display:flex;align-items:center;gap:5px;"><span style="opacity:0.55;font-size:10px;">ЦВЕТ</span>
+            <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${esc(p.subtitle_primary_color||'#FFFFFF')};border:1px solid rgba(255,255,255,0.15);"></span>
+            <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${esc(p.subtitle_outline_color||'#000000')};border:1px solid rgba(255,255,255,0.15);"></span>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline" onclick="openStylePackModal(${p.id})" style="flex:1;">${ico('edit')} Редактировать</button>
+          <button class="btn btn-sm btn-danger"  onclick="deleteStylePack(${p.id})">${ico('trash')}</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Ошибка: ${e.message}</div>`;
+  }
+}
+
+async function loadComposeSessions() {
+  const el = document.getElementById('compose-sessions-list');
+  if (!el) return;
+  try {
+    const res = await api('GET', '/api/videos?status=ready_for_review&limit=20');
+    const sessions = res.data || [];
+    if (sessions.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="padding:32px;"><p>Нет видео, готовых для компоновки</p><p style="font-size:12px;color:var(--text2);margin-top:4px;">Видео в статусе «ready_for_review» появятся здесь</p></div>';
+      return;
+    }
+    el.innerHTML = `<table><thead><tr><th>ID</th><th>Идея / Продукт</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead><tbody>
+      ${sessions.map(s => `<tr>
+        <td>#${s.id}</td>
+        <td>${esc(s.idea_title || s.product_name || '—')}</td>
+        <td><span class="badge badge-${s.status}">${s.status}</span></td>
+        <td>${fmtDate(s.created_at)}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="triggerCompose(${s.id}, this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>Скомпозировать</button></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state" style="padding:24px;">Ошибка: ${e.message}</div>`;
+  }
+}
+
+async function openStylePackModal(id) {
+  const idStr = id != null ? String(id) : '';
+  document.getElementById('spm-id').value = idStr;
+  document.getElementById('spm-title').textContent = idStr ? 'Редактировать стиль-пак' : 'Создать стиль-пак';
+  if (idStr) {
+    try {
+      const res  = await api('GET', '/api/composer/style-packs');
+      const pack = (res.data || []).find(p => p.id == id);
+      if (pack) {
+        document.getElementById('spm-name').value = pack.name || '';
+        document.getElementById('spm-font').value = pack.subtitle_font || 'Arial';
+        document.getElementById('spm-font-size').value = pack.subtitle_font_size || 42;
+        // Colors: API returns ASS format (&H00RRGGBB) or hex — normalize to #RRGGBB for color picker
+        const normColor = v => {
+          if (!v) return null;
+          if (v.startsWith('#')) return v.length === 7 ? v : '#ffffff';
+          // ASS &HAABBGGRR → swap to #RRGGBB
+          if (v.startsWith('&H') && v.length >= 8) {
+            const hex = v.slice(2);
+            return '#' + hex.slice(6,8) + hex.slice(4,6) + hex.slice(2,4);
+          }
+          return '#ffffff';
+        };
+        const pc = normColor(pack.subtitle_primary_color) || '#ffffff';
+        const oc = normColor(pack.subtitle_outline_color) || '#000000';
+        document.getElementById('spm-primary-color').value = pc;
+        document.getElementById('spm-primary-color-text').value = pc.toUpperCase();
+        document.getElementById('spm-outline-color').value = oc;
+        document.getElementById('spm-outline-color-text').value = oc.toUpperCase();
+        document.getElementById('spm-position').value = pack.subtitle_position || 'bottom';
+        document.getElementById('spm-animation').value = pack.subtitle_animation || 'fade';
+        document.getElementById('spm-description').value = pack.description || '';
+      }
+    } catch (e) { /* use defaults */ }
+  } else {
+    document.getElementById('spm-name').value = '';
+    document.getElementById('spm-font').value = 'Arial';
+    document.getElementById('spm-font-size').value = 42;
+    document.getElementById('spm-primary-color').value = '#ffffff';
+    document.getElementById('spm-primary-color-text').value = '#FFFFFF';
+    document.getElementById('spm-outline-color').value = '#000000';
+    document.getElementById('spm-outline-color-text').value = '#000000';
+    document.getElementById('spm-position').value = 'bottom';
+    document.getElementById('spm-animation').value = 'fade';
+    document.getElementById('spm-description').value = '';
+  }
+  openModal('style-pack-modal');
+}
+
+async function saveStylePack() {
+  const id   = document.getElementById('spm-id').value;
+  const name = document.getElementById('spm-name').value.trim();
+  if (!name) { toast('Введите название стиль-пака', 'error'); return; }
+  // Convert hex color (#RRGGBB) to ASS format (&H00BBGGRR) for the backend
+  const hexToAss = hex => {
+    if (!hex || !hex.startsWith('#')) return null;
+    const r = hex.slice(1,3), g = hex.slice(3,5), b = hex.slice(5,7);
+    return `&H00${b}${g}${r}`.toUpperCase();
+  };
+  const payload = {
+    name,
+    subtitle_font:          document.getElementById('spm-font').value,
+    subtitle_font_size:     parseInt(document.getElementById('spm-font-size').value) || 42,
+    subtitle_primary_color: hexToAss(document.getElementById('spm-primary-color-text').value) || '&H00FFFFFF',
+    subtitle_outline_color: hexToAss(document.getElementById('spm-outline-color-text').value) || '&H00000000',
+    subtitle_position:      document.getElementById('spm-position').value || 'bottom',
+    subtitle_animation:     document.getElementById('spm-animation').value,
+    description:            document.getElementById('spm-description').value.trim(),
+  };
+  const btn = document.getElementById('spm-submit');
+  btn.disabled = true; btn.textContent = 'Сохранение...';
+  try {
+    if (id) {
+      await api('PUT', `/api/composer/style-packs/${id}`, payload);
+      toast('Стиль-пак обновлён', 'success');
+    } else {
+      await api('POST', '/api/composer/style-packs', payload);
+      toast('Стиль-пак создан', 'success');
+    }
+    closeModal('style-pack-modal');
+    loadStylePacks();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Сохранить';
+  }
+}
+
+async function deleteStylePack(id) {
+  if (!confirm('Удалить стиль-пак?')) return;
+  try {
+    await api('DELETE', `/api/composer/style-packs/${id}`);
+    toast('Удалено', 'success');
+    loadStylePacks();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function triggerCompose(sessionId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Запуск...'; }
+  try {
+    await api('POST', '/api/composer/compose', { session_id: sessionId });
+    toast(`Компоновка видео #${sessionId} запущена!`, 'success');
+    loadComposeSessions();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Скомпозировать'; }
+  }
+}
+
+function syncColorInput(colorId, textId, val) {
+  if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+    document.getElementById(colorId).value = val.toLowerCase();
+  }
+}
 
 // Start
 init();

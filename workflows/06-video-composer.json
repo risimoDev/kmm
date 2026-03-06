@@ -1,0 +1,194 @@
+{
+  "name": "06 — Видео-Композитор (FFmpeg + субтитры + эффекты)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-composer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-vc",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "video-composer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = ($input.first().json.body) || $input.first().json;\n\nconst sessionId = parseInt(body.session_id);\nif (!sessionId || isNaN(sessionId)) throw new Error('session_id is required');\n\nconst stylePackId = body.style_pack_id ? parseInt(body.style_pack_id) : 0;\nconst wordsPerLineOverride = body.words_per_line ? parseInt(body.words_per_line) : null;\n\nreturn [{ json: {\n  session_id: sessionId,\n  style_pack_id: stylePackId,\n  words_per_line_override: wordsPerLineOverride\n}}];"
+      },
+      "id": "validate-vc",
+      "name": "🔍 Валидация",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, session_id: $json.session_id, message: 'Composition started' }) }}",
+        "options": {}
+      },
+      "id": "respond-vc",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 220]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE pipeline_sessions SET status = 'processing', current_step = 'composing', updated_at = NOW() WHERE id = {{ $json.session_id }};\nSELECT ps.id AS session_id, COALESCE(ps.raw_video_url, ps.final_video_url) AS video_url, ps.voice_script_id\nFROM pipeline_sessions ps WHERE ps.id = {{ $json.session_id }}",
+        "options": {}
+      },
+      "id": "load-session-vc",
+      "name": "📂 Загрузка сессии",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 580],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT script_text, COALESCE(duration_hint, 40) AS duration_hint\nFROM voice_scripts WHERE id = {{ $json.voice_script_id }}",
+        "options": {}
+      },
+      "id": "load-script-vc",
+      "name": "📄 Загрузка скрипта",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [920, 580],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT id AS pack_id, subtitle_font, subtitle_font_size,\n  subtitle_primary_color, subtitle_outline_color, subtitle_back_color,\n  subtitle_bold, subtitle_outline, subtitle_shadow,\n  subtitle_position, subtitle_margin_v, subtitle_words_per_line, subtitle_animation,\n  color_filter, vignette, output_quality\nFROM style_packs\nWHERE is_active = TRUE\nORDER BY\n  CASE WHEN id = {{ $('🔍 Валидация').first().json.style_pack_id }} THEN 0 ELSE 1 END,\n  RANDOM()\nLIMIT 1",
+        "options": {}
+      },
+      "id": "load-pack-vc",
+      "name": "🎨 Загрузка стилей",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1160, 580],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('📂 Загрузка сессии').first().json;\nconst scriptData = $('📄 Загрузка скрипта').first()?.json || {};\nconst pack = $('🎨 Загрузка стилей').first().json;\nconst params = $('🔍 Валидация').first().json;\n\nif (!session.video_url) throw new Error('Session has no video URL to compose');\n\n// ─── ASS Time Formatter ───\nfunction toASSTime(seconds) {\n  const s = Math.max(0, seconds);\n  const h = Math.floor(s / 3600);\n  const m = Math.floor((s % 3600) / 60);\n  const sec = Math.floor(s % 60);\n  const cs = Math.min(99, Math.round((s % 1) * 100));\n  return h + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0') + '.' + String(cs).padStart(2,'0');\n}\n\n// ─── Generate ASS Subtitles ───\nconst scriptText = (scriptData.script_text || '').trim();\nconst durationHint = parseFloat(scriptData.duration_hint) || 40;\nconst wordsPerLine = params.words_per_line_override || pack.subtitle_words_per_line || 4;\n\nconst words = scriptText.split(/\\s+/).filter(w => w.length > 0);\nconst totalWords = words.length;\n\nlet dialogues = '';\nif (totalWords > 0) {\n  let currentTime = 0;\n  for (let i = 0; i < totalWords; i += wordsPerLine) {\n    const chunk = words.slice(i, Math.min(i + wordsPerLine, totalWords));\n    const chunkDur = (chunk.length / totalWords) * durationHint;\n    const start = toASSTime(currentTime);\n    const end = toASSTime(currentTime + Math.max(chunkDur - 0.05, 0.3));\n    let text = chunk.join(' ').replace(/[{}]/g, ' ').replace(/\\\\/g, ' ').trim();\n    const anim = pack.subtitle_animation || 'none';\n    if (anim === 'fade') text = '{\\\\fad(150,150)}' + text;\n    else if (anim === 'scale') text = '{\\\\t(0,200,\\\\fscx0\\\\fscy0)\\\\t(200,400,\\\\fscx100\\\\fscy100)}' + text;\n    dialogues += 'Dialogue: 0,' + start + ',' + end + ',Default,,0,0,0,,' + text + '\\n';\n    currentTime += chunkDur;\n  }\n}\n\nconst alignment = pack.subtitle_position === 'top' ? 8 : pack.subtitle_position === 'center' ? 5 : 2;\nconst boldFlag = (pack.subtitle_bold === true || pack.subtitle_bold === 't' || pack.subtitle_bold === '-1') ? '-1' : '0';\nconst outline = parseFloat(pack.subtitle_outline) || 2.5;\nconst shadow  = parseFloat(pack.subtitle_shadow)  || 1.0;\nconst marginV = parseInt(pack.subtitle_margin_v)   || 80;\nconst fontSize = parseInt(pack.subtitle_font_size)  || 52;\n\nconst assContent = [\n  '[Script Info]',\n  'ScriptType: v4.00+',\n  'PlayResX: 1080',\n  'PlayResY: 1920',\n  'ScaledBorderAndShadow: yes',\n  '',\n  '[V4+ Styles]',\n  'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',\n  'Style: Default,' + (pack.subtitle_font || 'Arial') + ',' + fontSize + ',' + (pack.subtitle_primary_color || '&H00FFFFFF') + ',&H000000FF,' + (pack.subtitle_outline_color || '&H00000000') + ',' + (pack.subtitle_back_color || '&H80000000') + ',' + boldFlag + ',0,0,0,100,100,0,0,1,' + outline + ',' + shadow + ',' + alignment + ',10,10,' + marginV + ',1',\n  '',\n  '[Events]',\n  'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',\n  dialogues\n].join('\\n').trim();\n\n// ─── Build FFmpeg Command ───\nconst sessionId = session.session_id;\nconst workDir = '/tmp/compose_' + sessionId;\nconst outputPath = '/home/node/output/composed_' + sessionId + '_' + pack.pack_id + '.mp4';\n\nconst safeVideoUrl = (session.video_url || '').replace(/\"/g, '%22');\n\n// Build vf filter chain\nconst vfParts = [];\nif (totalWords > 0) vfParts.push(\"ass='\" + workDir + \"/subs.ass'\");\nconst colorFilter = (pack.color_filter || '').trim();\nif (colorFilter) vfParts.push(colorFilter);\nif (pack.vignette === true || pack.vignette === 't') vfParts.push('vignette');\n\nconst vfArg = vfParts.length > 0 ? vfParts.join(',') : null;\nconst crf = parseInt(pack.output_quality) || 23;\n\n// Base64-encode ASS content to avoid all shell escaping issues\nconst base64ASS = Buffer.from(assContent, 'utf8').toString('base64');\n\nconst cmdLines = [\n  'set -e',\n  'mkdir -p \"' + workDir + '\"',\n  'wget -q --timeout=300 -O \"' + workDir + '/input.mp4\" \"' + safeVideoUrl + '\"'\n];\n\nif (totalWords > 0) {\n  cmdLines.push('printf \"%s\" \"' + base64ASS + '\" | base64 -d > \"' + workDir + '/subs.ass\"');\n}\n\nconst ffmpegParts = ['ffmpeg -y -i \"' + workDir + '/input.mp4\"'];\nif (vfArg) ffmpegParts.push('-vf \"' + vfArg + '\"');\nffmpegParts.push('-c:v libx264 -preset fast -crf ' + crf + ' -c:a copy \"' + outputPath + '\"');\n\ncmdLines.push(ffmpegParts.join(' '));\ncmdLines.push('rm -rf \"' + workDir + '\"');\ncmdLines.push('echo \"COMPOSE_DONE:' + outputPath + '\"');\n\nreturn [{ json: {\n  command: cmdLines.join('\\n'),\n  output_path: outputPath,\n  session_id: sessionId,\n  pack_id: pack.pack_id\n}}];"
+      },
+      "id": "build-vc",
+      "name": "🏗️ Генерация ASS + FFmpeg",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 580]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "exec-vc",
+      "name": "⚡ FFmpeg",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1640, 580]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nconst ctx = $('🏗️ Генерация ASS + FFmpeg').first().json;\n\nconst stdout = (result.stdout || result.output || '').trim();\nconst stderr = (result.stderr || '').slice(-1000);\n\nif (!stdout.includes('COMPOSE_DONE')) {\n  throw new Error('FFmpeg failed. stderr: ' + stderr);\n}\n\nconst match = stdout.match(/COMPOSE_DONE:(.+)/);\nconst finalPath = match ? match[1].trim() : ctx.output_path;\n\nreturn [{ json: {\n  session_id: ctx.session_id,\n  final_video_url: finalPath,\n  pack_id: ctx.pack_id\n}}];"
+      },
+      "id": "parse-result-vc",
+      "name": "📋 Результат",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 580]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE pipeline_sessions SET\n  final_video_url = '{{ $json.final_video_url.replace(/'/g, \"''\") }}',\n  status = 'ready_for_review',\n  current_step = 'review',\n  updated_at = NOW()\nWHERE id = {{ $json.session_id }}",
+        "options": {}
+      },
+      "id": "update-vc",
+      "name": "💾 Сохранить результат",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2120, 580],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/video-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session_id: $('📋 Результат').first().json.session_id, status: 'ready_for_review' }) }}",
+        "options": { "timeout": 10000 },
+        "onError": "continueRegularOutput"
+      },
+      "id": "callback-vc",
+      "name": "📡 Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2360, 580]
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [[{ "node": "🔍 Валидация", "type": "main", "index": 0 }]]
+    },
+    "🔍 Валидация": {
+      "main": [[
+        { "node": "✅ Ответ 200", "type": "main", "index": 0 },
+        { "node": "📂 Загрузка сессии", "type": "main", "index": 0 }
+      ]]
+    },
+    "📂 Загрузка сессии": {
+      "main": [[{ "node": "📄 Загрузка скрипта", "type": "main", "index": 0 }]]
+    },
+    "📄 Загрузка скрипта": {
+      "main": [[{ "node": "🎨 Загрузка стилей", "type": "main", "index": 0 }]]
+    },
+    "🎨 Загрузка стилей": {
+      "main": [[{ "node": "🏗️ Генерация ASS + FFmpeg", "type": "main", "index": 0 }]]
+    },
+    "🏗️ Генерация ASS + FFmpeg": {
+      "main": [[{ "node": "⚡ FFmpeg", "type": "main", "index": 0 }]]
+    },
+    "⚡ FFmpeg": {
+      "main": [[{ "node": "📋 Результат", "type": "main", "index": 0 }]]
+    },
+    "📋 Результат": {
+      "main": [[{ "node": "💾 Сохранить результат", "type": "main", "index": 0 }]]
+    },
+    "💾 Сохранить результат": {
+      "main": [[{ "node": "📡 Callback", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "staticData": null,
+  "tags": []
+}

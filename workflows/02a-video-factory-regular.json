@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'minimax',\n  subtitle_font: body.subtitle_font || 'DejaVu Sans',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7,\n  subtitles_enabled: body.subtitles_enabled || false,\n  music_file_key: body.music_file_key || '',\n  music_volume: parseFloat(body.music_volume) || 0.3\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'gptunnel',\n  subtitle_font: body.subtitle_font || 'DejaVu Sans',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7,\n  subtitles_enabled: body.subtitles_enabled || false,\n  music_file_key: body.music_file_key || '',\n  music_volume: parseFloat(body.music_volume) || 0.3\n}}];"
       },
       "id": "validate-vf",
       "name": "🔍 Валидация входа",
@@ -163,7 +163,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\nconst videoPrompt = ctx.prompt_text || 'Create a professional vertical video (9:16) showcasing: ' + ctx.title + '. ' + (ctx.visual_description || ctx.concept || '');\n\nconst body = JSON.stringify({\n  model: 'video-01',\n  prompt: videoPrompt,\n  first_frame_image: ctx.product_image_url || undefined\n});\n\nreturn [{ json: { body, session_id: ctx.session_id } }];"
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\nconst videoPrompt = ctx.prompt_text || 'Create a professional vertical video (9:16) showcasing: ' + ctx.title + '. ' + (ctx.visual_description || ctx.concept || '');\n\nconst body = JSON.stringify({\n  model: ctx.video_gptunnel_model || 'glabs-veo-3-1',\n  prompt: videoPrompt,\n  aspect_ratio: '9:16'\n});\n\nreturn [{ json: { body, session_id: ctx.session_id } }];"
       },
       "id": "build-video-req-vf",
       "name": "🏗️ Видео запрос",
@@ -174,7 +174,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.minimaxi.chat/v1/video_generation",
+        "url": "https://gptunnel.ru/v1/video/generations",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -196,7 +196,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst taskId = response.task_id;\nif (!taskId) throw new Error('Video provider did not return task_id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  task_id: taskId,\n  session_id: $('🔗 Объединение данных').first().json.session_id,\n  poll_count: 0\n}}];"
+        "jsCode": "const response = $input.first().json;\nconst taskId = response.id || response.task_id;\nif (!taskId) throw new Error('GPTunnel не вернул task_id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  task_id: taskId,\n  session_id: $('🔗 Объединение данных').first().json.session_id,\n  poll_count: 0\n}}];"
       },
       "id": "extract-tid-vf",
       "name": "🔑 Извлечь task_id",
@@ -215,7 +215,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://api.minimaxi.chat/v1/query/video_generation?task_id={{ $json.task_id }}",
+        "url": "=https://gptunnel.ru/v1/video/generations/{{ $json.task_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "options": { "timeout": 30000 }
@@ -236,7 +236,7 @@
       "parameters": {
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "id": "vr", "leftValue": "={{ $json.status || $json.body?.status }}", "rightValue": "Success", "operator": { "type": "string", "operation": "equals" } }],
+          "conditions": [{ "id": "vr", "leftValue": "={{ $json.status || $json.body?.status }}", "rightValue": "succeeded", "operator": { "type": "string", "operation": "equals" } }],
           "combinator": "and"
         }
       },
@@ -258,7 +258,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst fileId = response.file_id || '';\nconst videoUrl = response.video_url || '';\nconst rawVideoUrl = videoUrl || fileId;\nif (!rawVideoUrl) throw new Error('Video provider did not return video URL or file_id');\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: rawVideoUrl,\n  file_id: fileId,\n  ...$('🔗 Объединение данных').first().json\n}}];"
+        "jsCode": "const response = $input.first().json;\nconst fileId = '';\nconst videoUrl = response.data?.[0]?.url || response.video_url || response.output || '';\nconst rawVideoUrl = videoUrl;\nif (!rawVideoUrl) throw new Error('GPTunnel не вернул URL видео');\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: rawVideoUrl,\n  file_id: fileId,\n  ...$('🔗 Объединение данных').first().json\n}}];"
       },
       "id": "got-url-vf",
       "name": "🎬 URL видео",
@@ -287,7 +287,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://api.minimaxi.chat/v1/files/retrieve?file_id={{ $('🎬 URL видео').first().json.file_id }}",
+        "url": "=https://gptunnel.ru/v1/video/generations/{{ $('🎬 URL видео').first().json.file_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "options": { "timeout": 30000 },

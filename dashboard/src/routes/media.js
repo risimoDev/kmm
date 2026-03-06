@@ -1,4 +1,4 @@
-// ─── Media Routes ───
+﻿// ─── Media Routes ───
 // GET    /api/media              — Список файлов из MinIO
 // GET    /api/media/public/*     — Публичный прокси файлов (без auth, для внешних API)
 // POST   /api/media/upload       — Загрузить файл
@@ -277,7 +277,7 @@ router.get('/music', async (req, res, next) => {
 });
 
 // ─── Загрузить музыкальный трек ───
-router.post('/music', musicUpload.single('file'), async (req, res, next) => {
+router.post('/music', authMiddleware, musicUpload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ ok: false, error: 'Файл не загружен или недопустимый формат (только mp3/wav/ogg/flac/aac)' });
@@ -319,7 +319,7 @@ router.post('/music', musicUpload.single('file'), async (req, res, next) => {
 });
 
 // ─── Удалить музыкальный трек ───
-router.delete('/music/:id', async (req, res, next) => {
+router.delete('/music/:id', authMiddleware, async (req, res, next) => {
   try {
     if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
 

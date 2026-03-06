@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  heygen_avatar_id: body.heygen_avatar_id || '',\n  heygen_voice_id: body.heygen_voice_id || '',\n  heygen_background: body.heygen_background || '',\n  heygen_ratio: body.heygen_ratio || '9:16',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  heygen_avatar_id: body.heygen_avatar_id || '',\n  heygen_voice_id: body.heygen_voice_id || '',\n  heygen_background: body.heygen_background || '',\n  heygen_background_type: body.heygen_background_type || 'color',\n  heygen_ratio: body.heygen_ratio || '9:16',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
       },
       "id": "validate-hg",
       "name": "🔍 Валидация входа",
@@ -40,7 +40,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'heygen_api_key') AS heygen_api_key,\n       (SELECT value FROM app_settings WHERE key = 'heygen_avatar_id') AS default_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'heygen_voice_id') AS default_voice_id\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vp.prompt_text, vp.scene_descriptions,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'heygen_avatar_id') AS default_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'heygen_voice_id') AS default_voice_id\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
         "options": {}
       },
       "id": "load-data-hg",
@@ -57,7 +57,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst avatarId = params.heygen_avatar_id || dbData.default_avatar_id || '';\nconst voiceId = params.heygen_voice_id || dbData.default_voice_id || '';\nconst heygenKey = dbData.heygen_api_key || '';\n\nif (!heygenKey) throw new Error('HeyGen API key not configured in settings');\nif (!avatarId) throw new Error('HeyGen avatar_id not set');\nif (!voiceId) throw new Error('HeyGen voice_id not set');\n\nreturn [{ json: {\n  ...params,\n  heygen_api_key: heygenKey,\n  heygen_avatar_id: avatarId,\n  heygen_voice_id: voiceId,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst avatarId = params.heygen_avatar_id || dbData.default_avatar_id || '';\nconst voiceId = params.heygen_voice_id || dbData.default_voice_id || '';\nif (!avatarId) throw new Error('HeyGen avatar_id not set');\nif (!voiceId) throw new Error('HeyGen voice_id not set');\n\nreturn [{ json: {\n  ...params,\n  heygen_background_type: params.heygen_background_type || 'color',\n  heygen_avatar_id: avatarId,\n  heygen_voice_id: voiceId,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  prompt_text: dbData.prompt_text || '',\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
       },
       "id": "merge-hg",
       "name": "🔗 Объединение данных",
@@ -85,7 +85,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\n// Build HeyGen v2 video generation request\nconst heygenBody = {\n  video_inputs: [\n    {\n      character: {\n        type: 'avatar',\n        avatar_id: ctx.heygen_avatar_id,\n        avatar_style: 'normal'\n      },\n      voice: {\n        type: 'text',\n        input_text: ctx.script_text,\n        voice_id: ctx.heygen_voice_id,\n        speed: 1.0\n      },\n      background: ctx.heygen_background\n        ? { type: 'image', url: ctx.heygen_background }\n        : { type: 'color', value: '#f5f5f5' }\n    }\n  ],\n  dimension: {\n    width: ctx.heygen_ratio === '16:9' ? 1920 : 1080,\n    height: ctx.heygen_ratio === '16:9' ? 1080 : 1920\n  },\n  aspect_ratio: ctx.heygen_ratio || '9:16',\n  test: false\n};\n\nreturn [{ json: {\n  body: JSON.stringify(heygenBody),\n  heygen_api_key: ctx.heygen_api_key,\n  session_id: ctx.session_id\n}}];"
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\n// Build background based on background_type\nconst bgType = ctx.heygen_background_type || 'color';\nlet background;\nif (bgType === 'green_screen') {\n  background = { type: 'color', value: '#00B140' };\n} else if (bgType === 'image' && ctx.heygen_background) {\n  background = { type: 'image', url: ctx.heygen_background };\n} else {\n  background = { type: 'color', value: ctx.heygen_background || '#f5f5f5' };\n}\n\n// Build HeyGen v2 video generation request\nconst heygenBody = {\n  video_inputs: [\n    {\n      character: {\n        type: 'avatar',\n        avatar_id: ctx.heygen_avatar_id,\n        avatar_style: 'normal'\n      },\n      voice: {\n        type: 'text',\n        input_text: ctx.script_text,\n        voice_id: ctx.heygen_voice_id,\n        speed: 1.0\n      },\n      background: background\n    }\n  ],\n  dimension: {\n    width: ctx.heygen_ratio === '16:9' ? 1920 : 1080,\n    height: ctx.heygen_ratio === '16:9' ? 1080 : 1920\n  },\n  aspect_ratio: ctx.heygen_ratio || '9:16',\n  test: false\n};\n\nreturn [{ json: {\n  body: JSON.stringify(heygenBody),\n  session_id: ctx.session_id\n}}];"
       },
       "id": "build-heygen-hg",
       "name": "🏗️ HeyGen запрос",
@@ -97,19 +97,8 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.heygen.com/v2/video/generate",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Api-Key",
-              "value": "={{ $json.heygen_api_key }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.body }}",
@@ -119,11 +108,17 @@
       "name": "🎭 HeyGen создание видео",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1660, 560]
+      "position": [1660, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "heygen-cred",
+          "name": "HeyGen account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst data = response.data || response;\nconst videoId = data.video_id;\nif (!videoId) throw new Error('HeyGen did not return video_id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ HeyGen запрос').first().json.session_id,\n  heygen_api_key: $('🔗 Объединение данных').first().json.heygen_api_key,\n  poll_count: 0\n}}];"
+        "jsCode": "const response = $input.first().json;\nconst data = response.data || response;\nconst videoId = data.video_id;\nif (!videoId) throw new Error('HeyGen did not return video_id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  video_id: videoId,\n  session_id: $('🏗️ HeyGen запрос').first().json.session_id,\n  poll_count: 0\n}}];"
       },
       "id": "extract-vid-hg",
       "name": "🔑 Извлечь video_id",
@@ -143,17 +138,21 @@
       "parameters": {
         "method": "GET",
         "url": "=https://api.heygen.com/v1/video_status.get?video_id={{ $json.video_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [{ "name": "X-Api-Key", "value": "={{ $json.heygen_api_key }}" }]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "options": { "timeout": 30000 }
       },
       "id": "poll-hg",
       "name": "🔄 Проверить статус",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2380, 560]
+      "position": [2380, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "heygen-cred",
+          "name": "HeyGen account"
+        }
+      }
     },
     {
       "parameters": {
@@ -171,7 +170,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const prev = $input.first().json;\nconst status = prev.data?.status || prev.status || 'unknown';\nif (status === 'failed') throw new Error('HeyGen video generation failed: ' + JSON.stringify(prev.data?.error || prev));\n\nconst pollCount = (prev.poll_count || $('🔑 Извлечь video_id').first().json.poll_count || 0) + 1;\nif (pollCount > 60) throw new Error('HeyGen timeout: 60 polls (20 min)');\n\nreturn [{ json: {\n  video_id: prev.video_id || $('🔑 Извлечь video_id').first().json.video_id,\n  session_id: prev.session_id || $('🔑 Извлечь video_id').first().json.session_id,\n  heygen_api_key: prev.heygen_api_key || $('🔑 Извлечь video_id').first().json.heygen_api_key,\n  poll_count: pollCount\n}}];"
+        "jsCode": "const prev = $input.first().json;\nconst status = prev.data?.status || prev.status || 'unknown';\nif (status === 'failed') throw new Error('HeyGen video generation failed: ' + JSON.stringify(prev.data?.error || prev));\n\nconst pollCount = (prev.poll_count || $('🔑 Извлечь video_id').first().json.poll_count || 0) + 1;\nif (pollCount > 60) throw new Error('HeyGen timeout: 60 polls (20 min)');\n\nreturn [{ json: {\n  video_id: prev.video_id || $('🔑 Извлечь video_id').first().json.video_id,\n  session_id: prev.session_id || $('🔑 Извлечь video_id').first().json.session_id,\n  poll_count: pollCount\n}}];"
       },
       "id": "retry-hg",
       "name": "⏳ Ещё не готово",

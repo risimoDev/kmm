@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'minimax',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  tts_provider: body.tts_provider || 'openai',\n  tts_voice: body.tts_voice || 'alloy',\n  tts_speed: body.tts_speed || 1.0,\n  video_provider: body.video_provider || 'gptunnel',\n  subtitle_font: body.subtitle_font || 'Arial',\n  subtitle_size: body.subtitle_size || 42,\n  subtitle_color: body.subtitle_color || 'white',\n  subtitle_outline: body.subtitle_outline || 2,\n  watermark_url: body.watermark_url || '',\n  watermark_position: body.watermark_position || 'top-right',\n  watermark_opacity: body.watermark_opacity || 0.7\n}}];"
       },
       "id": "validate-input",
       "name": "🔍 Валидация входа",
@@ -144,29 +144,29 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.minimaxi.chat/v1/video_generation",
+        "url": "https://gptunnel.ru/v1/video/generations",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"video-01\",\n  \"prompt\": \"{{ $('🔗 Объединение данных').first().json.prompt_text }}\",\n  \"first_frame_image\": \"{{ $('🔗 Объединение данных').first().json.product_image_url || '' }}\"\n}",
+        "jsonBody": "={\n  \"model\": \"glabs-veo-3-1\",\n  \"prompt\": \"{{ $('🔗 Объединение данных').first().json.prompt_text }}\",\n  \"aspect_ratio\": \"9:16\"\n}",
         "options": { "timeout": 300000 }
       },
       "id": "video-generate",
-      "name": "🎥 Генерация видео (Minimax)",
+      "name": "🎥 Генерация видео (GPTunnel)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [2140, 560],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "MINIMAX_CREDENTIAL_ID",
-          "name": "Minimax Video API"
+          "id": "GPTUNNEL_CREDENTIAL_ID",
+          "name": "AI Provider (GPTunnel)"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const response = $json.body || $json;\nconst taskId = response.task_id;\n\nif (!taskId) {\n  throw new Error('Minimax не вернул task_id: ' + JSON.stringify(response));\n}\n\nreturn [{ json: {\n  task_id: taskId,\n  session_id: $('🔗 Объединение данных').first().json.session_id,\n  poll_count: 0\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst taskId = input.id || input.task_id;\nif (!taskId) throw new Error('Нет task_id в ответе GPTunnel');\nreturn [{ json: {\n  task_id: taskId,\n  session_id: $('🔗 Объединение данных').first().json.session_id,\n  poll_count: 0\n}}];"
       },
       "id": "extract-task-id",
       "name": "🔑 Извлечь task_id",
@@ -188,7 +188,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://api.minimaxi.chat/v1/query/video_generation?task_id={{ $json.task_id }}",
+        "url": "=https://gptunnel.ru/v1/video/generations/{{ $json.task_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "options": { "timeout": 30000 }
@@ -200,8 +200,8 @@
       "position": [2860, 560],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "MINIMAX_CREDENTIAL_ID",
-          "name": "Minimax Video API"
+          "id": "GPTUNNEL_CREDENTIAL_ID",
+          "name": "AI Provider (GPTunnel)"
         }
       }
     },
@@ -213,7 +213,7 @@
             {
               "id": "video-ready",
               "leftValue": "={{ $json.status || $json.body?.status }}",
-              "rightValue": "Success",
+              "rightValue": "succeeded",
               "operator": { "type": "string", "operation": "equals" }
             }
           ],
@@ -239,7 +239,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json.body || $json;\nconst videoUrl = response.file_id || response.video_url || '';\n\nif (!videoUrl) {\n  throw new Error('Minimax не вернул URL видео');\n}\n\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\n\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: videoUrl,\n  ...$('🔗 Объединение данных').first().json\n}}];"
+        "jsCode": "const response = $json.body || $json;\nconst videoUrl = response.data?.[0]?.url || response.video_url || response.output || '';\n\nif (!videoUrl) {\n  throw new Error('GPTunnel не вернул URL видео: ' + JSON.stringify(response).substring(0, 300));\n}\n\nconst sessionId = $('🔑 Извлечь task_id').first().json.session_id;\n\nreturn [{ json: {\n  session_id: sessionId,\n  raw_video_url: videoUrl,\n  ...$('🔗 Объединение данных').first().json\n}}];"
       },
       "id": "extract-video-url",
       "name": "🎬 URL видео",
@@ -439,10 +439,10 @@
     },
     "📌 Шаг → Видео": {
       "main": [
-        [{ "node": "🎥 Генерация видео (Minimax)", "type": "main", "index": 0 }]
+        [{ "node": "🎥 Генерация видео (GPTunnel)", "type": "main", "index": 0 }]
       ]
     },
-    "🎥 Генерация видео (Minimax)": {
+    "🎥 Генерация видео (GPTunnel)": {
       "main": [
         [{ "node": "🔑 Извлечь task_id", "type": "main", "index": 0 }]
       ]

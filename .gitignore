@@ -1,7 +1,7 @@
 # Папки n8n
 .n8n/
 n8n-data/
-
+Part 1. n8n workflow/
 docs/
 
 # Environment variables
