@@ -1,0 +1,989 @@
+{
+  "name": "03 — Публикация (5 каналов)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publisher",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "publisher"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nconst validChannels = ['youtube', 'tiktok', 'instagram', 'vk', 'telegram'];\nconst channels = (body.channels || ['telegram']).filter(ch => validChannels.includes(ch));\nif (channels.length === 0) throw new Error('No valid channels provided');\n\nreturn [{ json: {\n  session_id: sessionId,\n  channels: channels,\n  caption_override: body.caption_override || ''\n}}];"
+      },
+      "id": "validate-input",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"session_id\": $json.session_id, \"channels\": $json.channels, \"message\": \"Publishing started\" } }}",
+        "options": {}
+      },
+      "id": "respond-immediately",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        680,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'publishing', current_step = 'preparing', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT ps.*, ci.title, ci.concept, ci.visual_description, ci.category,\n       vs.script_text, vs.hook\nFROM pipeline_sessions ps\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nWHERE ps.id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "load-session",
+      "name": "📂 Загрузка сессии",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        680,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT key, value FROM app_settings WHERE key IN (\n  'ai_model', 'ai_base_url',\n  'telegram_bot_token', 'telegram_chat_id',\n  'vk_access_token', 'vk_group_id',\n  'youtube_channel_id',\n  'tiktok_access_token',\n  'instagram_access_token', 'instagram_user_id'\n);",
+        "options": {}
+      },
+      "id": "load-settings",
+      "name": "⚙️ Настройки из БД",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        680,
+        760
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('📂 Загрузка сессии').first().json;\nconst params = $('🔍 Валидация входа').first().json;\nconst settingsRows = $('⚙️ Настройки из БД').all().map(i => i.json);\n\nconst s = {};\nfor (const row of settingsRows) { s[row.key] = row.value; }\n\nreturn [{ json: {\n  ...params,\n  title: session.title || 'Новое видео',\n  concept: session.concept || '',\n  script_text: session.script_text || '',\n  hook: session.hook || '',\n  category: session.category || '',\n  final_video_url: session.final_video_url || '',\n  ai_model: s.ai_model || 'gpt-4o-mini',\n  ai_base_url: (s.ai_base_url || 'https://gptunnel.ru/v1').replace(/\\/$/, ''),\n  telegram_bot_token: s.telegram_bot_token || '',\n  telegram_chat_id: s.telegram_chat_id || '',\n  vk_access_token: s.vk_access_token || '',\n  vk_group_id: s.vk_group_id || '',\n  youtube_channel_id: s.youtube_channel_id || '',\n  tiktok_access_token: s.tiktok_access_token || '',\n  instagram_access_token: s.instagram_access_token || '',\n  instagram_user_id: s.instagram_user_id || ''\n}}];"
+      },
+      "id": "prepare-data",
+      "name": "🔧 Подготовка данных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nif (data.caption_override) {\n  return [{ json: { ...data, generated_caption: data.caption_override }}];\n}\n\n// Generate caption via GPTunnel\nreturn [{ json: { ...data, need_ai_caption: true }}];"
+      },
+      "id": "check-caption",
+      "name": "📋 Проверка caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "need-ai",
+              "leftValue": "={{ $json.need_ai_caption }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-need-ai",
+      "name": "🤖 Нужен AI caption?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('🔧 Подготовка данных').first().json.ai_base_url }}/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $('🔧 Подготовка данных').first().json.ai_model }}\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"Ты — эксперт по маркетингу в социальных сетях. Создавай короткие, цепляющие описания для видео.\" },\n    { \"role\": \"user\", \"content\": \"Напиши пост-описание для видео в соцсетях.\\n\\nТема: {{ $('🔧 Подготовка данных').first().json.title }}\\nКонцепция: {{ $('🔧 Подготовка данных').first().json.concept }}\\n\\nТребования:\\n1. 2-3 предложения\\n2. Эмодзи для привлечения\\n3. Призыв к действию\\n4. 3-5 хэштегов\\n\\nВерни ТОЛЬКО текст поста.\" }\n  ],\n  \"temperature\": 0.8,\n  \"max_tokens\": 500\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ai-caption",
+      "name": "🧠 AI → Описание",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        700
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YTA7VkJwvfpfaJec",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.choices?.[0]?.message?.content || 'Новое видео! 🔥';\nconst data = $('🔧 Подготовка данных').first().json;\nreturn [{ json: { ...data, generated_caption: content.trim() }}];"
+      },
+      "id": "parse-caption",
+      "name": "📝 Парсинг описания",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst channels = data.channels || ['telegram'];\n\nreturn channels.map(ch => ({ json: { ...data, channel: ch } }));"
+      },
+      "id": "split-channels",
+      "name": "🔀 Разделить по каналам",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $json;\nconst ch = item.channel;\nconst videoUrl = item.final_video_url;\nconst caption = item.generated_caption;\nconst title = item.title;\n\nlet publishResult = { success: false, external_id: '', external_url: '', error: '' };\n\n// Each channel returns a formatted request object\n// The actual HTTP calls are done in subsequent nodes per channel\nreturn [{ json: { ...item, publish_channel: ch } }];"
+      },
+      "id": "route-channel",
+      "name": "📡 Роутинг",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2380,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "is-tg",
+              "leftValue": "={{ $json.publish_channel }}",
+              "rightValue": "telegram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "is-telegram",
+      "name": "📬 Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.telegram_bot_token }}/sendVideo",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.telegram_chat_id }}"
+            },
+            {
+              "name": "video",
+              "value": "={{ $json.final_video_url }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.generated_caption }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "pub-telegram",
+      "name": "📬 Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "is-vk",
+              "leftValue": "={{ $json.publish_channel }}",
+              "rightValue": "vk",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "is-vk",
+      "name": "📘 VK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vk.com/method/video.save",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"access_token\": \"{{ $json.vk_access_token }}\",\n  \"group_id\": \"{{ $json.vk_group_id }}\",\n  \"name\": {{ JSON.stringify($json.title) }},\n  \"description\": {{ JSON.stringify($json.generated_caption) }},\n  \"wallpost\": 1,\n  \"is_private\": 0,\n  \"v\": \"5.199\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "pub-vk",
+      "name": "📘 VK",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "is-yt",
+              "leftValue": "={{ $json.publish_channel }}",
+              "rightValue": "youtube",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "is-youtube",
+      "name": "▶️ YouTube?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// YouTube Shorts upload via YouTube Data API v3\n// Step 1: Initialize resumable upload\n// Note: YouTube OAuth token must be configured as N8N credential\nconst data = $json;\nconst metadata = {\n  snippet: {\n    title: (data.title || 'Shorts').substring(0, 100),\n    description: data.generated_caption || '',\n    tags: ['shorts', 'product', 'review'],\n    categoryId: '22'\n  },\n  status: {\n    privacyStatus: 'public',\n    selfDeclaredMadeForKids: false,\n    madeForKids: false\n  }\n};\n\nreturn [{ json: {\n  ...data,\n  youtube_metadata: JSON.stringify(metadata),\n  publish_note: 'YouTube Shorts upload requires OAuth2 credential. Configure youtube_oauth in N8N credentials.'\n}}];"
+      },
+      "id": "prep-youtube",
+      "name": "▶️ YouTube подготовка",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Upload-Content-Type",
+              "value": "video/mp4"
+            }
+          ]
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.youtube_metadata }}",
+        "options": {
+          "timeout": 120000,
+          "fullResponse": true
+        }
+      },
+      "id": "pub-youtube",
+      "name": "▶️ YouTube Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3100,
+        600
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "oAuth2Api": {
+          "id": "YOUTUBE_OAUTH_ID",
+          "name": "YouTube OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "is-tt",
+              "leftValue": "={{ $json.publish_channel }}",
+              "rightValue": "tiktok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "is-tiktok",
+      "name": "🎵 TikTok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        920
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.tiktokapis.com/v2/post/publish/video/init/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.tiktok_access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"post_info\": {\n    \"title\": {{ JSON.stringify(($json.title || '').substring(0, 150)) }},\n    \"description\": {{ JSON.stringify(($json.generated_caption || '').substring(0, 2200)) }},\n    \"privacy_level\": \"PUBLIC_TO_EVERYONE\",\n    \"disable_duet\": false,\n    \"disable_comment\": false,\n    \"disable_stitch\": false\n  },\n  \"source_info\": {\n    \"source\": \"PULL_FROM_URL\",\n    \"video_url\": {{ JSON.stringify($json.final_video_url) }}\n  }\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "pub-tiktok",
+      "name": "🎵 TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        840
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "is-ig",
+              "leftValue": "={{ $json.publish_channel }}",
+              "rightValue": "instagram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "is-instagram",
+      "name": "📸 Instagram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/{{ $json.instagram_user_id }}/media",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.instagram_access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"media_type\": \"REELS\",\n  \"video_url\": {{ JSON.stringify($json.final_video_url) }},\n  \"caption\": {{ JSON.stringify(($json.generated_caption || '').substring(0, 2200)) }},\n  \"share_to_feed\": true\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "pub-instagram",
+      "name": "📸 Instagram Reels",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        1080
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst ch = data.publish_channel || data.channel || 'unknown';\nconst resp = data;\n\nlet success = false;\nlet externalId = '';\nlet externalUrl = '';\n\nif (ch === 'telegram') {\n  success = !!resp.ok || !!resp.result;\n  externalId = String(resp.result?.message_id || '');\n} else if (ch === 'vk') {\n  success = !!resp.response;\n  externalId = String(resp.response?.video_id || '');\n  externalUrl = resp.response?.video_url || '';\n} else if (ch === 'youtube') {\n  success = !!resp.id || (resp.statusCode >= 200 && resp.statusCode < 300);\n  externalId = resp.id || '';\n  externalUrl = resp.id ? 'https://youtube.com/shorts/' + resp.id : '';\n} else if (ch === 'tiktok') {\n  success = resp.error?.code === 'ok' || resp.data?.publish_id;\n  externalId = resp.data?.publish_id || '';\n} else if (ch === 'instagram') {\n  success = !!resp.id;\n  externalId = resp.id || '';\n}\n\nconst sessionId = data.session_id || $('🔧 Подготовка данных').first().json.session_id;\n\nreturn [{ json: {\n  session_id: sessionId,\n  channel: ch,\n  success: success,\n  external_id: externalId,\n  external_url: externalUrl,\n  caption: data.generated_caption || ''\n}}];"
+      },
+      "id": "parse-result",
+      "name": "📊 Результат",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3340,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO publications (session_id, channel, status, external_id, external_url, caption, published_at)\nVALUES (\n  {{ $json.session_id }},\n  '{{ $json.channel }}',\n  '{{ $json.success ? \"published\" : \"failed\" }}',\n  '{{ ($json.external_id || \"\").replace(/[\\u0027]/g, \"''\") }}',\n  '{{ ($json.external_url || \"\").replace(/[\\u0027]/g, \"''\") }}',\n  '{{ ($json.caption || \"\").replace(/[\\u0027]/g, \"''\") }}',\n  NOW()\n);",
+        "options": {}
+      },
+      "id": "save-publication",
+      "name": "💾 Сохранить публикацию",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3580,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'published', current_step = 'done', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "finalize",
+      "name": "✅ Завершение",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3820,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/session-update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_id\": {{ $json.session_id }},\n  \"status\": \"published\",\n  \"current_step\": \"done\"\n}",
+        "options": {}
+      },
+      "id": "callback",
+      "name": "📡 Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4060,
+        560
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "test-manual-trigger-03",
+      "name": "🧪 Ручной запуск",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Тестовые данные — сессия #26 (status=ready_for_review, есть final_video_url)\nreturn [{ json: { body: {\n  session_id:       26,\n  channels:         [\"telegram\"],\n  caption_override: \"\"\n} } }];"
+      },
+      "id": "test-data-03",
+      "name": "🧪 Тестовые данные",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [
+        [
+          {
+            "node": "🔍 Валидация входа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Валидация входа": {
+      "main": [
+        [
+          {
+            "node": "✅ Ответ 200",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📂 Загрузка сессии",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "⚙️ Настройки из БД",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📂 Загрузка сессии": {
+      "main": [
+        [
+          {
+            "node": "🔧 Подготовка данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Настройки из БД": {
+      "main": [
+        [
+          {
+            "node": "🔧 Подготовка данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔧 Подготовка данных": {
+      "main": [
+        [
+          {
+            "node": "📋 Проверка caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Проверка caption": {
+      "main": [
+        [
+          {
+            "node": "🤖 Нужен AI caption?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Нужен AI caption?": {
+      "main": [
+        [
+          {
+            "node": "🧠 AI → Описание",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔀 Разделить по каналам",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 AI → Описание": {
+      "main": [
+        [
+          {
+            "node": "📝 Парсинг описания",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Парсинг описания": {
+      "main": [
+        [
+          {
+            "node": "🔀 Разделить по каналам",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Разделить по каналам": {
+      "main": [
+        [
+          {
+            "node": "📡 Роутинг",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📡 Роутинг": {
+      "main": [
+        [
+          {
+            "node": "📬 Telegram?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📘 VK?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "▶️ YouTube?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🎵 TikTok?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📸 Instagram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📬 Telegram?": {
+      "main": [
+        [
+          {
+            "node": "📬 Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "📬 Telegram": {
+      "main": [
+        [
+          {
+            "node": "📊 Результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📘 VK?": {
+      "main": [
+        [
+          {
+            "node": "📘 VK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "📘 VK": {
+      "main": [
+        [
+          {
+            "node": "📊 Результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "▶️ YouTube?": {
+      "main": [
+        [
+          {
+            "node": "▶️ YouTube подготовка",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "▶️ YouTube подготовка": {
+      "main": [
+        [
+          {
+            "node": "▶️ YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "▶️ YouTube Upload": {
+      "main": [
+        [
+          {
+            "node": "📊 Результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎵 TikTok?": {
+      "main": [
+        [
+          {
+            "node": "🎵 TikTok",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "🎵 TikTok": {
+      "main": [
+        [
+          {
+            "node": "📊 Результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📸 Instagram?": {
+      "main": [
+        [
+          {
+            "node": "📸 Instagram Reels",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "📸 Instagram Reels": {
+      "main": [
+        [
+          {
+            "node": "📊 Результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Результат": {
+      "main": [
+        [
+          {
+            "node": "💾 Сохранить публикацию",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Сохранить публикацию": {
+      "main": [
+        [
+          {
+            "node": "✅ Завершение",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Завершение": {
+      "main": [
+        [
+          {
+            "node": "📡 Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧪 Ручной запуск": {
+      "main": [
+        [
+          {
+            "node": "🧪 Тестовые данные",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧪 Тестовые данные": {
+      "main": [
+        [
+          {
+            "node": "🔍 Валидация входа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": [
+    {
+      "name": "content-factory"
+    },
+    {
+      "name": "publisher"
+    }
+  ],
+  "triggerCount": 1
+}

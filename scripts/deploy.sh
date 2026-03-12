@@ -213,56 +213,15 @@ if [ "$DEPLOY_MODE" = "--rollback" ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════
-# ФУНКЦИЯ: DB МИГРАЦИИ
+# ФУНКЦИЯ: DB МИГРАЦИИ (делегируется в migrate.sh)
 # ═══════════════════════════════════════════════════════════
 run_migrations() {
-  log_step "DB Миграции"
-  local MIGRATIONS_DIR="$PROJECT_DIR/scripts/migrations"
-
-  if [ ! -d "$MIGRATIONS_DIR" ]; then
-    log_warn "Каталог $MIGRATIONS_DIR не найден. Пропускаю миграции."
-    return 0
+  local MIGRATE_SH="$PROJECT_DIR/scripts/migrate.sh"
+  if [ ! -f "$MIGRATE_SH" ]; then
+    log_error "scripts/migrate.sh не найден!"
+    return 1
   fi
-
-  local MIG_FILES
-  MIG_FILES=$(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort || echo "")
-  if [ -z "$MIG_FILES" ]; then
-    log_info "Нет файлов *.sql в $MIGRATIONS_DIR"
-    return 0
-  fi
-
-  # Создать таблицу учёта миграций (идемпотентно)
-  psql_cmd "CREATE TABLE IF NOT EXISTS schema_migrations (
-    version     VARCHAR(255) PRIMARY KEY,
-    applied_at  TIMESTAMPTZ DEFAULT NOW()
-  );" > /dev/null
-
-  local APPLIED=0 SKIPPED=0 FAILED=0
-  for MIG_FILE in $MIG_FILES; do
-    local VERSION
-    VERSION=$(basename "$MIG_FILE" .sql)
-    local ALREADY
-    ALREADY=$(psql_cmd "SELECT 1 FROM schema_migrations WHERE version='$VERSION';")
-
-    if [ "$ALREADY" = "1" ]; then
-      log_info "  [пропуск]  $VERSION — уже применена"
-      SKIPPED=$((SKIPPED + 1))
-    else
-      log_info "  [применяю] $VERSION..."
-      if psql_file "$MIG_FILE"; then
-        psql_cmd "INSERT INTO schema_migrations (version) VALUES ('$VERSION') ON CONFLICT DO NOTHING;" > /dev/null
-        log_ok  "  ✓ $VERSION"
-        APPLIED=$((APPLIED + 1))
-      else
-        log_error "  Ошибка при миграции: $VERSION (пропускаю, продолжаю)"
-        FAILED=$((FAILED + 1))
-      fi
-    fi
-  done
-
-  log_ok "Миграции: применено $APPLIED, пропущено $SKIPPED, ошибок $FAILED"
-  [ "$FAILED" -gt 0 ] && log_warn "Есть ошибки миграций! Проверьте логи выше."
-  return 0
+  bash "$MIGRATE_SH" --run
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -409,11 +368,7 @@ except: pass
 # СПЕЦРЕЖИМЫ
 # ═══════════════════════════════════════════════════════════
 if [ "$DEPLOY_MODE" = "--migrate-only" ]; then
-  [ ! -f "$PROJECT_DIR/.env" ] && { log_error ".env не найден"; exit 1; }
-  set -a; source "$PROJECT_DIR/.env" 2>/dev/null || true; set +a
-  DB_USER="${DB_POSTGRESDB_USER:-n8n_user}"
-  DB_NAME="${DB_POSTGRESDB_DATABASE:-n8n}"
-  run_migrations
+  bash "$PROJECT_DIR/scripts/migrate.sh" --run
   echo "[${TIMESTAMP}] MIGRATE-ONLY OK" >> "$DEPLOY_LOG"
   exit 0
 fi
@@ -587,7 +542,7 @@ echo
 echo -e "  Полезные команды:"
 echo -e "  ${CYAN}docker compose logs -f dashboard${NC}      # логи dashboard"
 echo -e "  ${CYAN}docker compose logs -f n8n${NC}            # логи n8n"
-echo -e "  ${CYAN}./scripts/deploy.sh --migrate-only${NC}    # только миграции"
-echo -e "  ${CYAN}./scripts/deploy.sh --sync-workflows${NC}  # только workflows"
-echo -e "  ${CYAN}./scripts/deploy.sh --rollback${NC}        # откат"
-echo
+  echo -e "  ${CYAN}./scripts/migrate.sh${NC}                  # применить миграции"
+  echo -e "  ${CYAN}./scripts/migrate.sh --status${NC}         # статус всех миграций"
+  echo -e "  ${CYAN}./scripts/migrate.sh --check${NC}          # проверка подключения к БД"
+  echo -e "  ${CYAN}./scripts/deploy.sh --migrate-only${NC}    # только миграции (через deploy)"

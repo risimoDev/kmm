@@ -111,7 +111,7 @@ router.get('/ideas/:id', async (req, res, next) => {
 // ─── Генерация контента через N8N ───
 router.post('/generate', generationLimiter, async (req, res, next) => {
   try {
-    const { count = 3, product_name, niche, extra_instructions, content_type = 'regular' } = req.body;
+    const { count = 3, product_name, niche, extra_instructions, content_type = 'a2e_product', script_template = 'auto' } = req.body;
 
     // Получить системный промпт из настроек
     let systemPrompt = '';
@@ -131,7 +131,8 @@ router.post('/generate', generationLimiter, async (req, res, next) => {
       niche: niche || '',
       extra_instructions: extra_instructions || '',
       system_prompt: systemPrompt,
-      content_type: content_type || 'regular'
+      content_type: content_type || 'a2e_product',
+      script_template: script_template || 'auto'
     }, { timeout: 120000 });
 
     res.json({
@@ -286,5 +287,95 @@ router.delete('/ideas/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+// ─── Сгенерировать SRT субтитры для идеи ───
+router.post('/ideas/:id/generate-srt', async (req, res, next) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
+
+    const idea = (await query('SELECT id, title FROM content_ideas WHERE id = $1', [req.params.id])).rows[0];
+    if (!idea) return res.status(404).json({ ok: false, error: 'Идея не найдена' });
+
+    const { script_text } = req.body;
+    if (!script_text || !script_text.trim()) {
+      return res.status(400).json({ ok: false, error: 'script_text обязателен' });
+    }
+
+    const settings = await getAISettings();
+    const apiKey = settings.ai_api_key;
+
+    if (!apiKey) {
+      return res.json({ ok: true, data: { srt: generateSRTSimple(script_text), method: 'simple' } });
+    }
+
+    const baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';
+    const model = settings.ai_model || 'gpt-4o';
+    const authPrefix = settings.ai_auth_prefix || '';
+    const authHeader = authPrefix ? `${authPrefix} ${apiKey}` : apiKey;
+
+    const prompt = `Ты — профессиональный создатель субтитров для видео.
+Тебе дан сценарий озвучки видео. Создай SRT субтитры.
+
+Правила:
+- Видео длится примерно ${Math.ceil(script_text.split(/\s+/).length / 2.5)} секунд (считай ~2.5 слова в секунду)
+- Каждый субтитр 2-6 слов, читается 1.5-3.5 секунды
+- Субтитр должен заканчиваться на границе слова или предложения
+- Формат: строго SRT (номер, временной код, текст, пустая строка)
+
+Сценарий:
+"""
+${script_text}
+"""
+
+Верни ТОЛЬКО SRT файл, без комментариев, без markdown-блоков.`;
+
+    try {
+      const aiResp = await axios.post(`${baseUrl}/chat/completions`, {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3
+      }, {
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+        timeout: 45000
+      });
+      const srt = aiResp.data.choices?.[0]?.message?.content?.trim() || '';
+      const cleanSrt = srt.replace(/^```[^\n]*\n?/m, '').replace(/```\s*$/m, '').trim();
+      return res.json({ ok: true, data: { srt: cleanSrt, method: 'ai' } });
+    } catch (aiErr) {
+      console.warn('[content generate-srt] AI failed, using simple algo:', aiErr.message);
+      return res.json({ ok: true, data: { srt: generateSRTSimple(script_text), method: 'simple' } });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Helpers ───
+async function getAISettings() {
+  if (!isConnected()) return {};
+  const r = await query("SELECT key, value FROM app_settings WHERE key IN ('ai_api_key','ai_base_url','ai_model','ai_auth_prefix')");
+  return Object.fromEntries(r.rows.map(row => [row.key, row.value]));
+}
+
+function generateSRTSimple(text) {
+  const words = text.trim().split(/\s+/);
+  const WORDS_PER_BLOCK = 5;
+  const SEC_PER_WORD = 0.4;
+  let idx = 1, lines = [];
+  for (let i = 0; i < words.length; i += WORDS_PER_BLOCK) {
+    const chunk = words.slice(i, i + WORDS_PER_BLOCK).join(' ');
+    const startSec = i * SEC_PER_WORD;
+    const endSec = Math.min((i + WORDS_PER_BLOCK) * SEC_PER_WORD, words.length * SEC_PER_WORD + 0.5);
+    lines.push(`${idx}`, `${fmtSRTTime(startSec)} --> ${fmtSRTTime(endSec)}`, chunk, '');
+    idx++;
+  }
+  return lines.join('\n');
+}
+
+function fmtSRTTime(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  const ms = Math.round((sec % 1) * 1000);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+}
 
 module.exports = router;

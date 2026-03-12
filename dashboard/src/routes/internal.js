@@ -166,6 +166,22 @@ router.post('/session-update', async (req, res, next) => {
       params
     );
 
+    // Авто-подтверждение: ready_for_review → approved автоматически (без ручного шага)
+    if (status === 'ready_for_review') {
+      await query(
+        `UPDATE pipeline_sessions SET status = 'approved' WHERE id = $1`,
+        [sessionId]
+      );
+      // Также обновляем product_run если он привязан к этой сессии
+      await query(
+        `UPDATE product_runs SET status = 'approved', current_step = 'approved' WHERE session_id = $1`,
+        [sessionId]
+      ).catch(() => {}); // не критично если таблицы нет
+      emitToSession(sessionId, 'session-update', { sessionId, status: 'approved', currentStep: 'approved' });
+      emitToSession(null, 'session-update', { sessionId, status: 'approved', currentStep: 'approved' });
+      return res.json({ ok: true, auto_approved: true });
+    }
+
     // WebSocket нотификация
     emitToSession(sessionId, 'session-update', { sessionId, status, currentStep });
     // Глобальная нотификация для Dashboard

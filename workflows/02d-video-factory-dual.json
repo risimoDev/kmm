@@ -1,0 +1,477 @@
+{
+  "name": "02d — Видео-фабрика (Продукт + Аватар HeyGen)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-factory-dual",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-dual",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "video-factory-dual"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('session_id is required');\n\nreturn [{ json: {\n  session_id: sessionId,\n  idea_id: body.idea_id,\n  voice_script_id: body.voice_script_id,\n  video_prompt_id: body.video_prompt_id,\n  product_image_url: body.product_image_url || '',\n  artikul: body.artikul || '',\n  show_artikul: body.show_artikul || false,\n  heygen_avatar_id: body.heygen_avatar_id || '',\n  heygen_voice_id: body.heygen_voice_id || '',\n  heygen_background: body.heygen_background || '',\n  heygen_ratio: body.heygen_ratio || '9:16',\n  subtitles_enabled: body.subtitles_enabled != null ? !!body.subtitles_enabled : null,\n  music_file_key: body.music_file_key || '',\n  music_volume: parseFloat(body.music_volume) || 0.3\n}}];"
+      },
+      "id": "val-dual",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"session_id\": {{ $json.session_id }}, \"message\": \"Product + Avatar pipeline started\" }",
+        "options": {}
+      },
+      "id": "res-dual",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW()\nWHERE id = {{ $json.session_id }};\n\nSELECT vs.script_text, vs.timing_marks, vs.montage_script,\n       vp.prompt_text AS product_video_prompt,\n       ci.title, ci.concept, ci.visual_description,\n       (SELECT value FROM app_settings WHERE key = 'heygen_avatar_id') AS default_heygen_avatar_id,\n       (SELECT value FROM app_settings WHERE key = 'heygen_voice_id') AS default_heygen_voice_id,\n       (SELECT value FROM app_settings WHERE key = 'heygen_background') AS default_heygen_bg,\n       (SELECT value FROM app_settings WHERE key = 'fal_api_key') AS fal_api_key,\n       ps.subtitles_enabled AS db_subtitles_enabled,\n       ps.music_volume AS db_music_volume,\n       mt.file_key AS db_music_file_key\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nLEFT JOIN music_tracks mt ON mt.id = ps.music_track_id\nWHERE ps.id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "load-dual",
+      "name": "📂 Загрузка данных",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dbData = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nconst heygenAvatarId = params.heygen_avatar_id || dbData.default_heygen_avatar_id || '';\nconst heygenVoiceId = params.heygen_voice_id || dbData.default_heygen_voice_id || '';\nconst falApiKey = dbData.fal_api_key || '';\nconst productImageUrl = params.product_image_url || '';\n\nif (!heygenAvatarId) throw new Error('HeyGen avatar_id not set for product+avatar pipeline');\nif (!heygenVoiceId) throw new Error('HeyGen voice_id not set for product+avatar pipeline');\nif (!productImageUrl) throw new Error('product_image_url is required for product+avatar pipeline');\nif (!falApiKey) throw new Error('fal_api_key not set in app_settings — configure FAL.ai API key in Settings');\n\nconst captionsEnabled = params.subtitles_enabled != null\n  ? !!params.subtitles_enabled\n  : (dbData.db_subtitles_enabled != null ? !!dbData.db_subtitles_enabled : false);\n\nconst musicFileKey = params.music_file_key || dbData.db_music_file_key || '';\nconst musicVolume = params.music_volume != null\n  ? parseFloat(params.music_volume)\n  : (parseFloat(dbData.db_music_volume) || 0.3);\n\nlet montageScript = dbData.montage_script || [];\nif (typeof montageScript === 'string') {\n  try { montageScript = JSON.parse(montageScript); } catch(e) { montageScript = []; }\n}\nif (!montageScript.length) {\n  montageScript = [\n    { order: 1, source: 'product', duration: 7, purpose: 'Хук — показываем продукт' },\n    { order: 2, source: 'heygen', duration: 25, purpose: 'Аватар говорит' },\n    { order: 3, source: 'product', duration: 8, purpose: 'CTA — финальный показ' }\n  ];\n}\n\nreturn [{ json: {\n  ...params,\n  heygen_avatar_id: heygenAvatarId,\n  heygen_voice_id: heygenVoiceId,\n  heygen_background: params.heygen_background || dbData.default_heygen_bg || '#f5f5f5',\n  heygen_ratio: params.heygen_ratio || '9:16',\n  fal_api_key: falApiKey,\n  product_image_url: productImageUrl,\n  product_video_prompt: dbData.product_video_prompt || 'Product showcase video, smooth cinematic motion, photorealistic, vertical format 9:16',\n  captions_enabled: captionsEnabled,\n  music_file_key: musicFileKey,\n  music_volume: musicVolume,\n  montage_script: montageScript,\n  script_text: dbData.script_text || '',\n  timing_marks: dbData.timing_marks || [],\n  title: dbData.title || '',\n  concept: dbData.concept || '',\n  visual_description: dbData.visual_description || ''\n}}];"
+      },
+      "id": "merge-dual",
+      "name": "🔗 Объединение данных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 560]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'dual_heygen', updated_at = NOW() WHERE id = {{ $json.session_id }};\nINSERT INTO pipeline_steps (session_id, step_name, step_order, status, started_at)\nVALUES ({{ $json.session_id }}, 'dual_heygen', 1, 'running', NOW())\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "id": "step-hg",
+      "name": "📌 Шаг → HeyGen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1160, 560],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\n\nconst heygenBody = {\n  video_inputs: [\n    {\n      character: {\n        type: 'avatar',\n        avatar_id: ctx.heygen_avatar_id,\n        avatar_style: 'normal'\n      },\n      voice: {\n        type: 'text',\n        input_text: ctx.script_text,\n        voice_id: ctx.heygen_voice_id,\n        speed: 1.0\n      },\n      background: {\n        type: 'color',\n        value: ctx.heygen_background || '#f5f5f5'\n      }\n    }\n  ],\n  dimension: { width: 1080, height: 1920 },\n  aspect_ratio: '9:16',\n  test: false\n};\n\nreturn [{ json: {\n  session_id: ctx.session_id,\n  fal_api_key: ctx.fal_api_key,\n  product_image_url: ctx.product_image_url,\n  product_video_prompt: ctx.product_video_prompt,\n  montage_script: ctx.montage_script,\n  music_file_key: ctx.music_file_key,\n  music_volume: ctx.music_volume,\n  body: JSON.stringify(heygenBody)\n}}];"
+      },
+      "id": "build-hg",
+      "name": "🏗️ HeyGen запрос",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.heygen.com/v2/video/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "create-hg",
+      "name": "🎭 HeyGen создание",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1640, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "heygen-cred",
+          "name": "HeyGen account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst data = response.data || response;\nconst videoId = data.video_id;\nif (!videoId) throw new Error('HeyGen did not return video_id: ' + JSON.stringify(response).substring(0, 500));\n\nreturn [{ json: {\n  heygen_video_id: videoId,\n  session_id: $('🏗️ HeyGen запрос').first().json.session_id,\n  poll_count: 0\n}}];"
+      },
+      "id": "vid-hg",
+      "name": "🔑 HeyGen video_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 560]
+    },
+    {
+      "parameters": { "amount": 20, "unit": "seconds" },
+      "id": "wait-hg",
+      "name": "⏳ Ждать HeyGen",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2120, 560]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.heygen.com/v1/video_status.get?video_id={{ $json.heygen_video_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 30000 }
+      },
+      "id": "poll-hg",
+      "name": "🔄 Статус HeyGen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2360, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "heygen-cred",
+          "name": "HeyGen account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "hgdone", "leftValue": "={{ $json.data?.status || $json.status || '' }}", "rightValue": "completed", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      },
+      "id": "chk-hg",
+      "name": "✅ HeyGen готово?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2600, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst status = (prev.data?.status || prev.status || 'unknown').toLowerCase();\nif (status === 'failed') throw new Error('HeyGen video generation failed: ' + JSON.stringify(prev.data?.error || prev).substring(0, 300));\n\nconst pollCount = (prev.poll_count || 0) + 1;\nif (pollCount > 60) throw new Error('HeyGen timeout: 60 polls (20 min)');\n\nreturn [{ json: {\n  heygen_video_id: prev.data?.video_id || prev.data?.id || $('🔑 HeyGen video_id').first().json.heygen_video_id,\n  session_id: $('🔑 HeyGen video_id').first().json.session_id,\n  poll_count: pollCount\n}}];"
+      },
+      "id": "retry-hg",
+      "name": "⏳ HeyGen ещё нет",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2840, 760]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst data = response.data || response;\nconst videoUrl = data.video_url;\nif (!videoUrl) throw new Error('HeyGen did not return video_url: ' + JSON.stringify(data).substring(0, 300));\n\nreturn [{ json: {\n  heygen_video_url: videoUrl,\n  session_id: $('🔑 HeyGen video_id').first().json.session_id\n}}];"
+      },
+      "id": "url-hg",
+      "name": "🎬 HeyGen URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2840, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'dual_product', updated_at = NOW() WHERE id = {{ $json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $json.session_id }} AND step_name = 'dual_heygen';\nINSERT INTO pipeline_steps (session_id, step_name, step_order, status, started_at)\nVALUES ({{ $json.session_id }}, 'dual_product', 2, 'running', NOW())\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "id": "step-fal",
+      "name": "📌 Шаг → FAL продукт",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3080, 400],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nreturn [{ json: {\n  session_id: ctx.session_id,\n  fal_api_key: ctx.fal_api_key,\n  product_image_url: ctx.product_image_url,\n  product_video_prompt: ctx.product_video_prompt || 'Product showcase, smooth cinematic motion, high quality, photorealistic'\n}}];"
+      },
+      "id": "build-fal",
+      "name": "🏗️ FAL запрос",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/wan/v2.2-a14b/image-to-video",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Key {{ $json.fal_api_key }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"image_url\": {{ JSON.stringify($json.product_image_url) }},\n  \"prompt\": {{ JSON.stringify($json.product_video_prompt) }},\n  \"num_frames\": 96,\n  \"frames_per_second\": 24,\n  \"resolution\": \"720p\"\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "create-fal",
+      "name": "🎨 FAL создание",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3560, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst ctx = $('🔗 Объединение данных').first().json;\n\nif (!response.request_id) {\n  throw new Error('FAL did not return request_id: ' + JSON.stringify(response).substring(0, 300));\n}\n\nreturn [{ json: {\n  fal_request_id: response.request_id,\n  fal_api_key: ctx.fal_api_key,\n  session_id: ctx.session_id,\n  poll_count: 0\n}}];"
+      },
+      "id": "req-fal",
+      "name": "🔑 FAL request_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3800, 400]
+    },
+    {
+      "parameters": { "amount": 30, "unit": "seconds" },
+      "id": "wait-fal",
+      "name": "⏳ Ждать FAL",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4040, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://queue.fal.run/fal-ai/wan/requests/{{ $json.fal_request_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Key {{ $json.fal_api_key }}" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "poll-fal",
+      "name": "🔄 Статус FAL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4280, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "faldone", "leftValue": "={{ $json.status || '' }}", "rightValue": "COMPLETED", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      },
+      "id": "chk-fal",
+      "name": "✅ FAL готово?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [4520, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst status = (prev.status || '').toUpperCase();\nif (status === 'FAILED' || status === 'ERROR') {\n  throw new Error('FAL product video failed: ' + JSON.stringify(prev).substring(0, 300));\n}\n\nconst pollCount = (prev.poll_count || 0) + 1;\nif (pollCount > 60) throw new Error('FAL WAN timeout after ' + pollCount + ' polls');\n\nreturn [{ json: {\n  fal_request_id: $('🔑 FAL request_id').first().json.fal_request_id,\n  fal_api_key: $('🔑 FAL request_id').first().json.fal_api_key,\n  session_id: $('🔑 FAL request_id').first().json.session_id,\n  poll_count: pollCount\n}}];"
+      },
+      "id": "retry-fal",
+      "name": "⏳ FAL ещё нет",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4760, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst videoUrl = response.output?.video?.url;\nif (!videoUrl) {\n  throw new Error('FAL did not return video URL: status=' + response.status + ' output=' + JSON.stringify(response.output || {}).substring(0, 200));\n}\n\nreturn [{ json: {\n  product_video_url: videoUrl,\n  session_id: $('🔑 FAL request_id').first().json.session_id\n}}];"
+      },
+      "id": "url-fal",
+      "name": "🎬 FAL продукт URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4760, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('🔗 Объединение данных').first().json;\nconst heygenVideoUrl = $('🎬 HeyGen URL').first().json.heygen_video_url;\nconst productVideoUrl = $('🎬 FAL продукт URL').first().json.product_video_url;\n\nconst sessionId = ctx.session_id;\nconst montageScript = ctx.montage_script || [\n  { order: 1, source: 'product', duration: 7, purpose: 'Хук' },\n  { order: 2, source: 'heygen', duration: 25, purpose: 'Аватар говорит' },\n  { order: 3, source: 'product', duration: 8, purpose: 'CTA' }\n];\nconst musicFileKey = ctx.music_file_key || '';\nconst musicVolume = parseFloat(ctx.music_volume) || 0.3;\n\nconst segments = [...montageScript].sort((a, b) => a.order - b.order);\nconst totalDuration = segments.reduce((s, seg) => s + (seg.duration || 5), 0);\n\n// Build FFmpeg filter_complex:\n// input 0: heygen.mp4  — avatar (video + audio = HeyGen voice, always primary audio)\n// input 1: product.mp4 — product video (video only, looped via -stream_loop -1)\n// input 2 (optional): music.mp3\nlet heygenCursor = 0;   // position in HeyGen video (for heygen video segments)\nlet productCursor = 0;  // position in product video (looped, per-product-segment total)\nconst filterParts = [];\nconst segLabels = [];\nconst scale = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1';\n\nsegments.forEach((seg, i) => {\n  const dur = seg.duration || 5;\n  if (seg.source === 'heygen') {\n    filterParts.push(`[0:v]trim=${heygenCursor}:${heygenCursor + dur},setpts=PTS-STARTPTS,${scale}[sv${i}]`);\n    heygenCursor += dur;\n  } else {\n    // product: looped input 1\n    filterParts.push(`[1:v]trim=${productCursor}:${productCursor + dur},setpts=PTS-STARTPTS,${scale}[sv${i}]`);\n    productCursor += dur;\n  }\n  segLabels.push(`[sv${i}]`);\n});\n\nfilterParts.push(`${segLabels.join('')}concat=n=${segments.length}:v=1:a=0[vout]`);\n// HeyGen audio is always the primary track (avatar speaks throughout the whole video)\nfilterParts.push(`[0:a]atrim=0:${totalDuration},asetpts=PTS-STARTPTS,apad=whole_dur=${totalDuration}[atrm]`);\n\nlet audioFinal = '[atrm]';\nlet musicInput = '';\n\nif (musicFileKey) {\n  const safeKey = musicFileKey.replace(/'/g, \"'\\\\''\");\n  musicInput = ` -i /home/node/music/${safeKey}`;\n  filterParts.push(`[atrm][2:a]amix=inputs=2:duration=first:weights=1 ${musicVolume.toFixed(2)}[aout]`);\n  audioFinal = '[aout]';\n}\n\nconst filterComplex = filterParts.join(';');\n\nconst heygenPath = `/home/node/output/hg_${sessionId}.mp4`;\nconst productPath = `/home/node/output/prod_${sessionId}.mp4`;\nconst outputPath = `/home/node/output/dual_final_${sessionId}.mp4`;\n\nconst cmdParts = [\n  `mkdir -p /home/node/output`,\n  `wget -q --timeout=300 -O \"${heygenPath}\" \"${heygenVideoUrl.replace(/\"/g, '\\\\\"')}\"`,\n  `wget -q --timeout=300 -O \"${productPath}\" \"${productVideoUrl.replace(/\"/g, '\\\\\"')}\"`,\n  `ffmpeg -y -i \"${heygenPath}\" -stream_loop -1 -i \"${productPath}\"${musicInput} -filter_complex '${filterComplex}' -map '[vout]' -map '${audioFinal}' -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -shortest \"${outputPath}\"`,\n  `rm -f \"${heygenPath}\" \"${productPath}\"`,\n  `echo \"DONE:${outputPath}\"`\n];\n\nreturn [{ json: {\n  session_id: sessionId,\n  command: cmdParts.join(' && '),\n  final_video_url: outputPath,\n  heygen_video_url: heygenVideoUrl,\n  product_video_url: productVideoUrl\n}}];"
+      },
+      "id": "mnt-build",
+      "name": "🎞️ Монтажный скрипт",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5000, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'dual_montage', updated_at = NOW() WHERE id = {{ $('🎞️ Монтажный скрипт').first().json.session_id }};\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $('🎞️ Монтажный скрипт').first().json.session_id }} AND step_name = 'dual_product';\nINSERT INTO pipeline_steps (session_id, step_name, step_order, status, started_at)\nVALUES ({{ $('🎞️ Монтажный скрипт').first().json.session_id }}, 'dual_montage', 3, 'running', NOW())\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "id": "step-mnt",
+      "name": "📌 Шаг → Монтаж",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [5240, 240],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "={{ $('🎞️ Монтажный скрипт').first().json.command }}"
+      },
+      "id": "exec-mnt",
+      "name": "⚡ Выполнить монтаж",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [5480, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE pipeline_sessions SET\n  status = 'ready_for_review',\n  current_step = 'review',\n  raw_video_url = '{{ $('🎞️ Монтажный скрипт').first().json.product_video_url.replace(/'/g, \"''\") }}',\n  final_video_url = '{{ $('🎞️ Монтажный скрипт').first().json.final_video_url.replace(/'/g, \"''\") }}',\n  updated_at = NOW()\nWHERE id = {{ $('🎞️ Монтажный скрипт').first().json.session_id }};\n\nUPDATE pipeline_steps SET status = 'completed', completed_at = NOW()\nWHERE session_id = {{ $('🎞️ Монтажный скрипт').first().json.session_id }} AND step_name = 'dual_montage';",
+        "options": {}
+      },
+      "id": "final-dual",
+      "name": "💾 Финализация",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [5720, 240],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/video-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_id\": {{ $('🎞️ Монтажный скрипт').first().json.session_id }},\n  \"status\": \"ready_for_review\"\n}",
+        "options": { "timeout": 10000 },
+        "onError": "continueRegularOutput"
+      },
+      "id": "cb-dual",
+      "name": "📡 Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5960, 240]
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [[{ "node": "🔍 Валидация входа", "type": "main", "index": 0 }]]
+    },
+    "🔍 Валидация входа": {
+      "main": [[
+        { "node": "✅ Ответ 200", "type": "main", "index": 0 },
+        { "node": "📂 Загрузка данных", "type": "main", "index": 0 }
+      ]]
+    },
+    "📂 Загрузка данных": {
+      "main": [[{ "node": "🔗 Объединение данных", "type": "main", "index": 0 }]]
+    },
+    "🔗 Объединение данных": {
+      "main": [[{ "node": "📌 Шаг → HeyGen", "type": "main", "index": 0 }]]
+    },
+    "📌 Шаг → HeyGen": {
+      "main": [[{ "node": "🏗️ HeyGen запрос", "type": "main", "index": 0 }]]
+    },
+    "🏗️ HeyGen запрос": {
+      "main": [[{ "node": "🎭 HeyGen создание", "type": "main", "index": 0 }]]
+    },
+    "🎭 HeyGen создание": {
+      "main": [[{ "node": "🔑 HeyGen video_id", "type": "main", "index": 0 }]]
+    },
+    "🔑 HeyGen video_id": {
+      "main": [[{ "node": "⏳ Ждать HeyGen", "type": "main", "index": 0 }]]
+    },
+    "⏳ Ждать HeyGen": {
+      "main": [[{ "node": "🔄 Статус HeyGen", "type": "main", "index": 0 }]]
+    },
+    "🔄 Статус HeyGen": {
+      "main": [[{ "node": "✅ HeyGen готово?", "type": "main", "index": 0 }]]
+    },
+    "✅ HeyGen готово?": {
+      "main": [
+        [{ "node": "🎬 HeyGen URL", "type": "main", "index": 0 }],
+        [{ "node": "⏳ HeyGen ещё нет", "type": "main", "index": 0 }]
+      ]
+    },
+    "⏳ HeyGen ещё нет": {
+      "main": [[{ "node": "⏳ Ждать HeyGen", "type": "main", "index": 0 }]]
+    },
+    "🎬 HeyGen URL": {
+      "main": [[{ "node": "📌 Шаг → FAL продукт", "type": "main", "index": 0 }]]
+    },
+    "📌 Шаг → FAL продукт": {
+      "main": [[{ "node": "🏗️ FAL запрос", "type": "main", "index": 0 }]]
+    },
+    "🏗️ FAL запрос": {
+      "main": [[{ "node": "🎨 FAL создание", "type": "main", "index": 0 }]]
+    },
+    "🎨 FAL создание": {
+      "main": [[{ "node": "🔑 FAL request_id", "type": "main", "index": 0 }]]
+    },
+    "🔑 FAL request_id": {
+      "main": [[{ "node": "⏳ Ждать FAL", "type": "main", "index": 0 }]]
+    },
+    "⏳ Ждать FAL": {
+      "main": [[{ "node": "🔄 Статус FAL", "type": "main", "index": 0 }]]
+    },
+    "🔄 Статус FAL": {
+      "main": [[{ "node": "✅ FAL готово?", "type": "main", "index": 0 }]]
+    },
+    "✅ FAL готово?": {
+      "main": [
+        [{ "node": "🎬 FAL продукт URL", "type": "main", "index": 0 }],
+        [{ "node": "⏳ FAL ещё нет", "type": "main", "index": 0 }]
+      ]
+    },
+    "⏳ FAL ещё нет": {
+      "main": [[{ "node": "⏳ Ждать FAL", "type": "main", "index": 0 }]]
+    },
+    "🎬 FAL продукт URL": {
+      "main": [[{ "node": "🎞️ Монтажный скрипт", "type": "main", "index": 0 }]]
+    },
+    "🎞️ Монтажный скрипт": {
+      "main": [[{ "node": "📌 Шаг → Монтаж", "type": "main", "index": 0 }]]
+    },
+    "📌 Шаг → Монтаж": {
+      "main": [[{ "node": "⚡ Выполнить монтаж", "type": "main", "index": 0 }]]
+    },
+    "⚡ Выполнить монтаж": {
+      "main": [[{ "node": "💾 Финализация", "type": "main", "index": 0 }]]
+    },
+    "💾 Финализация": {
+      "main": [[{ "node": "📡 Callback", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

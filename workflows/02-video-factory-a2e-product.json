@@ -1,0 +1,677 @@
+{
+  "name": "02 — A2E Продуктовое видео (фото → видео)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-factory-a2e-product",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "📥 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "video-factory-a2e-product"
+    },
+    {
+      "parameters": {},
+      "id": "test-manual-trigger-02",
+      "name": "🧪 Ручной запуск",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Тестовые данные — сессия #27 (реальные ID из БД)\nreturn [{ json: { body: {\n  session_id:        27,\n  idea_id:           37,\n  voice_script_id:   25,\n  video_prompt_id:   23,\n  product_image_url: 'https://k-m-m.ru/api/media/public/images/1772881240516-b87125ce75aa7a87.jpg',\n  artikul:           '',\n  a2e_resolution:    '1080',\n  subtitles_enabled: true,\n  music_file_key:    '',\n  music_volume:      0.15\n} } }];"
+      },
+      "id": "test-data-02",
+      "name": "🧪 Тестовые данные",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nif (!body.session_id) throw new Error('session_id is required');\nif (!body.product_image_url) throw new Error('product_image_url is required');\n\nreturn [{ json: {\n  session_id:        Number(body.session_id),\n  idea_id:           body.idea_id || 0,\n  voice_script_id:   body.voice_script_id || 0,\n  video_prompt_id:   body.video_prompt_id || 0,\n  product_image_url: body.product_image_url,\n  artikul:           body.artikul || '',\n  video_type:        'a2e_product',\n  a2e_resolution:    body.a2e_resolution || '1080',\n  subtitles_enabled: body.subtitles_enabled !== false,\n  music_file_key:    body.music_file_key || '',\n  music_volume:      body.music_volume || 0.15\n}}];"
+      },
+      "id": "validate-input",
+      "name": "🔍 Валидация входа",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"session_id\": $json.session_id, \"message\": \"A2E product pipeline started\" } }}",
+        "options": {}
+      },
+      "id": "respond-immediately",
+      "name": "✅ Ответ 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'processing', current_step = 'loading_data', updated_at = NOW() WHERE id = {{ $json.session_id }};\nSELECT\n  vs.script_text,\n  vp.prompt_text,\n  vp.scene_descriptions,\n  ci.title,\n  ci.concept,\n  ci.visual_description,\n  ps.product_image_url AS db_product_image_url,\n  (SELECT value FROM app_settings WHERE key = 'a2e_api_token' LIMIT 1) AS a2e_token,\n  (SELECT value FROM app_settings WHERE key = 'a2e_avatar_id' LIMIT 1) AS a2e_avatar_id,\n  (SELECT value FROM app_settings WHERE key = 'a2e_voice_id' LIMIT 1) AS a2e_voice_id,\n  (SELECT value FROM app_settings WHERE key = 'ai_api_key' LIMIT 1) AS gptunnel_key,\n  (SELECT value FROM app_settings WHERE key = 'tts_gptunnel_voice_id' LIMIT 1) AS tts_voice_id,\n  (SELECT value FROM app_settings WHERE key = 'site_url' LIMIT 1) AS site_url\nFROM pipeline_sessions ps\nLEFT JOIN voice_scripts vs ON vs.id = ps.voice_script_id\nLEFT JOIN video_prompts vp ON vp.id = ps.video_prompt_id\nLEFT JOIN content_ideas ci ON ci.id = ps.idea_id\nWHERE ps.id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "load-data",
+      "name": "📂 Загрузка данных",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        960,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dbRow  = $input.first().json;\nconst params = $('🔍 Валидация входа').first().json;\n\nif (!dbRow.a2e_token) throw new Error('A2E token not found in app_settings (key: a2e_api_token)');\n\n// Дефолтные значения (первый системный аватар + Sarah ttsRate:3 — надёжный голос)\nconst DEFAULT_AVATAR = '693bf9bd3caab0848a4cd107';\nconst DEFAULT_VOICE  = '6627e0b42f07d4f2a89a19fe'; // Sarah\n\nreturn [{ json: {\n  // Параметры сессии\n  session_id:        params.session_id,\n  idea_id:           params.idea_id,\n  voice_script_id:   params.voice_script_id,\n  video_prompt_id:   params.video_prompt_id,\n  product_image_url: params.product_image_url || dbRow.db_product_image_url || '',\n  artikul:           params.artikul || '',\n  video_type:        params.video_type,\n  a2e_resolution:    params.a2e_resolution || '1080',\n  subtitles_enabled: params.subtitles_enabled,\n  music_file_key:    params.music_file_key || '',\n  music_volume:      params.music_volume || 0.15,\n  // Данные из БД\n  script_text:       dbRow.script_text || '',\n  prompt_text:       dbRow.prompt_text || '',\n  title:             dbRow.title || '',\n  concept:           dbRow.concept || '',\n  visual_description: dbRow.visual_description || '',\n  // A2E параметры — несём в $json через весь воркфлоу\n  a2e_token:         dbRow.a2e_token,\n  a2e_avatar_id:     dbRow.a2e_avatar_id || DEFAULT_AVATAR,\n  a2e_voice_id:      dbRow.a2e_voice_id  || DEFAULT_VOICE,\n  // GPTunnel TTS параметры\n  gptunnel_key:  dbRow.gptunnel_key || '',\n  tts_voice_id:  dbRow.tts_voice_id || '65f4092eddc5862248a18111',\n  site_url:      (dbRow.site_url || 'https://k-m-m.ru').replace(/\\/+$/, '')\n}}];"
+      },
+      "id": "merge-data",
+      "name": "🔗 Объединение данных",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'a2e_image_to_video', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "update-step-a2e",
+      "name": "📌 Шаг → A2E",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1480,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Postgres UPDATE очищает $json — восстанавливаем из предыдущей ноды\nreturn [$('🔗 Объединение данных').first()];"
+      },
+      "id": "restore-after-step-a2e",
+      "name": "♻️ Восстановить после шага",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gptunnel.ru/v1/tts/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.gptunnel_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"text\": ($json.script_text || $json.prompt_text || $json.title || 'Описание товара').substring(0, 4999), \"voice_id\": $json.tts_voice_id } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "tts-generate",
+      "name": "🔊 Генерация TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const https = require('https');\nconst ttsResp = $input.first().json;\nconst ctx = $('🔗 Объединение данных').first().json;\n\nif (ttsResp.error) throw new Error('GPTunnel TTS ошибка: ' + JSON.stringify(ttsResp.error).substring(0, 300));\nif (!ttsResp.data) throw new Error('GPTunnel TTS: пустой ответ. Ответ: ' + JSON.stringify(ttsResp).substring(0, 300));\n\nconst filename = `voice_${ctx.session_id}_a2e.mp3`;\nconst audioBuffer = Buffer.from(ttsResp.data, 'base64');\n\n// Загружаем аудио на litterbox.catbox.moe (1ч хостинг — достаточно для A2E)\nconst audioUrl = await new Promise((resolve, reject) => {\n  const boundary = 'lb' + Date.now();\n  const parts = [\n    '--' + boundary + '\\r\\nContent-Disposition: form-data; name=\"reqtype\"\\r\\n\\r\\nfileupload',\n    '--' + boundary + '\\r\\nContent-Disposition: form-data; name=\"time\"\\r\\n\\r\\n1h',\n    '--' + boundary + '\\r\\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"' + filename + '\"\\r\\nContent-Type: audio/mpeg\\r\\n\\r\\n'\n  ];\n  const body = Buffer.concat([\n    Buffer.from(parts.join('\\r\\n') + '\\r\\n'),\n    audioBuffer,\n    Buffer.from('\\r\\n--' + boundary + '--\\r\\n')\n  ]);\n  const req = https.request({\n    hostname: 'litterbox.catbox.moe',\n    path: '/resources/internals/api.php',\n    method: 'POST',\n    headers: {\n      'Content-Type': 'multipart/form-data; boundary=' + boundary,\n      'Content-Length': body.length\n    }\n  }, (res) => {\n    const chunks = [];\n    res.on('data', c => chunks.push(c));\n    res.on('end', () => {\n      const url = Buffer.concat(chunks).toString().trim();\n      if (url.startsWith('https://')) resolve(url);\n      else reject(new Error('Litterbox upload failed: ' + url.substring(0, 200)));\n    });\n  });\n  req.on('error', reject);\n  req.setTimeout(30000, () => reject(new Error('Litterbox upload timeout — проверьте интернет-соединение n8n')));\n  req.write(body);\n  req.end();\n});\n\nreturn [{ json: { ...ctx, audio_url: audioUrl } }];"
+      },
+      "id": "tts-save-audio",
+      "name": "💾 Сохранить аудио",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2260,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://video.a2e.ai/api/v1/video/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.a2e_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"anchor_id\": $json.a2e_avatar_id, \"anchor_type\": 0, \"audioSrc\": $json.audio_url, \"bg_image\": $json.product_image_url || '', \"resolution\": parseInt($json.a2e_resolution) || 1080 } }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "a2e-start-video",
+      "name": "🎥 A2E: Старт генерации видео",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2520,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\n\n// Сначала проверяем — вдруг A2E вернул ошибку\nif (resp.code !== undefined && resp.code !== 0) {\n  throw new Error('A2E API error ' + resp.code + ': ' + (resp.msg || resp.message || JSON.stringify(resp).substring(0, 300)));\n}\n\n// Найти узел Объединение данных независимо от суффикса '1' при повторном импорте\nconst mergeNode = $('🔗 Объединение данных') || $('🔗 Объединение данных1');\nconst ctx = mergeNode.first().json;\n\n// Перебираем все возможные поля ответа a2e.ai\nconst videoId =\n  (resp.data && (resp.data._id || resp.data.id || resp.data.video_id || resp.data.task_id || resp.data.job_id)) ||\n  resp._id || resp.id || resp.video_id || resp.task_id || resp.job_id || resp.taskId || resp.jobId;\n\nif (!videoId) throw new Error('A2E: no video_id in response. Body: ' + JSON.stringify(resp).substring(0, 600));\n\nreturn [{ json: {\n  video_id:   videoId,\n  session_id: ctx.session_id,\n  a2e_token:  ctx.a2e_token,\n  poll_count: 0\n}}];"
+      },
+      "id": "extract-video-id",
+      "name": "🔑 Извлечь video_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2260,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET current_step = 'a2e_product_poll', updated_at = NOW() WHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "update-step-poll",
+      "name": "📌 Шаг → Поллинг",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2520,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Postgres UPDATE очищает $json — берём данные из ноды извлечения\nreturn [$('🔑 Извлечь video_id').first()];"
+      },
+      "id": "restore-poll-data",
+      "name": "♻️ Восстановить для поллинга",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2780,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 20,
+        "unit": "seconds"
+      },
+      "id": "wait-poll",
+      "name": "⏳ Ждать 20 сек",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3040,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://video.a2e.ai/api/v1/video/awsResult",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.a2e_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"_id\": $json.video_id } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "poll-a2e",
+      "name": "🔄 Проверить статус A2E",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\n// Состояние цикла несём через $json (Wait нода передаёт его)\nconst prev = $input.first().json;\n\n// video_id/session_id/token — из предыдущей итерации через Wait\n// На первой итерации они приходят из restore-poll-data\nconst videoId   = prev.video_id;\nconst sessionId = prev.session_id;\nconst token     = prev.a2e_token;\nconst pollCount = (prev.poll_count || 0) + 1;\n\n// Разбираем ответ API\nconst data  = resp.data || resp;\nconst items = Array.isArray(data) ? data : [data];\nconst item  = items[0] || {};\n\nconst status   = (item.status || item.state || '').toLowerCase();\nconst videoUrl = item.result || item.video_url || item.url || item.output_url || item.video || '';\n\nif (status === 'success' || status === 'completed' || status === 'done' || videoUrl) {\n  if (!videoUrl) throw new Error('A2E status=' + status + ' but no video URL. Response: ' + JSON.stringify(item).substring(0, 300));\n  return [{ json: { session_id: sessionId, raw_video_url: videoUrl, status: 'ready', poll_count: pollCount } }];\n}\n\nif (status === 'failed' || status === 'error') {\n  throw new Error('A2E generation failed: ' + JSON.stringify(item).substring(0, 300));\n}\n\nif (pollCount > 90) throw new Error('A2E timeout: 90 polls exceeded (30 min)');\n\n// Продолжаем поллинг — передаём все нужные поля через Wait ноду\nreturn [{ json: { video_id: videoId, session_id: sessionId, a2e_token: token, poll_count: pollCount, status: 'pending' } }];"
+      },
+      "id": "check-a2e-status",
+      "name": "📊 Проверка результата",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3560,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "video-ready",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-ready",
+      "name": "✅ Видео готово?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3820,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET\n  status = 'ready_for_review',\n  current_step = 'review',\n  raw_video_url = '{{ $json.raw_video_url }}',\n  final_video_url = '{{ $json.raw_video_url }}',\n  updated_at = NOW()\nWHERE id = {{ $json.session_id }};",
+        "options": {}
+      },
+      "id": "save-result",
+      "name": "💾 Сохранить результат",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        4080,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/video-ready",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"session_id\": $('📊 Проверка результата').first().json.session_id, \"final_video_url\": $('📊 Проверка результата').first().json.raw_video_url, \"status\": \"ready_for_review\" } }}",
+        "options": {}
+      },
+      "id": "callback-dashboard",
+      "name": "📡 Callback → Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4340,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard:3001/api/internal/log-error",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"workflow_name\": \"video-factory-a2e-product\", \"session_id\": $json.session_id || 0, \"error_message\": $json.error && $json.error.message || 'Unknown error', \"node_name\": $json.error && $json.error.node || '' } }}",
+        "options": {}
+      },
+      "id": "error-handler",
+      "name": "❌ Лог ошибки",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        800
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pipeline_sessions SET status = 'error', error_message = '{{ $json.error ? $json.error.message : \"Unknown\" }}', updated_at = NOW() WHERE id = {{ $json.session_id || 0 }};",
+        "options": {}
+      },
+      "id": "mark-error",
+      "name": "⚠️ Пометить ошибку",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1740,
+        800
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BXL7joPD69X9xNOu",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "📥 Webhook": {
+      "main": [
+        [
+          {
+            "node": "🔍 Валидация входа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧪 Ручной запуск": {
+      "main": [
+        [
+          {
+            "node": "🧪 Тестовые данные",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧪 Тестовые данные": {
+      "main": [
+        [
+          {
+            "node": "🔍 Валидация входа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Валидация входа": {
+      "main": [
+        [
+          {
+            "node": "✅ Ответ 200",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📂 Загрузка данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📂 Загрузка данных": {
+      "main": [
+        [
+          {
+            "node": "🔗 Объединение данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Объединение данных": {
+      "main": [
+        [
+          {
+            "node": "📌 Шаг → A2E",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📌 Шаг → A2E": {
+      "main": [
+        [
+          {
+            "node": "♻️ Восстановить после шага",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "♻️ Восстановить после шага": {
+      "main": [
+        [
+          {
+            "node": "🔊 Генерация TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔊 Генерация TTS": {
+      "main": [
+        [
+          {
+            "node": "💾 Сохранить аудио",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Сохранить аудио": {
+      "main": [
+        [
+          {
+            "node": "🎥 A2E: Старт генерации видео",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎥 A2E: Старт генерации видео": {
+      "main": [
+        [
+          {
+            "node": "🔑 Извлечь video_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔑 Извлечь video_id": {
+      "main": [
+        [
+          {
+            "node": "📌 Шаг → Поллинг",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📌 Шаг → Поллинг": {
+      "main": [
+        [
+          {
+            "node": "♻️ Восстановить для поллинга",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "♻️ Восстановить для поллинга": {
+      "main": [
+        [
+          {
+            "node": "⏳ Ждать 20 сек",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Ждать 20 сек": {
+      "main": [
+        [
+          {
+            "node": "🔄 Проверить статус A2E",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Проверить статус A2E": {
+      "main": [
+        [
+          {
+            "node": "📊 Проверка результата",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Проверка результата": {
+      "main": [
+        [
+          {
+            "node": "✅ Видео готово?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Видео готово?": {
+      "main": [
+        [
+          {
+            "node": "💾 Сохранить результат",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⏳ Ждать 20 сек",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Сохранить результат": {
+      "main": [
+        [
+          {
+            "node": "📡 Callback → Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "content-factory"
+    },
+    {
+      "name": "a2e"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-10T00:00:00.000Z",
+  "versionId": "2"
+}

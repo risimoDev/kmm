@@ -5,9 +5,11 @@
 // POST /api/settings/test-telegram — Тест Telegram бота (только tech_admin)
 // POST /api/settings/test-heygen  — Тест HeyGen API (только tech_admin)
 // POST /api/settings/test-a2e     — Тест A2E API (только tech_admin)
-// GET  /api/settings/a2e-avatars  — Список аватаров A2E
-// GET  /api/settings/a2e-voices   — Список TTS голосов A2E
-// GET  /api/settings/a2e-credits  — Баланс кредитов A2E
+// GET  /api/settings/a2e-avatars     — Список аватаров A2E
+// GET  /api/settings/a2e-voices      — Список TTS голосов A2E
+// GET  /api/settings/a2e-credits     — Баланс кредитов A2E
+// GET  /api/settings/heygen-avatars  — Список аватаров HeyGen
+// GET  /api/settings/heygen-voices   — Список голосов HeyGen
 
 const { Router } = require('express');
 const axios = require('axios');
@@ -429,7 +431,63 @@ router.get('/a2e-credits', async (req, res, next) => {
   }
 });
 
+// ─── Список аватаров HeyGen ───
+router.get('/heygen-avatars', async (req, res, next) => {
+  try {
+    const apiKey = await getHeyGenApiKey();
+    if (!apiKey) return res.json({ ok: false, error: 'HeyGen API Key не настроен' });
+
+    const response = await axios.get('https://api.heygen.com/v2/avatars', {
+      headers: { 'X-Api-Key': apiKey },
+      timeout: 15_000
+    });
+
+    const avatars = (response.data?.data?.avatars || []).map(a => ({
+      avatar_id: a.avatar_id,
+      avatar_name: a.avatar_name || a.avatar_id,
+      preview_image_url: a.preview_image_url || a.thumbnail_image_url || '',
+      gender: a.gender || ''
+    }));
+
+    res.json({ ok: true, data: avatars });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message;
+    res.json({ ok: false, error: `HeyGen: ${msg}` });
+  }
+});
+
+// ─── Список голосов HeyGen ───
+router.get('/heygen-voices', async (req, res, next) => {
+  try {
+    const apiKey = await getHeyGenApiKey();
+    if (!apiKey) return res.json({ ok: false, error: 'HeyGen API Key не настроен' });
+
+    const response = await axios.get('https://api.heygen.com/v2/voices', {
+      headers: { 'X-Api-Key': apiKey },
+      timeout: 15_000
+    });
+
+    const voices = (response.data?.data?.voices || []).map(v => ({
+      voice_id: v.voice_id,
+      name: v.name || v.voice_id,
+      gender: v.gender || '',
+      language: v.language || '',
+      preview_audio: v.preview_audio || ''
+    }));
+
+    res.json({ ok: true, data: voices });
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message;
+    res.json({ ok: false, error: `HeyGen: ${msg}` });
+  }
+});
+
 // ─── Helpers ───
+async function getHeyGenApiKey() {
+  const result = await query("SELECT value FROM app_settings WHERE key = 'heygen_api_key'");
+  return result.rows[0]?.value || '';
+}
+
 async function getA2ESettings() {
   const result = await query("SELECT key, value FROM app_settings WHERE key IN ('a2e_api_token', 'a2e_base_url')");
   const s = {};

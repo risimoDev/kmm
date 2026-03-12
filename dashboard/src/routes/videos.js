@@ -150,17 +150,14 @@ router.post('/', generationLimiter, async (req, res, next) => {
       artikul,
       show_artikul = false,
       auto_publish = false,
-      video_type = 'regular',
+      video_type = 'a2e_product',
       subtitles_enabled = true,
       music_track_id,
       music_volume = 0.15,
       heygen_avatar_id,
       heygen_voice_id,
       heygen_background,
-      heygen_ratio = '16:9',
-      a2e_avatar_id,
-      a2e_voice_id,
-      a2e_background,
+      heygen_ratio = '9:16',
       a2e_resolution = '1080'
     } = req.body;
 
@@ -178,8 +175,8 @@ router.post('/', generationLimiter, async (req, res, next) => {
     }
 
     // Валидация video_type
-    const validVideoTypes = ['regular', 'gptunnel', 'heygen', 'a2e'];
-    const safeVideoType = validVideoTypes.includes(video_type) ? video_type : 'regular';
+    const validVideoTypes = ['a2e_product', 'heygen'];
+    const safeVideoType = validVideoTypes.includes(video_type) ? video_type : 'a2e_product';
 
     // Музыкальный трек: получить file_key из БД
     let musicFileKey = '';
@@ -222,12 +219,10 @@ router.post('/', generationLimiter, async (req, res, next) => {
     if (voice_script_id) await query("UPDATE voice_scripts SET status = 'used' WHERE id = $1", [voice_script_id]);
     if (video_prompt_id) await query("UPDATE video_prompts SET status = 'used' WHERE id = $1", [video_prompt_id]);
 
-    // Вызвать N8N video-factory (regular, gptunnel, heygen или a2e)
+    // Вызвать N8N video-factory (a2e_product или heygen)
     const webhookUrl = safeVideoType === 'heygen'
       ? `${N8N_URL}/webhook/video-factory-heygen`
-      : safeVideoType === 'a2e'
-        ? `${N8N_URL}/webhook/video-factory-a2e`
-        : `${N8N_URL}/webhook/video-factory`;
+      : `${N8N_URL}/webhook/video-factory-a2e-product`;
 
     const webhookPayload = {
       session_id: session.id,
@@ -248,26 +243,10 @@ router.post('/', generationLimiter, async (req, res, next) => {
       webhookPayload.heygen_avatar_id = heygen_avatar_id || '';
       webhookPayload.heygen_voice_id = heygen_voice_id || '';
       webhookPayload.heygen_background = heygen_background || '';
-      webhookPayload.heygen_ratio = heygen_ratio || '16:9';
-    } else if (safeVideoType === 'a2e') {
-      // A2E-специфичные параметры
-      webhookPayload.a2e_avatar_id = a2e_avatar_id || '';
-      webhookPayload.a2e_voice_id = a2e_voice_id || '';
-      webhookPayload.a2e_background = a2e_background || '';
-      webhookPayload.a2e_resolution = a2e_resolution || '1080';
+      webhookPayload.heygen_ratio = heygen_ratio || '9:16';
     } else {
-      // Regular video параметры
-      webhookPayload.tts_provider = settings.tts_provider || 'openai';
-      webhookPayload.tts_voice = settings.tts_voice || 'alloy';
-      webhookPayload.tts_speed = parseFloat(settings.tts_speed) || 1.0;
-      webhookPayload.video_provider = settings.video_provider || 'minimax';
-      webhookPayload.subtitle_font = settings.subtitle_font || 'Arial';
-      webhookPayload.subtitle_size = parseInt(settings.subtitle_size) || 42;
-      webhookPayload.subtitle_color = settings.subtitle_color || 'white';
-      webhookPayload.subtitle_outline = parseInt(settings.subtitle_outline) || 2;
-      webhookPayload.watermark_url = settings.watermark_url || '';
-      webhookPayload.watermark_position = settings.watermark_position || 'top-right';
-      webhookPayload.watermark_opacity = parseFloat(settings.watermark_opacity) || 0.7;
+      // a2e_product: фото → видео
+      webhookPayload.a2e_resolution = a2e_resolution || '1080';
     }
 
     try {
@@ -344,7 +323,7 @@ router.post('/:id/publish', async (req, res, next) => {
     if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
 
     const { id } = req.params;
-    const { channels = ['telegram'], caption, generate_caption = true } = req.body;
+    const { channels = ['youtube'], caption, generate_caption = true } = req.body;
 
     // Проверить статус
     const sessionResult = await query(

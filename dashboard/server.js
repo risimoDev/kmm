@@ -33,6 +33,8 @@ const internalRoutes   = require('./src/routes/internal');
 const healthRoutes     = require('./src/routes/health');
 const referencesRoutes = require('./src/routes/references');
 const composerRoutes   = require('./src/routes/composer');
+const montageRoutes    = require('./src/routes/montage');
+const productsRoutes   = require('./src/routes/products');
 
 // ─── Config ───
 const PORT = process.env.DASHBOARD_PORT || 3001;
@@ -119,6 +121,8 @@ app.use('/api/internal',    internalRoutes);    // Для N8N callbacks — бе
 app.use('/api/health',      healthRoutes);
 app.use('/api/references',  authMiddleware, referencesRoutes);
 app.use('/api/composer',    authMiddleware, composerRoutes);
+app.use('/api/montage',     authMiddleware, montageRoutes);
+app.use('/api/products',    authMiddleware, productsRoutes);
 
 // ─── SPA Fallback ───
 app.get('*', (req, res) => {

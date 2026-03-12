@@ -6,7 +6,7 @@
  * Запуск:
  *   docker exec -it content-factory-dashboard node /app/scripts/check-db.js
  *   или на сервере (если postgres доступен):
- *   DB_HOST=localhost DB_PASSWORD=xxx node scripts/check-db.js
+ *   DB_HOST=localhost DB_PASSWORD=xxx node scripts/check-db.js Risimoflooregromingflamebrane23
  *
  * Флаги:
  *   --check    только проверка, без миграции (по умолчанию)

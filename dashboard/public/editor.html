@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Редактор монтажа — Контент Завод</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════ */
+    /* Тёмная тема — NLE видеоредактор        */
+    /* ═══════════════════════════════════════ */
+    :root {
+      --bg:       #0a0a0f;
+      --bg2:      #1a1a2e;
+      --bg3:      #16213e;
+      --bg4:      #0f3460;
+      --accent:   #e94560;
+      --accent2:  #ff6b81;
+      --text:     #e8e8f0;
+      --text2:    #8888aa;
+      --border:   #2a2a45;
+      --track-video:  #3b82f6;
+      --track-avatar: #8b5cf6;
+      --track-audio:  #10b981;
+      --track-text:   #f59e0b;
+      --radius:   8px;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Manrope', -apple-system, sans-serif;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ─── Toolbar ─── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      height: 52px;
+      flex-shrink: 0;
+    }
+    .toolbar .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg3);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .toolbar .btn:hover { background: var(--bg4); border-color: var(--accent); }
+    .toolbar .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .toolbar .btn.primary:hover { background: var(--accent2); }
+    .toolbar .script-name {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      width: 220px;
+    }
+    .toolbar .script-name:focus { border-color: var(--accent); outline: none; }
+    .toolbar .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--bg3);
+      color: var(--text2);
+    }
+    .toolbar .status-badge.rendering { background: rgba(233,69,96,0.2); color: var(--accent2); }
+    .toolbar .status-badge.done { background: rgba(16,185,129,0.2); color: #10b981; }
+    .toolbar .spacer { flex: 1; }
+    .toolbar .back-link {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .toolbar .back-link:hover { color: var(--text); }
+
+    /* ─── Layout ─── */
+    .editor-layout {
+      display: flex;
+      height: calc(100vh - 52px);
+    }
+
+    /* ─── Left Panel (Media + Properties) ─── */
+    .left-panel {
+      width: 280px;
+      min-width: 240px;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: 0.15s;
+    }
+    .panel-tab:hover { color: var(--text); }
+    .panel-tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .panel-content::-webkit-scrollbar { width: 6px; }
+    .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Media panel */
+    .media-section h4 {
+      font-size: 12px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .media-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: var(--radius);
+      cursor: grab;
+      transition: 0.15s;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .media-item:hover { background: var(--bg3); }
+    .media-item .thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      background: var(--bg3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .media-item .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .media-item .size { font-size: 11px; color: var(--text2); }
+    .upload-btn {
+      width: 100%;
+      padding: 10px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text2);
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: 0.15s;
+    }
+    .upload-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    /* Properties panel */
+    .prop-group {
+      margin-bottom: 16px;
+    }
+    .prop-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .prop-group input, .prop-group select, .prop-group textarea {
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .prop-group input:focus, .prop-group select:focus, .prop-group textarea:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+    .prop-group textarea { font-family: var(--sans); resize: vertical; min-height: 60px; }
+    .prop-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .prop-slider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .prop-slider input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      border: none;
+      padding: 0;
+    }
+    .prop-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .prop-slider .val {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text2);
+      min-width: 40px;
+      text-align: right;
+    }
+    .prop-header {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .no-selection {
+      text-align: center;
+      color: var(--text2);
+      padding: 40px 20px;
+      font-size: 13px;
+    }
+    .color-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-input-wrap input[type="color"] {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    /* ─── Right area (Preview + Timeline) ─── */
+    .right-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── Preview Player ─── */
+    .preview-area {
+      flex: 0 0 55%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-canvas {
+      max-width: 100%;
+      max-height: calc(100% - 40px);
+      background: #111;
+      border-radius: 4px;
+    }
+    .preview-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+    }
+    .preview-controls .timecode {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text2);
+    }
+    .preview-controls .play-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .preview-controls .play-btn:hover { background: var(--accent2); }
+
+    /* ─── Progress bar (render) ─── */
+    .render-progress {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      display: none;
+    }
+    .render-progress.active { display: block; }
+    .render-progress .bar-bg {
+      height: 8px;
+      background: var(--bg2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .render-progress .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .render-progress .bar-text {
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 4px;
+    }
+
+    /* ─── Timeline ─── */
+    .timeline-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+    .timeline-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .timeline-header .btn-sm {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg3);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .timeline-header .btn-sm:hover { border-color: var(--accent); }
+    .timeline-header .zoom-info {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text2);
+    }
+
+    .timeline-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Track labels */
+    .track-labels {
+      width: 140px;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+    }
+    .track-labels::-webkit-scrollbar { display: none; }
+    .track-label {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .track-label:hover { background: var(--bg3); }
+    .track-label .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .track-label .track-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .track-label .track-mute {
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 14px;
+      border-radius: 4px;
+    }
+    .track-label .track-mute:hover { background: var(--bg); }
+
+    /* Timeline tracks area */
+    .timeline-scroll {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: auto;
+      position: relative;
+    }
+    .timeline-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+    .timeline-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .timeline-scroll::-webkit-scrollbar-corner { background: var(--bg); }
+
+    /* Ruler */
+    .timeline-ruler {
+      height: 28px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+    }
+    .ruler-canvas { display: block; }
+
+    /* Tracks container */
+    .timeline-tracks {
+      position: relative;
+      min-height: 100%;
+    }
+    .timeline-track {
+      height: 56px;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    .timeline-track.drag-over {
+      background: rgba(233, 69, 96, 0.05);
+    }
+
+    /* Clips */
+    .clip {
+      position: absolute;
+      top: 6px;
+      height: 44px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #fff;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      transition: box-shadow 0.15s;
+      user-select: none;
+    }
+    .clip:hover { box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+    .clip.selected { box-shadow: 0 0 0 2px var(--accent); }
+    .clip .resize-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      cursor: ew-resize;
+    }
+    .clip .resize-handle.left { left: 0; }
+    .clip .resize-handle.right { right: 0; }
+
+    /* Playhead */
+    .playhead {
+      position: absolute;
+      top: 0;
+      width: 2px;
+      background: var(--accent);
+      z-index: 10;
+      pointer-events: none;
+      height: 100%;
+    }
+    .playhead::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -5px;
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      pointer-events: auto;
+      cursor: ew-resize;
+    }
+
+    /* ─── Модальные окна ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      display: none;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal h3 { margin-bottom: 16px; }
+    .modal .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+    .modal .modal-actions .btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg3);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .modal .modal-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Template cards */
+    .template-card {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .template-card:hover { border-color: var(--accent); background: var(--bg3); }
+    .template-card h4 { font-size: 14px; margin-bottom: 4px; }
+    .template-card p { font-size: 12px; color: var(--text2); }
+
+    /* Script list in load modal */
+    .script-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .script-item:hover { border-color: var(--accent); background: var(--bg3); }
+    .script-item .si-name { font-weight: 600; font-size: 14px; }
+    .script-item .si-date { font-size: 11px; color: var(--text2); }
+    .script-item .si-del {
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .script-item .si-del:hover { color: var(--accent); }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 60px;
+      right: 16px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      color: #fff;
+      animation: toast-in 0.3s ease;
+    }
+    .toast.success { background: rgba(16,185,129,0.9); }
+    .toast.error { background: rgba(233,69,96,0.9); }
+    .toast.info { background: rgba(59,130,246,0.9); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <a href="/" class="back-link">← Назад</a>
+    <div style="width:1px;height:24px;background:var(--border);"></div>
+    <input type="text" class="script-name" id="scriptName" value="Новый скрипт" placeholder="Название скрипта">
+    <span class="status-badge" id="statusBadge">Готов</span>
+    <div class="spacer"></div>
+    <button class="btn" onclick="showTemplates()">📋 Шаблоны</button>
+    <button class="btn" onclick="loadScriptModal()">📂 Загрузить</button>
+    <button class="btn" onclick="saveScript()">💾 Сохранить</button>
+    <div style="width:1px;height:24px;background:var(--border);"></div>
+    <button class="btn" onclick="startPreview()">▶ Превью</button>
+    <button class="btn primary" onclick="startRender()">⚡ Рендер</button>
+  </div>
+
+  <!-- Editor Layout -->
+  <div class="editor-layout">
+
+    <!-- Left Panel -->
+    <div class="left-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab active" data-tab="media" onclick="switchTab(this)">📁 Медиа</div>
+        <div class="panel-tab" data-tab="properties" onclick="switchTab(this)">⚙ Свойства</div>
+      </div>
+
+      <!-- Media Tab -->
+      <div class="panel-content" id="tab-media">
+        <div class="media-section">
+          <h4>🎬 Видео</h4>
+          <div id="mediaVideos"></div>
+        </div>
+        <div class="media-section" style="margin-top:16px;">
+          <h4>🔊 Аудио</h4>
+          <div id="mediaAudio"></div>
+        </div>
+        <div class="media-section" style="margin-top:16px;">
+          <h4>🖼 Картинки</h4>
+          <div id="mediaImages"></div>
+        </div>
+        <button class="upload-btn" onclick="uploadFile()">+ Загрузить файл</button>
+        <input type="file" id="fileUploadInput" style="display:none" accept="video/*,audio/*,image/*" onchange="handleFileUpload(event)">
+      </div>
+
+      <!-- Properties Tab -->
+      <div class="panel-content" id="tab-properties" style="display:none;">
+        <div id="propsContent">
+          <div class="no-selection">Выберите клип на таймлайне для редактирования свойств</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Area -->
+    <div class="right-area">
+
+      <!-- Preview Player -->
+      <div class="preview-area">
+        <canvas class="preview-canvas" id="previewCanvas" width="360" height="640"></canvas>
+        <div class="render-progress" id="renderProgress">
+          <div class="bar-bg"><div class="bar-fill" id="renderBar"></div></div>
+          <div class="bar-text" id="renderText">0% — Подготовка...</div>
+        </div>
+        <div class="preview-controls">
+          <button class="play-btn" id="playBtn" onclick="togglePlayback()">▶</button>
+          <span class="timecode" id="timecodeDisplay">00:00:00 / 00:00:30</span>
+          <div class="spacer"></div>
+          <span style="font-size:12px;color:var(--text2);">1080×1920</span>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="timeline-area">
+        <div class="timeline-header">
+          <button class="btn-sm" onclick="addTrack('video')">+ Видео</button>
+          <button class="btn-sm" onclick="addTrack('audio')">+ Аудио</button>
+          <button class="btn-sm" onclick="addTrack('text')">+ Текст</button>
+          <div class="spacer"></div>
+          <span class="zoom-info" id="zoomInfo">Масштаб: 100%</span>
+        </div>
+        <div class="timeline-body">
+          <div class="track-labels" id="trackLabels"></div>
+          <div class="timeline-scroll" id="timelineScroll">
+            <div class="timeline-ruler" id="timelineRuler">
+              <canvas class="ruler-canvas" id="rulerCanvas" height="28"></canvas>
+            </div>
+            <div class="timeline-tracks" id="timelineTracks">
+              <div class="playhead" id="playhead" style="left:0px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно: Шаблоны -->
+  <div class="modal-overlay" id="modalTemplates">
+    <div class="modal">
+      <h3>📋 Шаблоны монтажа</h3>
+      <div class="template-card" onclick="applyTemplate('ugc_30s')">
+        <h4>🎯 UGC 30 секунд</h4>
+        <p>Короткий вертикальный ролик: товар + аватар + TTS + субтитры</p>
+      </div>
+      <div class="template-card" onclick="applyTemplate('review_60s')">
+        <h4>📱 Обзор товара 60 секунд</h4>
+        <p>Полный обзор: интро + товар крупным планом + аватар + заключение</p>
+      </div>
+      <div class="template-card" onclick="applyTemplate('stories_15s')">
+        <h4>📸 Сторис 15 секунд</h4>
+        <p>Быстрый Stories/Reels формат с динамичной нарезкой</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modalTemplates')">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно: Загрузка скриптов -->
+  <div class="modal-overlay" id="modalLoad">
+    <div class="modal">
+      <h3>📂 Загрузить скрипт</h3>
+      <div id="scriptsList"><p style="color:var(--text2);text-align:center;">Загрузка...</p></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modalLoad')">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-container" id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// Контент Завод — Визуальный редактор монтажных скриптов
+// ═══════════════════════════════════════════════════════════
+
+// ─── Состояние редактора ───
+const state = {
+  script: {
+    output: { resolution: '1080x1920', fps: 30, format: 'mp4', duration: 30 },
+    tracks: []
+  },
+  scriptId: null,        // ID в БД (если сохранён)
+  selectedClip: null,    // { trackIdx, clipIdx }
+  playheadTime: 0,       // текущая позиция курсора (сек)
+  isPlaying: false,
+  zoom: 50,              // пикселей на секунду
+  dragging: null,        // текущий drag объект
+  renderJobId: null,
+  wsConnection: null
+};
+
+const TRACK_COLORS = {
+  video:  '#3b82f6',
+  avatar: '#8b5cf6',
+  audio:  '#10b981',
+  text:   '#f59e0b',
+  image:  '#3b82f6'
+};
+
+// ─── Утилиты ───
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  const ms = Math.floor((sec % 1) * 100);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}:${String(ms).padStart(2,'0')}`;
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function generateId(prefix = 'clip') {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,6)}`;
+}
+
+async function apiCall(method, path, body = null) {
+  const token = document.cookie.split(';').find(c => c.trim().startsWith('token='));
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token.split('=')[1]}`;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const resp = await fetch(`/api${path}`, opts);
+    return await resp.json();
+  } catch (err) {
+    toast(`Ошибка сети: ${err.message}`, 'error');
+    return { ok: false, error: err.message };
+  }
+}
+
+// ─── Инициализация ───
+
+function init() {
+  // Шаблон по умолчанию — 4 трека
+  state.script.tracks = [
+    { id: 'track_video', type: 'video', clips: [] },
+    { id: 'track_avatar', type: 'video', clips: [] },
+    { id: 'track_tts', type: 'audio', clips: [] },
+    { id: 'track_subtitles', type: 'text', clips: [] }
+  ];
+
+  renderTimeline();
+  renderPreview();
+  loadMediaFiles();
+  setupTimelineEvents();
+
+  // Проверяем URL параметр ?id= для загрузки скрипта
+  const url = new URL(window.location.href);
+  const loadId = url.searchParams.get('id');
+  if (loadId) loadScript(parseInt(loadId));
+}
+
+// ─── Табы левой панели ───
+
+function switchTab(el) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const tab = el.dataset.tab;
+  document.getElementById('tab-media').style.display = tab === 'media' ? '' : 'none';
+  document.getElementById('tab-properties').style.display = tab === 'properties' ? '' : 'none';
+}
+
+// ─── Загрузка медиафайлов из MinIO ───
+
+async function loadMediaFiles() {
+  const data = await apiCall('GET', '/media?limit=200');
+  if (!data.ok && !data.data) return;
+
+  const files = data.data || [];
+  const videos = files.filter(f => f.content_type && f.content_type.startsWith('video/'));
+  const audio = files.filter(f => f.content_type && f.content_type.startsWith('audio/'));
+  const images = files.filter(f => f.content_type && f.content_type.startsWith('image/'));
+
+  renderMediaList('mediaVideos', videos, '🎬');
+  renderMediaList('mediaAudio', audio, '🔊');
+  renderMediaList('mediaImages', images, '🖼');
+}
+
+function renderMediaList(containerId, files, icon) {
+  const container = document.getElementById(containerId);
+  if (!files.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px;">Нет файлов</div>';
+    return;
+  }
+  container.innerHTML = files.map(f => `
+    <div class="media-item" draggable="true"
+         ondragstart="onMediaDragStart(event, '${encodeURIComponent(JSON.stringify({ name: f.name || f.key, source: f.url || f.key, type: f.content_type }))}')"
+         title="${f.name || f.key}">
+      <div class="thumb">${icon}</div>
+      <span class="name">${f.name || f.key || 'Файл'}</span>
+      <span class="size">${f.size ? (f.size / 1024 / 1024).toFixed(1) + 'MB' : ''}</span>
+    </div>
+  `).join('');
+}
+
+function uploadFile() {
+  document.getElementById('fileUploadInput').click();
+}
+
+async function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  toast('Загрузка файла...', 'info');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const token = document.cookie.split(';').find(c => c.trim().startsWith('token='));
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token.split('=')[1]}`;
+
+    const resp = await fetch('/api/media/upload', { method: 'POST', headers, body: formData });
+    const data = await resp.json();
+    if (data.ok) {
+      toast('Файл загружен', 'success');
+      loadMediaFiles();
+    } else {
+      toast(`Ошибка: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    toast(`Ошибка загрузки: ${err.message}`, 'error');
+  }
+  event.target.value = '';
+}
+
+// ─── Drag & Drop медиа → таймлайн ───
+
+function onMediaDragStart(event, encodedData) {
+  event.dataTransfer.setData('application/json', decodeURIComponent(encodedData));
+  event.dataTransfer.effectAllowed = 'copy';
+}
+
+function onTrackDragOver(event, trackIdx) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+  event.currentTarget.classList.add('drag-over');
+}
+
+function onTrackDragLeave(event) {
+  event.currentTarget.classList.remove('drag-over');
+}
+
+function onTrackDrop(event, trackIdx) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+
+  let fileData;
+  try {
+    fileData = JSON.parse(event.dataTransfer.getData('application/json'));
+  } catch { return; }
+
+  const track = state.script.tracks[trackIdx];
+  if (!track) return;
+
+  // Определяем позицию на таймлайне
+  const rect = event.currentTarget.getBoundingClientRect();
+  const x = event.clientX - rect.left + document.getElementById('timelineScroll').scrollLeft;
+  const startTime = Math.max(0, Math.round((x / state.zoom) * 10) / 10);
+
+  const clip = {
+    id: generateId('clip'),
+    source: fileData.source,
+    text: '',
+    start: startTime,
+    duration: 5,
+    trim_start: 0,
+    trim_end: 5,
+    effects: { fade_in: 0, fade_out: 0, volume: 1.0, speed: 1.0, filters: [] },
+    style: track.type === 'text' ? { font: 'Arial', size: 48, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6, position: 'bottom', animation: 'fade' } : undefined
+  };
+
+  track.clips.push(clip);
+  renderTimeline();
+  selectClip(trackIdx, track.clips.length - 1);
+  toast('Клип добавлен', 'success');
+}
+
+// ─── Таймлайн: рендер ───
+
+function renderTimeline() {
+  renderTrackLabels();
+  renderTimelineTracks();
+  renderRuler();
+  updateTimecodeDisplay();
+}
+
+function renderTrackLabels() {
+  const container = document.getElementById('trackLabels');
+  container.innerHTML = state.script.tracks.map((track, i) => {
+    const color = getTrackColor(track);
+    const name = getTrackName(track);
+    return `
+      <div class="track-label" onclick="selectTrack(${i})">
+        <div class="dot" style="background:${color}"></div>
+        <span class="track-name">${name}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function getTrackColor(track) {
+  if (track.id.includes('avatar')) return TRACK_COLORS.avatar;
+  return TRACK_COLORS[track.type] || TRACK_COLORS.video;
+}
+
+function getTrackName(track) {
+  if (track.id.includes('avatar')) return '🎭 Аватар';
+  const names = { video: '🎬 Видео', audio: '🔊 Аудио', text: '💬 Текст', image: '🖼 Картинки' };
+  return names[track.type] || track.id;
+}
+
+function renderTimelineTracks() {
+  const container = document.getElementById('timelineTracks');
+  const totalDuration = state.script.output.duration;
+  const totalWidth = totalDuration * state.zoom;
+
+  // Сохраняем playhead
+  const playhead = document.getElementById('playhead');
+
+  container.innerHTML = '';
+  container.style.width = totalWidth + 'px';
+
+  state.script.tracks.forEach((track, trackIdx) => {
+    const trackEl = document.createElement('div');
+    trackEl.className = 'timeline-track';
+    trackEl.ondragover = (e) => onTrackDragOver(e, trackIdx);
+    trackEl.ondragleave = onTrackDragLeave;
+    trackEl.ondrop = (e) => onTrackDrop(e, trackIdx);
+
+    const color = getTrackColor(track);
+
+    track.clips.forEach((clip, clipIdx) => {
+      const clipEl = document.createElement('div');
+      clipEl.className = 'clip';
+      if (state.selectedClip && state.selectedClip.trackIdx === trackIdx && state.selectedClip.clipIdx === clipIdx) {
+        clipEl.classList.add('selected');
+      }
+
+      const left = clip.start * state.zoom;
+      const width = Math.max(clip.duration * state.zoom, 20);
+
+      clipEl.style.left = left + 'px';
+      clipEl.style.width = width + 'px';
+      clipEl.style.background = `linear-gradient(135deg, ${color}, ${color}cc)`;
+
+      const label = track.type === 'text' ? (clip.text || 'Текст') : (clip.source ? clip.source.split('/').pop() : clip.id);
+      clipEl.textContent = label;
+      clipEl.title = `${label}\n${clip.start}s → ${clip.start + clip.duration}s`;
+
+      // Клик — выбрать клип
+      clipEl.onmousedown = (e) => {
+        if (e.target.classList.contains('resize-handle')) return;
+        selectClip(trackIdx, clipIdx);
+        startClipDrag(e, trackIdx, clipIdx);
+      };
+
+      // Ресайз хэндлы
+      const handleL = document.createElement('div');
+      handleL.className = 'resize-handle left';
+      handleL.onmousedown = (e) => { e.stopPropagation(); startClipResize(e, trackIdx, clipIdx, 'left'); };
+
+      const handleR = document.createElement('div');
+      handleR.className = 'resize-handle right';
+      handleR.onmousedown = (e) => { e.stopPropagation(); startClipResize(e, trackIdx, clipIdx, 'right'); };
+
+      clipEl.appendChild(handleL);
+      clipEl.appendChild(handleR);
+      trackEl.appendChild(clipEl);
+    });
+
+    container.appendChild(trackEl);
+  });
+
+  // Возвращаем playhead
+  container.appendChild(playhead);
+  updatePlayheadPosition();
+}
+
+function renderRuler() {
+  const canvas = document.getElementById('rulerCanvas');
+  const scrollEl = document.getElementById('timelineScroll');
+  const totalWidth = state.script.output.duration * state.zoom;
+  canvas.width = Math.max(totalWidth, scrollEl.clientWidth);
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const duration = state.script.output.duration;
+
+  // Определяем шаг меток в зависимости от zoom
+  let step = 1;
+  if (state.zoom < 20) step = 10;
+  else if (state.zoom < 40) step = 5;
+  else if (state.zoom < 80) step = 2;
+
+  for (let t = 0; t <= duration; t += step) {
+    const x = t * state.zoom;
+    ctx.strokeStyle = '#2a2a45';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, 28);
+    ctx.stroke();
+
+    ctx.fillStyle = '#8888aa';
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillText(`${t}s`, x + 4, 18);
+  }
+
+  // Полуметки
+  const halfStep = step / 2;
+  if (halfStep >= 0.5) {
+    for (let t = halfStep; t <= duration; t += step) {
+      const x = t * state.zoom;
+      ctx.strokeStyle = '#1f1f35';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, 16);
+      ctx.lineTo(x, 28);
+      ctx.stroke();
+    }
+  }
+}
+
+// ─── Playhead ───
+
+function updatePlayheadPosition() {
+  const playhead = document.getElementById('playhead');
+  playhead.style.left = (state.playheadTime * state.zoom) + 'px';
+}
+
+function updateTimecodeDisplay() {
+  const el = document.getElementById('timecodeDisplay');
+  el.textContent = `${formatTime(state.playheadTime)} / ${formatTime(state.script.output.duration)}`;
+}
+
+// ─── Выбор клипов ───
+
+function selectClip(trackIdx, clipIdx) {
+  state.selectedClip = { trackIdx, clipIdx };
+  renderTimeline();
+  renderProperties();
+  // Переключаемся на вкладку свойств
+  const propTab = document.querySelector('.panel-tab[data-tab="properties"]');
+  if (propTab) switchTab(propTab);
+}
+
+function selectTrack(trackIdx) {
+  // При клике на трек — снимаем выделение клипа
+  state.selectedClip = null;
+  renderTimeline();
+  renderProperties();
+}
+
+// ─── Properties: рендер свойств клипа ───
+
+function renderProperties() {
+  const container = document.getElementById('propsContent');
+
+  if (!state.selectedClip) {
+    container.innerHTML = '<div class="no-selection">Выберите клип на таймлайне для редактирования свойств</div>';
+    return;
+  }
+
+  const { trackIdx, clipIdx } = state.selectedClip;
+  const track = state.script.tracks[trackIdx];
+  if (!track) return;
+  const clip = track.clips[clipIdx];
+  if (!clip) { state.selectedClip = null; renderProperties(); return; }
+
+  const effects = clip.effects || {};
+  const style = clip.style || {};
+
+  let html = `<div class="prop-header">${getTrackName(track)} → ${clip.id}</div>`;
+
+  // Общие свойства
+  html += `
+    <div class="prop-row">
+      <div class="prop-group">
+        <label>Старт (сек)</label>
+        <input type="number" step="0.1" min="0" value="${clip.start}" onchange="updateClipProp('start', parseFloat(this.value))">
+      </div>
+      <div class="prop-group">
+        <label>Длительность (сек)</label>
+        <input type="number" step="0.1" min="0.1" value="${clip.duration}" onchange="updateClipProp('duration', parseFloat(this.value))">
+      </div>
+    </div>
+  `;
+
+  if (track.type !== 'text') {
+    html += `
+      <div class="prop-row">
+        <div class="prop-group">
+          <label>Обрезка начало</label>
+          <input type="number" step="0.1" min="0" value="${clip.trim_start || 0}" onchange="updateClipProp('trim_start', parseFloat(this.value))">
+        </div>
+        <div class="prop-group">
+          <label>Обрезка конец</label>
+          <input type="number" step="0.1" min="0" value="${clip.trim_end || clip.duration}" onchange="updateClipProp('trim_end', parseFloat(this.value))">
+        </div>
+      </div>
+    `;
+  }
+
+  // Видео/картинка
+  if (track.type === 'video' || track.type === 'image') {
+    html += `
+      <div class="prop-group">
+        <label>Скорость</label>
+        <div class="prop-slider">
+          <input type="range" min="0.5" max="2" step="0.1" value="${effects.speed || 1}" oninput="updateClipEffect('speed', parseFloat(this.value)); this.nextElementSibling.textContent=this.value+'x';">
+          <span class="val">${effects.speed || 1}x</span>
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <label>Fade In (сек)</label>
+          <input type="number" step="0.1" min="0" max="5" value="${effects.fade_in || 0}" onchange="updateClipEffect('fade_in', parseFloat(this.value))">
+        </div>
+        <div class="prop-group">
+          <label>Fade Out (сек)</label>
+          <input type="number" step="0.1" min="0" max="5" value="${effects.fade_out || 0}" onchange="updateClipEffect('fade_out', parseFloat(this.value))">
+        </div>
+      </div>
+      <div class="prop-group">
+        <label>Источник</label>
+        <input type="text" value="${clip.source || ''}" onchange="updateClipProp('source', this.value)" placeholder="minio://bucket/file.mp4">
+      </div>
+    `;
+  }
+
+  // Аудио
+  if (track.type === 'audio') {
+    html += `
+      <div class="prop-group">
+        <label>Громкость</label>
+        <div class="prop-slider">
+          <input type="range" min="0" max="2" step="0.05" value="${effects.volume !== undefined ? effects.volume : 1}" oninput="updateClipEffect('volume', parseFloat(this.value)); this.nextElementSibling.textContent=Math.round(this.value*100)+'%';">
+          <span class="val">${Math.round((effects.volume !== undefined ? effects.volume : 1) * 100)}%</span>
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <label>Fade In (сек)</label>
+          <input type="number" step="0.1" min="0" max="5" value="${effects.fade_in || 0}" onchange="updateClipEffect('fade_in', parseFloat(this.value))">
+        </div>
+        <div class="prop-group">
+          <label>Fade Out (сек)</label>
+          <input type="number" step="0.1" min="0" max="5" value="${effects.fade_out || 0}" onchange="updateClipEffect('fade_out', parseFloat(this.value))">
+        </div>
+      </div>
+      <div class="prop-group">
+        <label>Источник</label>
+        <input type="text" value="${clip.source || ''}" onchange="updateClipProp('source', this.value)" placeholder="minio://bucket/audio.mp3">
+      </div>
+    `;
+  }
+
+  // Текст (субтитры)
+  if (track.type === 'text') {
+    html += `
+      <div class="prop-group">
+        <label>Текст</label>
+        <textarea onchange="updateClipProp('text', this.value)">${clip.text || ''}</textarea>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <label>Шрифт</label>
+          <input type="text" value="${style.font || 'Arial'}" onchange="updateClipStyle('font', this.value)">
+        </div>
+        <div class="prop-group">
+          <label>Размер</label>
+          <input type="number" min="12" max="120" value="${style.size || 48}" onchange="updateClipStyle('size', parseInt(this.value))">
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <label>Цвет текста</label>
+          <div class="color-input-wrap">
+            <input type="color" value="${style.color || '#FFFFFF'}" onchange="updateClipStyle('color', this.value)">
+            <span style="font-family:var(--mono);font-size:12px;">${style.color || '#FFFFFF'}</span>
+          </div>
+        </div>
+        <div class="prop-group">
+          <label>Цвет фона</label>
+          <div class="color-input-wrap">
+            <input type="color" value="${style.bg_color || '#000000'}" onchange="updateClipStyle('bg_color', this.value)">
+            <span style="font-family:var(--mono);font-size:12px;">${style.bg_color || '#000000'}</span>
+          </div>
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <label>Позиция</label>
+          <select onchange="updateClipStyle('position', this.value)">
+            <option value="top" ${style.position === 'top' ? 'selected' : ''}>Верх</option>
+            <option value="center" ${style.position === 'center' ? 'selected' : ''}>Центр</option>
+            <option value="bottom" ${(style.position || 'bottom') === 'bottom' ? 'selected' : ''}>Низ</option>
+          </select>
+        </div>
+        <div class="prop-group">
+          <label>Анимация</label>
+          <select onchange="updateClipStyle('animation', this.value)">
+            <option value="fade" ${(style.animation || 'fade') === 'fade' ? 'selected' : ''}>Fade</option>
+            <option value="slide" ${style.animation === 'slide' ? 'selected' : ''}>Slide</option>
+            <option value="pop" ${style.animation === 'pop' ? 'selected' : ''}>Pop</option>
+          </select>
+        </div>
+      </div>
+      <div class="prop-group">
+        <label>Прозрачность фона</label>
+        <div class="prop-slider">
+          <input type="range" min="0" max="1" step="0.05" value="${style.bg_opacity !== undefined ? style.bg_opacity : 0.6}" oninput="updateClipStyle('bg_opacity', parseFloat(this.value)); this.nextElementSibling.textContent=Math.round(this.value*100)+'%';">
+          <span class="val">${Math.round((style.bg_opacity !== undefined ? style.bg_opacity : 0.6) * 100)}%</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Кнопка удаления
+  html += `
+    <div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border);">
+      <button class="btn" style="width:100%;background:#3a1a1e;border-color:#e94560;color:#e94560;" onclick="deleteSelectedClip()">🗑 Удалить клип</button>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function updateClipProp(prop, value) {
+  if (!state.selectedClip) return;
+  const { trackIdx, clipIdx } = state.selectedClip;
+  const clip = state.script.tracks[trackIdx]?.clips[clipIdx];
+  if (!clip) return;
+  clip[prop] = value;
+  renderTimeline();
+}
+
+function updateClipEffect(prop, value) {
+  if (!state.selectedClip) return;
+  const { trackIdx, clipIdx } = state.selectedClip;
+  const clip = state.script.tracks[trackIdx]?.clips[clipIdx];
+  if (!clip) return;
+  if (!clip.effects) clip.effects = {};
+  clip.effects[prop] = value;
+}
+
+function updateClipStyle(prop, value) {
+  if (!state.selectedClip) return;
+  const { trackIdx, clipIdx } = state.selectedClip;
+  const clip = state.script.tracks[trackIdx]?.clips[clipIdx];
+  if (!clip) return;
+  if (!clip.style) clip.style = {};
+  clip.style[prop] = value;
+}
+
+function deleteSelectedClip() {
+  if (!state.selectedClip) return;
+  const { trackIdx, clipIdx } = state.selectedClip;
+  state.script.tracks[trackIdx].clips.splice(clipIdx, 1);
+  state.selectedClip = null;
+  renderTimeline();
+  renderProperties();
+  toast('Клип удалён', 'info');
+}
+
+// ─── Drag клипов по таймлайну ───
+
+function startClipDrag(e, trackIdx, clipIdx) {
+  const clip = state.script.tracks[trackIdx].clips[clipIdx];
+  const scrollEl = document.getElementById('timelineScroll');
+  const startX = e.clientX;
+  const origStart = clip.start;
+
+  function onMove(ev) {
+    const dx = ev.clientX - startX;
+    const dt = dx / state.zoom;
+    clip.start = Math.max(0, Math.round((origStart + dt) * 10) / 10);
+
+    // Snap к другим клипам
+    const snapThreshold = 5 / state.zoom; // 5px в секундах
+    state.script.tracks.forEach(track => {
+      track.clips.forEach(other => {
+        if (other.id === clip.id) return;
+        const otherEnd = other.start + other.duration;
+        // Snap начало к концу другого клипа
+        if (Math.abs(clip.start - otherEnd) < snapThreshold) {
+          clip.start = otherEnd;
+        }
+        // Snap конец к началу другого клипа
+        if (Math.abs((clip.start + clip.duration) - other.start) < snapThreshold) {
+          clip.start = other.start - clip.duration;
+        }
+      });
+    });
+
+    // Snap к playhead
+    if (Math.abs(clip.start - state.playheadTime) < snapThreshold) {
+      clip.start = state.playheadTime;
+    }
+
+    renderTimeline();
+  }
+
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function startClipResize(e, trackIdx, clipIdx, side) {
+  const clip = state.script.tracks[trackIdx].clips[clipIdx];
+  const startX = e.clientX;
+  const origDuration = clip.duration;
+  const origStart = clip.start;
+
+  function onMove(ev) {
+    const dx = ev.clientX - startX;
+    const dt = dx / state.zoom;
+
+    if (side === 'right') {
+      clip.duration = Math.max(0.5, Math.round((origDuration + dt) * 10) / 10);
+    } else {
+      const newStart = Math.max(0, Math.round((origStart + dt) * 10) / 10);
+      const newDuration = origDuration - (newStart - origStart);
+      if (newDuration >= 0.5) {
+        clip.start = newStart;
+        clip.duration = Math.round(newDuration * 10) / 10;
+      }
+    }
+    renderTimeline();
+    renderProperties();
+  }
+
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// ─── Timeline events (zoom, click, playhead drag) ───
+
+function setupTimelineEvents() {
+  const scrollEl = document.getElementById('timelineScroll');
+
+  // Zoom с колёсиком мыши
+  scrollEl.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -5 : 5;
+      state.zoom = Math.max(10, Math.min(200, state.zoom + delta));
+      document.getElementById('zoomInfo').textContent = `Масштаб: ${Math.round(state.zoom / 50 * 100)}%`;
+      renderTimeline();
+    }
+  });
+
+  // Клик на ruler — перемещение playhead
+  document.getElementById('rulerCanvas').addEventListener('mousedown', (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left + scrollEl.scrollLeft;
+    state.playheadTime = Math.max(0, Math.min(state.script.output.duration, x / state.zoom));
+    updatePlayheadPosition();
+    updateTimecodeDisplay();
+    renderPreview();
+
+    function onMove(ev) {
+      const mx = ev.clientX - rect.left + scrollEl.scrollLeft;
+      state.playheadTime = Math.max(0, Math.min(state.script.output.duration, mx / state.zoom));
+      updatePlayheadPosition();
+      updateTimecodeDisplay();
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Синхронизация скролла track labels и timeline
+  scrollEl.addEventListener('scroll', () => {
+    document.getElementById('trackLabels').scrollTop = scrollEl.scrollTop;
+  });
+}
+
+// ─── Добавление трека ───
+
+function addTrack(type) {
+  const id = `track_${type}_${state.script.tracks.length + 1}`;
+  state.script.tracks.push({ id, type, clips: [] });
+  renderTimeline();
+  toast(`Трек "${type}" добавлен`, 'success');
+}
+
+// ─── Preview (canvas) ───
+
+function renderPreview() {
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+  const t = state.playheadTime;
+
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Отображаем информацию о клипах в текущий момент
+  let y = 20;
+  ctx.font = '12px Manrope, sans-serif';
+
+  const activeClips = [];
+  state.script.tracks.forEach(track => {
+    track.clips.forEach(clip => {
+      if (t >= clip.start && t < clip.start + clip.duration) {
+        activeClips.push({ track, clip });
+      }
+    });
+  });
+
+  if (activeClips.length === 0) {
+    ctx.fillStyle = '#555';
+    ctx.font = '14px Manrope, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Нет активных клипов', canvas.width / 2, canvas.height / 2 - 10);
+    ctx.fillText(`Позиция: ${formatTime(t)}`, canvas.width / 2, canvas.height / 2 + 14);
+    ctx.textAlign = 'left';
+    return;
+  }
+
+  ctx.textAlign = 'left';
+  activeClips.forEach(({ track, clip }) => {
+    const color = getTrackColor(track);
+    ctx.fillStyle = color;
+    ctx.fillRect(10, y - 12, 8, 8);
+
+    ctx.fillStyle = '#ccc';
+    if (track.type === 'text') {
+      ctx.font = '16px Manrope, sans-serif';
+      ctx.fillText(clip.text || 'Текст', 24, y);
+
+      // Рисуем субтитр в центре превью
+      const style = clip.style || {};
+      ctx.save();
+      ctx.font = `${Math.min(style.size || 48, 32)}px ${style.font || 'Arial'}, sans-serif`;
+      ctx.textAlign = 'center';
+
+      let textY = canvas.height - 60;
+      if (style.position === 'top') textY = 60;
+      else if (style.position === 'center') textY = canvas.height / 2;
+
+      // Фон субтитра
+      const textWidth = ctx.measureText(clip.text || 'Текст').width;
+      ctx.fillStyle = style.bg_color || '#000';
+      ctx.globalAlpha = style.bg_opacity !== undefined ? style.bg_opacity : 0.6;
+      ctx.fillRect(canvas.width / 2 - textWidth / 2 - 8, textY - 20, textWidth + 16, 30);
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = style.color || '#fff';
+      ctx.fillText(clip.text || 'Текст', canvas.width / 2, textY);
+      ctx.restore();
+    } else {
+      ctx.font = '12px Manrope, sans-serif';
+      const label = clip.source ? clip.source.split('/').pop() : clip.id;
+      ctx.fillText(`[${track.type}] ${label}`, 24, y);
+    }
+    y += 24;
+  });
+
+  // Таймкод в углу
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(canvas.width - 100, canvas.height - 30, 95, 24);
+  ctx.fillStyle = '#e94560';
+  ctx.font = '12px "JetBrains Mono", monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(formatTime(t), canvas.width - 10, canvas.height - 12);
+  ctx.textAlign = 'left';
+}
+
+// ─── Playback ───
+
+function togglePlayback() {
+  if (state.isPlaying) {
+    state.isPlaying = false;
+    document.getElementById('playBtn').textContent = '▶';
+  } else {
+    state.isPlaying = true;
+    document.getElementById('playBtn').textContent = '⏸';
+    requestAnimationFrame(playbackLoop);
+  }
+}
+
+let lastPlayTime = 0;
+function playbackLoop(timestamp) {
+  if (!state.isPlaying) return;
+
+  if (!lastPlayTime) lastPlayTime = timestamp;
+  const delta = (timestamp - lastPlayTime) / 1000;
+  lastPlayTime = timestamp;
+
+  state.playheadTime += delta;
+  if (state.playheadTime >= state.script.output.duration) {
+    state.playheadTime = 0;
+  }
+
+  updatePlayheadPosition();
+  updateTimecodeDisplay();
+  renderPreview();
+  requestAnimationFrame(playbackLoop);
+}
+
+// ─── Сохранение / Загрузка скриптов ───
+
+async function saveScript() {
+  const name = document.getElementById('scriptName').value.trim() || 'Без названия';
+  const body = {
+    name,
+    description: '',
+    script_json: state.script,
+    template_type: null
+  };
+  if (state.scriptId) body.id = state.scriptId;
+
+  const data = await apiCall('POST', '/montage/scripts', body);
+  if (data.ok) {
+    state.scriptId = data.data.id;
+    toast('Скрипт сохранён', 'success');
+    document.getElementById('statusBadge').textContent = 'Сохранён';
+  } else {
+    toast(`Ошибка: ${data.error}`, 'error');
+  }
+}
+
+async function loadScriptModal() {
+  const modal = document.getElementById('modalLoad');
+  modal.classList.add('active');
+
+  const data = await apiCall('GET', '/montage/scripts');
+  const container = document.getElementById('scriptsList');
+
+  if (!data.ok || !data.data || data.data.length === 0) {
+    container.innerHTML = '<p style="color:var(--text2);text-align:center;">Нет сохранённых скриптов</p>';
+    return;
+  }
+
+  container.innerHTML = data.data.map(s => `
+    <div class="script-item" onclick="loadScript(${s.id})">
+      <div>
+        <div class="si-name">${s.name}</div>
+        <div class="si-date">${new Date(s.created_at).toLocaleDateString('ru-RU')} · ${s.render_count || 0} рендеров</div>
+      </div>
+      <button class="si-del" onclick="event.stopPropagation(); deleteScript(${s.id})" title="Удалить">✕</button>
+    </div>
+  `).join('');
+}
+
+async function loadScript(id) {
+  const data = await apiCall('GET', `/montage/scripts/${id}`);
+  if (!data.ok) { toast('Ошибка загрузки', 'error'); return; }
+
+  const script = data.data;
+  state.script = script.script_json;
+  state.scriptId = script.id;
+  document.getElementById('scriptName').value = script.name;
+
+  closeModal('modalLoad');
+  renderTimeline();
+  renderPreview();
+  toast(`Скрипт "${script.name}" загружен`, 'success');
+  document.getElementById('statusBadge').textContent = 'Загружен';
+}
+
+async function deleteScript(id) {
+  if (!confirm('Удалить скрипт?')) return;
+  await apiCall('DELETE', `/montage/scripts/${id}`);
+  loadScriptModal();
+}
+
+// ─── Шаблоны ───
+
+function showTemplates() {
+  document.getElementById('modalTemplates').classList.add('active');
+}
+
+function applyTemplate(type) {
+  closeModal('modalTemplates');
+
+  const templates = {
+    ugc_30s: {
+      output: { resolution: '1080x1920', fps: 30, format: 'mp4', duration: 30 },
+      tracks: [
+        { id: 'track_video', type: 'video', clips: [
+          { id: generateId(), source: '', start: 0, duration: 30, trim_start: 0, trim_end: 30, effects: { fade_in: 0.5, fade_out: 0.5, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_avatar', type: 'video', clips: [
+          { id: generateId(), source: '', start: 2, duration: 26, trim_start: 0, trim_end: 26, effects: { fade_in: 0.3, fade_out: 0.3, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_tts', type: 'audio', clips: [
+          { id: generateId(), source: '', start: 2, duration: 26, trim_start: 0, trim_end: 26, effects: { fade_in: 0, fade_out: 0.3, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_subtitles', type: 'text', clips: [
+          { id: generateId(), text: 'Текст субтитра 1', start: 2, duration: 8, style: { font: 'Arial', size: 48, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6, position: 'bottom', animation: 'fade' } },
+          { id: generateId(), text: 'Текст субтитра 2', start: 11, duration: 8, style: { font: 'Arial', size: 48, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6, position: 'bottom', animation: 'fade' } },
+          { id: generateId(), text: 'Текст субтитра 3', start: 20, duration: 8, style: { font: 'Arial', size: 48, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6, position: 'bottom', animation: 'fade' } }
+        ]}
+      ]
+    },
+    review_60s: {
+      output: { resolution: '1080x1920', fps: 30, format: 'mp4', duration: 60 },
+      tracks: [
+        { id: 'track_intro', type: 'video', clips: [
+          { id: generateId(), source: '', start: 0, duration: 10, trim_start: 0, trim_end: 10, effects: { fade_in: 1, fade_out: 0.5, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_product', type: 'video', clips: [
+          { id: generateId(), source: '', start: 10, duration: 35, trim_start: 0, trim_end: 35, effects: { fade_in: 0.5, fade_out: 0.5, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_avatar', type: 'video', clips: [
+          { id: generateId(), source: '', start: 5, duration: 50, trim_start: 0, trim_end: 50, effects: { fade_in: 0.3, fade_out: 0.3, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_tts', type: 'audio', clips: [
+          { id: generateId(), source: '', start: 2, duration: 55, trim_start: 0, trim_end: 55, effects: { fade_in: 0, fade_out: 0.5, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_subtitles', type: 'text', clips: [] }
+      ]
+    },
+    stories_15s: {
+      output: { resolution: '1080x1920', fps: 30, format: 'mp4', duration: 15 },
+      tracks: [
+        { id: 'track_video', type: 'video', clips: [
+          { id: generateId(), source: '', start: 0, duration: 5, trim_start: 0, trim_end: 5, effects: { fade_in: 0, fade_out: 0.2, volume: 1, speed: 1.2, filters: [] } },
+          { id: generateId(), source: '', start: 5, duration: 5, trim_start: 0, trim_end: 5, effects: { fade_in: 0.2, fade_out: 0.2, volume: 1, speed: 1, filters: [] } },
+          { id: generateId(), source: '', start: 10, duration: 5, trim_start: 0, trim_end: 5, effects: { fade_in: 0.2, fade_out: 0, volume: 1, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_audio', type: 'audio', clips: [
+          { id: generateId(), source: '', start: 0, duration: 15, trim_start: 0, trim_end: 15, effects: { fade_in: 0, fade_out: 0.5, volume: 0.8, speed: 1, filters: [] } }
+        ]},
+        { id: 'track_text', type: 'text', clips: [
+          { id: generateId(), text: '🔥 Классный товар!', start: 2, duration: 4, style: { font: 'Arial', size: 56, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.5, position: 'center', animation: 'pop' } }
+        ]}
+      ]
+    }
+  };
+
+  const tpl = templates[type];
+  if (!tpl) return;
+
+  state.script = JSON.parse(JSON.stringify(tpl));
+  state.scriptId = null;
+  document.getElementById('scriptName').value = {
+    ugc_30s: 'UGC 30 секунд',
+    review_60s: 'Обзор товара 60 секунд',
+    stories_15s: 'Сторис 15 секунд'
+  }[type] || 'Новый скрипт';
+
+  renderTimeline();
+  renderPreview();
+  toast('Шаблон применён', 'success');
+}
+
+// ─── Рендер / Превью ───
+
+async function startPreview() {
+  const scriptData = JSON.parse(JSON.stringify(state.script));
+  scriptData.preview = true;
+  await startRenderJob(scriptData, true);
+}
+
+async function startRender() {
+  const scriptData = JSON.parse(JSON.stringify(state.script));
+  scriptData.preview = false;
+  await startRenderJob(scriptData, false);
+}
+
+async function startRenderJob(scriptData, isPreview) {
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = isPreview ? 'Превью...' : 'Рендер...';
+  badge.className = 'status-badge rendering';
+
+  const progressEl = document.getElementById('renderProgress');
+  const barEl = document.getElementById('renderBar');
+  const textEl = document.getElementById('renderText');
+  progressEl.classList.add('active');
+  barEl.style.width = '0%';
+  textEl.textContent = '0% — Подготовка...';
+
+  const body = {
+    ...scriptData,
+    script_id: state.scriptId
+  };
+
+  const data = await apiCall('POST', '/montage/render', body);
+  if (!data.ok) {
+    toast(`Ошибка запуска: ${data.error}`, 'error');
+    badge.textContent = 'Ошибка';
+    badge.className = 'status-badge';
+    progressEl.classList.remove('active');
+    return;
+  }
+
+  state.renderJobId = data.job_id;
+
+  // Подписываемся через Socket.IO если доступен, иначе — HTTP-поллинг
+  if (window.io) {
+    const socket = window.io({ auth: { token: (document.cookie.split(';').find(c => c.trim().startsWith('token=')) || '').split('=')[1] || '' } });
+    socket.on('montage:progress', (msg) => {
+      if (msg.job_id !== data.job_id) return;
+      if (msg.progress !== undefined) {
+        barEl.style.width = msg.progress + '%';
+        const eta = msg.eta ? ` — ETA ${msg.eta}с` : '';
+        const fps = msg.fps ? ` (${msg.fps} fps)` : '';
+        textEl.textContent = `${msg.progress}%${fps}${eta}`;
+      }
+      if (msg.status === 'done') {
+        badge.textContent = 'Готово';
+        badge.className = 'status-badge done';
+        barEl.style.width = '100%';
+        textEl.textContent = '100% — Готово!';
+        setTimeout(() => progressEl.classList.remove('active'), 3000);
+        toast(isPreview ? 'Превью готово!' : 'Рендер завершён!', 'success');
+        socket.disconnect();
+      }
+      if (msg.status === 'error') {
+        badge.textContent = 'Ошибка';
+        badge.className = 'status-badge';
+        textEl.textContent = `Ошибка: ${msg.error || 'неизвестная'}`;
+        setTimeout(() => progressEl.classList.remove('active'), 5000);
+        toast('Ошибка рендера', 'error');
+        socket.disconnect();
+      }
+    });
+    // Fallback — если Socket.IO не даёт обновлений за 5 сек, переключаемся на поллинг
+    const fallbackTimer = setTimeout(() => { socket.disconnect(); pollRenderStatus(data.job_id, isPreview); }, 5000);
+    socket.once('montage:progress', () => clearTimeout(fallbackTimer));
+  } else {
+    // Нет Socket.IO — HTTP-поллинг
+    pollRenderStatus(data.job_id, isPreview);
+  }
+}
+
+async function pollRenderStatus(jobId, isPreview) {
+  const badge = document.getElementById('statusBadge');
+  const barEl = document.getElementById('renderBar');
+  const textEl = document.getElementById('renderText');
+  const progressEl = document.getElementById('renderProgress');
+
+  const poll = async () => {
+    const data = await apiCall('GET', `/montage/status/${jobId}`);
+    if (!data || !data.status) return;
+
+    barEl.style.width = (data.progress || 0) + '%';
+    textEl.textContent = `${data.progress || 0}%`;
+
+    if (data.status === 'done') {
+      badge.textContent = 'Готово';
+      badge.className = 'status-badge done';
+      barEl.style.width = '100%';
+      textEl.textContent = '100% — Готово!';
+      setTimeout(() => progressEl.classList.remove('active'), 3000);
+      toast(isPreview ? 'Превью готово!' : 'Рендер завершён!', 'success');
+      return;
+    }
+    if (data.status === 'error') {
+      badge.textContent = 'Ошибка';
+      badge.className = 'status-badge';
+      textEl.textContent = `Ошибка`;
+      setTimeout(() => progressEl.classList.remove('active'), 5000);
+      toast('Ошибка рендера', 'error');
+      return;
+    }
+
+    setTimeout(poll, 3000);
+  };
+
+  poll();
+}
+
+// ─── Модальные окна ───
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+// Закрытие по клику на overlay
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', (e) => {
+    if (e.target === el) el.classList.remove('active');
+  });
+});
+
+// ─── Keyboard shortcuts ───
+
+document.addEventListener('keydown', (e) => {
+  // Space — play/pause
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    togglePlayback();
+  }
+  // Delete — удалить клип
+  if ((e.code === 'Delete' || e.code === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    deleteSelectedClip();
+  }
+  // Ctrl+S — сохранить
+  if (e.ctrlKey && e.code === 'KeyS') {
+    e.preventDefault();
+    saveScript();
+  }
+});
+
+// ─── Запуск ───
+init();
+</script>
+</body>
+</html>

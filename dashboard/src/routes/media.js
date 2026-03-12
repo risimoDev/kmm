@@ -3,14 +3,26 @@
 // GET    /api/media/public/*     — Публичный прокси файлов (без auth, для внешних API)
 // POST   /api/media/upload       — Загрузить файл
 // DELETE /api/media/:id          — Удалить файл
+// POST   /api/media/photo-gen    — AI генерация фото без продукта
 
 const { Router } = require('express');
 const multer = require('multer');
 const { Client: MinioClient } = require('minio');
 const crypto = require('crypto');
 const path = require('path');
+const axios = require('axios');
 const { query, isConnected } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+
+// ─── Helper: настройки AI ───
+async function getAISettings() {
+  const result = await query(
+    "SELECT key, value FROM app_settings WHERE category IN ('ai', 'cards')"
+  );
+  const s = {};
+  for (const row of result.rows) s[row.key] = row.value;
+  return s;
+}
 
 const router = Router();
 
@@ -314,6 +326,117 @@ router.post('/music', authMiddleware, musicUpload.single('file'), async (req, re
       data: { ...result.rows[0], url }
     });
   } catch (err) {
+    next(err);
+  }
+});
+
+// ─── AI Генерация фото (без привязки к продукту) ───
+// POST /api/media/photo-gen
+// Body: { reference_photo?, concept, prompt_extra?, count?, product_name? }
+router.post('/photo-gen', authMiddleware, async (req, res, next) => {
+  try {
+    const settings = await getAISettings();
+    const apiKey = settings.ai_api_key;
+    if (!apiKey) return res.status(400).json({ ok: false, error: 'API ключ AI не настроен' });
+
+    const baseUrl   = settings.ai_base_url   || 'https://gptunnel.ru/v1';
+    const authPfx   = settings.ai_auth_prefix || '';
+    const cfgModel  = settings.card_image_model || 'flux-kontext-pro';
+    const IMG2IMG   = ['flux-kontext-pro','gpt-image-1','gpt-image-1-low','gpt-image-1-medium','gpt-image-1-high'];
+    const model     = IMG2IMG.includes(cfgModel) ? cfgModel : 'flux-kontext-pro';
+
+    const {
+      reference_photo = null,
+      concept         = 'studio',
+      prompt_extra    = '',
+      count           = 2,
+      product_name    = 'product'
+    } = req.body;
+
+    const safeCount = Math.min(Math.max(parseInt(count) || 1, 1), 4);
+
+    const conceptInstructions = {
+      studio:    'Clean white/neutral studio background, professional product photography lighting, soft shadows, minimalist composition.',
+      lifestyle: 'Natural lifestyle setting. Warm realistic lighting, authentic everyday environment. Product is the hero of the scene.',
+      flatlay:   'Overhead flat-lay composition on a stylish surface. Complementary props arranged artistically around the product.',
+      minimal:   'Ultra-minimalist background with a single accent color. Extreme clean aesthetic, generous white space.',
+      luxury:    'Premium luxury setting with dark moody tones or rich materials (marble, velvet, gold). Dramatic lighting.',
+      street:    'Urban outdoor street setting, natural daylight, lifestyle vibe, real-world context.',
+      nature:    'Natural outdoor setting — forest, garden or field. Soft natural light, organic textures.'
+    };
+    const conceptStyle = conceptInstructions[concept] || conceptInstructions.studio;
+
+    let imagePrompt;
+    if (reference_photo) {
+      imagePrompt = `Photorealistic commercial product photo. ${conceptStyle} The product must remain EXACTLY as shown in the reference — do not alter its shape, color, or details. 9:16 vertical format, high quality, commercial photography.${prompt_extra ? ' ' + prompt_extra : ''}`.trim();
+    } else {
+      imagePrompt = `Photorealistic advertising photo of "${product_name}". ${conceptStyle} 9:16 vertical, high quality, commercial photography.${prompt_extra ? ' ' + prompt_extra : ''}`.trim();
+    }
+
+    const authHeader = authPfx ? `${authPfx} ${apiKey}` : apiKey;
+
+    // Запускаем все задачи параллельно
+    const taskIds = [];
+    for (let i = 0; i < safeCount; i++) {
+      try {
+        const body = { model, prompt: imagePrompt, ar: '9:16' };
+        if (reference_photo) body.image = reference_photo;
+
+        const cr = await axios.post(`${baseUrl}/media/create`, body, {
+          headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+          timeout: 30000
+        });
+        const taskId  = cr.data?.id || cr.data?.task_id;
+        const directUrl = cr.data?.url || cr.data?.image_url || cr.data?.data?.[0]?.url;
+        if (directUrl) taskIds.push({ taskId: null, url: directUrl });
+        else if (taskId) taskIds.push({ taskId, url: null });
+      } catch (e) {
+        console.error(`[photo-gen] create ${i+1} failed:`, e.message);
+      }
+    }
+
+    if (!taskIds.length) {
+      return res.json({ ok: false, error: 'Не удалось запустить генерацию. Проверьте API ключ и баланс.' });
+    }
+
+    const results = [];
+    const pending = taskIds.filter(t => t.taskId && !t.url);
+    taskIds.filter(t => t.url).forEach(t => results.push(t.url));
+
+    for (let poll = 0; poll < 22 && pending.length > 0; poll++) {
+      await new Promise(r => setTimeout(r, 4000));
+      const still = [];
+      for (const task of pending) {
+        try {
+          const pr = await axios.post(`${baseUrl}/media/result`, { task_id: task.taskId }, {
+            headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+            timeout: 15000
+          });
+          const d = pr.data;
+          const status = (d.status || '').toLowerCase();
+          const url = d.url || d.image_url || d.data?.[0]?.url;
+          if ((status === 'done' || status === 'completed' || status === 'success') && url) {
+            results.push(url);
+          } else if (status === 'failed' || status === 'error') {
+            console.error(`[photo-gen] task ${task.taskId} failed:`, d.error);
+          } else {
+            still.push(task);
+          }
+        } catch (e) {
+          console.error(`[photo-gen] poll ${task.taskId}:`, e.message);
+          still.push(task);
+        }
+      }
+      pending.length = 0;
+      pending.push(...still);
+    }
+
+    res.json({
+      ok: true,
+      data: { images: results, count: results.length, model, has_reference: !!reference_photo, concept }
+    });
+  } catch (err) {
+    if (err.response) return res.status(err.response.status).json({ ok: false, error: `Image API error: ${err.response.data?.error?.message || err.message}` });
     next(err);
   }
 });

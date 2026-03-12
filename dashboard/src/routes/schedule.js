@@ -124,7 +124,7 @@ router.post('/run-now', async (req, res, next) => {
     let contentType = content_type;
     if (!contentType && isConnected()) {
       const ctResult = await query("SELECT value FROM app_settings WHERE key = 'auto_content_type'");
-      contentType = ctResult.rows.length > 0 ? ctResult.rows[0].value : 'regular';
+      contentType = ctResult.rows.length > 0 ? ctResult.rows[0].value : 'a2e_product';
     }
 
     const n8nResponse = await axios.post(`${N8N_URL}/webhook/content-brain`, {
@@ -132,7 +132,7 @@ router.post('/run-now', async (req, res, next) => {
       product_name: product_name || '',
       niche: niche || '',
       extra_instructions: extra_instructions || '',
-      content_type: contentType || 'regular'
+      content_type: contentType || 'a2e_product'
     }, { timeout: 120000 });
 
     res.json({ ok: true, data: n8nResponse.data });
