@@ -211,6 +211,8 @@ services:
       - MINIO_BUCKET=content-factory
       # CORS
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      # Public URL
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://k-m-m.ru}
       # Montage service
       - MONTAGE_SERVICE_URL=http://montage-service:8001
     depends_on:

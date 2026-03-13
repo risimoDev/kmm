@@ -106,15 +106,21 @@ router.get('/', async (req, res, next) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
     const fileType = req.query.type;
+    const source   = req.query.source;
 
-    let where = '';
+    const conditions = [];
     const params = [];
     let paramIdx = 1;
 
     if (fileType) {
-      where = `WHERE file_type = $${paramIdx++}`;
+      conditions.push(`file_type = $${paramIdx++}`);
       params.push(fileType);
     }
+    if (source) {
+      conditions.push(`source = $${paramIdx++}`);
+      params.push(source);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const result = await query(
       `SELECT id, session_id, file_key, file_name, file_type, mime_type,
@@ -125,17 +131,12 @@ router.get('/', async (req, res, next) => {
       [...params, limit, offset]
     );
 
-    // Генерируем presigned URLs
-    const data = await Promise.all(
-      result.rows.map(async (file) => {
-        try {
-          const url = await minio.presignedGetObject(BUCKET, file.file_key, 3600);
-          return { ...file, url };
-        } catch {
-          return { ...file, url: null };
-        }
-      })
-    );
+    // Используем публичный прокси вместо presigned URLs
+    // (presigned URLs содержат внутренний Docker-хост minio:9000, недоступный из браузера)
+    const data = result.rows.map(file => ({
+      ...file,
+      url: file.file_key ? `/api/media/public/${file.file_key}` : null
+    }));
 
     res.json({ ok: true, data });
   } catch (err) {
@@ -270,17 +271,11 @@ router.get('/music', async (req, res, next) => {
        FROM music_tracks WHERE is_active = true ORDER BY name ASC`
     );
 
-    // Генерируем presigned URLs
-    const data = await Promise.all(
-      result.rows.map(async (track) => {
-        try {
-          const url = await minio.presignedGetObject(BUCKET, track.file_key, 3600);
-          return { ...track, url };
-        } catch {
-          return { ...track, url: null };
-        }
-      })
-    );
+    // Используем публичный прокси вместо presigned URLs
+    const data = result.rows.map(track => ({
+      ...track,
+      url: track.file_key ? `/api/media/public/${track.file_key}` : null
+    }));
 
     res.json({ ok: true, data });
   } catch (err) {
@@ -318,8 +313,8 @@ router.post('/music', authMiddleware, musicUpload.single('file'), async (req, re
       [trackName, fileKey, file.originalname, file.size, category, req.user?.id || null]
     );
 
-    // Presigned URL
-    const url = await minio.presignedGetObject(BUCKET, fileKey, 3600);
+    // Публичный URL через прокси
+    const url = `/api/media/public/${fileKey}`;
 
     res.status(201).json({
       ok: true,
@@ -332,45 +327,76 @@ router.post('/music', authMiddleware, musicUpload.single('file'), async (req, re
 
 // ─── AI Генерация фото (без привязки к продукту) ───
 // POST /api/media/photo-gen
-// Body: { reference_photo?, concept, prompt_extra?, count?, product_name? }
+// Body: { reference_photo?, reference_file_key?, concept, prompt_extra?, count?, product_name? }
 router.post('/photo-gen', authMiddleware, async (req, res, next) => {
   try {
     const settings = await getAISettings();
     const apiKey = settings.ai_api_key;
     if (!apiKey) return res.status(400).json({ ok: false, error: 'API ключ AI не настроен' });
 
-    const baseUrl   = settings.ai_base_url   || 'https://gptunnel.ru/v1';
-    const authPfx   = settings.ai_auth_prefix || '';
-    const cfgModel  = settings.card_image_model || 'flux-kontext-pro';
-    const IMG2IMG   = ['flux-kontext-pro','gpt-image-1','gpt-image-1-low','gpt-image-1-medium','gpt-image-1-high'];
-    const model     = IMG2IMG.includes(cfgModel) ? cfgModel : 'flux-kontext-pro';
+    const baseUrl  = settings.ai_base_url   || 'https://gptunnel.ru/v1';
+    const authPfx  = settings.ai_auth_prefix || '';
 
     const {
-      reference_photo = null,
-      concept         = 'studio',
-      prompt_extra    = '',
-      count           = 2,
-      product_name    = 'product'
+      reference_photo    = null,   // внешний URL (если вставлен вручную)
+      reference_file_key = null,   // fileKey в MinIO — строим публичный URL через наш прокси
+      concept            = 'studio',
+      prompt_extra       = '',
+      count              = 2,
+      product_name       = 'product'
     } = req.body;
+
+    // Публичный URL: доступен снаружи через наш прокси-эндпоинт (authMiddleware не требуется)
+    let refUrl = null;
+    if (reference_file_key) {
+      refUrl = `${PUBLIC_BASE_URL}/api/media/public/${reference_file_key}`;
+    } else if (reference_photo) {
+      refUrl = reference_photo;
+    }
 
     const safeCount = Math.min(Math.max(parseInt(count) || 1, 1), 4);
 
+    // Промты для каждого концепта: edit (img2img) и text (text-to-image)
     const conceptInstructions = {
-      studio:    'Clean white/neutral studio background, professional product photography lighting, soft shadows, minimalist composition.',
-      lifestyle: 'Natural lifestyle setting. Warm realistic lighting, authentic everyday environment. Product is the hero of the scene.',
-      flatlay:   'Overhead flat-lay composition on a stylish surface. Complementary props arranged artistically around the product.',
-      minimal:   'Ultra-minimalist background with a single accent color. Extreme clean aesthetic, generous white space.',
-      luxury:    'Premium luxury setting with dark moody tones or rich materials (marble, velvet, gold). Dramatic lighting.',
-      street:    'Urban outdoor street setting, natural daylight, lifestyle vibe, real-world context.',
-      nature:    'Natural outdoor setting — forest, garden or field. Soft natural light, organic textures.'
+      studio: {
+        edit: `Professional e-commerce product photography. Replace the background with a clean pure white studio backdrop. Soft diffused box lighting from above and sides, subtle drop shadow below the product, product perfectly centered. Keep the product 100% identical to the reference — same shape, colors, details, labels, packaging.`,
+        text: `Professional e-commerce product photo. Product: "${product_name}". Clean pure white studio backdrop, soft diffused box lighting, subtle drop shadow. Product centered, sharp focus, high-end commercial photography.`
+      },
+      lifestyle: {
+        edit: `Lifestyle product photography. Place the product in a cozy home interior scene — warm wooden table or countertop, soft morning light streaming through a nearby window, blurred background with indoor plants and natural home decor. Authentic, warm, inviting atmosphere. Keep the product 100% identical to the reference — same shape, colors, details, labels.`,
+        text: `Lifestyle product photo. Product: "${product_name}". Cozy home interior, warm wooden surface, soft morning sunlight from a window. Blurred background with indoor plants and natural home decor. Authentic, warm, editorial lifestyle photography.`
+      },
+      flatlay: {
+        edit: `Overhead flat-lay product photography. Strict top-down 90° bird's-eye view. Place the product centered on a clean light marble or natural linen surface. Small minimal elegant props tastefully arranged around the product. Even soft diffused lighting with no harsh shadows. Editorial Scandinavian minimal style. Keep the product 100% identical to the reference — same shape, colors, details.`,
+        text: `Overhead flat-lay photo. Product: "${product_name}". Strict top-down view, product centered on light marble or linen surface. Minimal elegant props arranged around it. Even diffused soft lighting. Clean editorial Scandinavian style.`
+      },
+      minimal: {
+        edit: `Minimalist product photography. Solid soft pastel or muted accent color as the entire background. Maximum negative white space around the product. Clean geometric symmetrical composition, soft studio box lighting. No props, no distracting elements — absolute simplicity and elegance. Keep the product 100% identical to the reference — same shape, colors, details.`,
+        text: `Minimalist product photo. Product: "${product_name}". Solid soft pastel background. Maximum negative space, clean symmetrical composition, studio box lighting. Elegant modern minimalism, no distracting elements.`
+      },
+      luxury: {
+        edit: `Luxury premium product photography. Dark moody setup — deep black marble or rich dark velvet surface. Dramatic low-key directional side lighting with a single hard light source creating strong contrast. Subtle gold or brass accent decorative elements in background. High contrast shadows, editorial luxury fashion magazine aesthetic. Keep the product 100% identical to the reference — same shape, colors, details, packaging.`,
+        text: `Luxury premium product photo. Product: "${product_name}". Dark moody setup, black marble or velvet surface. Dramatic low-key side lighting, hard directional light, gold accent elements. High contrast, editorial luxury magazine aesthetic.`
+      },
+      street: {
+        edit: `Urban outdoor product photography. Product placed on a concrete urban surface — a ledge, wall, or railing in a city environment. Natural ambient daylight, shallow depth of field with bokeh city street background with blurred buildings and people. Fresh contemporary fashion editorial vibe. Keep the product 100% identical to the reference — same shape, colors, details.`,
+        text: `Urban street product photo. Product: "${product_name}". Outdoor city environment, concrete ledge or urban surface. Natural daylight, bokeh city background with blurred buildings. Fresh contemporary fashion editorial vibe.`
+      },
+      nature: {
+        edit: `Natural outdoor product photography. Product placed on a mossy stone, weathered driftwood log, or nestled among lush tropical monstera and palm leaves. Soft dappled golden sunlight filtering through the forest canopy. Organic natural textures, fresh botanical aesthetic. Keep the product 100% identical to the reference — same shape, colors, details, labels.`,
+        text: `Natural outdoor product photo. Product: "${product_name}". Mossy stone or weathered wood surface, lush tropical leaves around. Soft golden dappled sunlight through canopy. Organic textures, fresh botanical aesthetic.`
+      }
     };
-    const conceptStyle = conceptInstructions[concept] || conceptInstructions.studio;
+
+    const concept_obj = conceptInstructions[concept] || conceptInstructions.studio;
 
     let imagePrompt;
-    if (reference_photo) {
-      imagePrompt = `Photorealistic commercial product photo. ${conceptStyle} The product must remain EXACTLY as shown in the reference — do not alter its shape, color, or details. 9:16 vertical format, high quality, commercial photography.${prompt_extra ? ' ' + prompt_extra : ''}`.trim();
+    if (refUrl) {
+      // img2img (edit) — описываем сцену/фон, модель подставляет товар из референса
+      imagePrompt = `${concept_obj.edit}${prompt_extra ? ' Additional details: ' + prompt_extra : ''} Ultra high resolution, photorealistic commercial product photography.`.trim();
     } else {
-      imagePrompt = `Photorealistic advertising photo of "${product_name}". ${conceptStyle} 9:16 vertical, high quality, commercial photography.${prompt_extra ? ' ' + prompt_extra : ''}`.trim();
+      // text-to-image — описываем и товар, и всю сцену целиком
+      imagePrompt = `${concept_obj.text}${prompt_extra ? ' Additional details: ' + prompt_extra : ''} Ultra high resolution, photorealistic commercial product photography.`.trim();
     }
 
     const authHeader = authPfx ? `${authPfx} ${apiKey}` : apiKey;
@@ -379,14 +405,21 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
     const taskIds = [];
     for (let i = 0; i < safeCount; i++) {
       try {
-        const body = { model, prompt: imagePrompt, ar: '9:16' };
-        if (reference_photo) body.image = reference_photo;
+        // seedream-3 — img2img (с images[]) или text-to-image (с ar:'9:16')
+        // Docs: https://docs.gptunnel.ru/media-api/seedream-3-edit
+        //       https://docs.gptunnel.ru/media-api/seedream-3
+        const body = { model: 'seedream-3', prompt: imagePrompt };
+        if (refUrl) {
+          body.images = [refUrl];   // img2img edit mode
+        } else {
+          body.ar = '9:16';         // text-to-image: задаём соотношение сторон
+        }
 
         const cr = await axios.post(`${baseUrl}/media/create`, body, {
           headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
           timeout: 30000
         });
-        const taskId  = cr.data?.id || cr.data?.task_id;
+        const taskId    = cr.data?.id || cr.data?.task_id;
         const directUrl = cr.data?.url || cr.data?.image_url || cr.data?.data?.[0]?.url;
         if (directUrl) taskIds.push({ taskId: null, url: directUrl });
         else if (taskId) taskIds.push({ taskId, url: null });
@@ -431,9 +464,32 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
       pending.push(...still);
     }
 
+    // Скачать сгенерированные фото и сохранить в MinIO + media_files
+    const savedImages = [];
+    for (const url of results) {
+      try {
+        const imgResp = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+        const buf = Buffer.from(imgResp.data);
+        const hash = crypto.randomBytes(8).toString('hex');
+        const fileKey = `images/photogen-${Date.now()}-${hash}.jpg`;
+        await minio.putObject(BUCKET, fileKey, buf, buf.length, { 'Content-Type': 'image/jpeg' });
+        if (isConnected()) {
+          await query(
+            `INSERT INTO media_files (user_id, file_key, file_name, file_type, mime_type, file_size, source)
+             VALUES ($1, $2, $3, 'image', 'image/jpeg', $4, 'photogen')`,
+            [req.user?.id || null, fileKey, `photogen-${concept}-${hash}.jpg`, buf.length]
+          );
+        }
+        savedImages.push(`${PUBLIC_BASE_URL}/api/media/public/${fileKey}`);
+      } catch (saveErr) {
+        console.warn('[photo-gen] save image failed, using original URL:', saveErr.message);
+        savedImages.push(url);
+      }
+    }
+
     res.json({
       ok: true,
-      data: { images: results, count: results.length, model, has_reference: !!reference_photo, concept }
+      data: { images: savedImages, count: savedImages.length, model: 'seedream-3', has_reference: !!refUrl, concept }
     });
   } catch (err) {
     if (err.response) return res.status(err.response.status).json({ ok: false, error: `Image API error: ${err.response.data?.error?.message || err.message}` });

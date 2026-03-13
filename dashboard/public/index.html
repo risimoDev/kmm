@@ -211,6 +211,7 @@
     .gallery-card .g-preview { width:100%; height:160px; object-fit:cover; background:var(--bg3); display:flex; align-items:center; justify-content:center; }
     .gallery-card .g-preview img { width:100%; height:100%; object-fit:cover; }
     .gallery-card .g-preview video { width:100%; height:100%; object-fit:cover; }
+    .gallery-card .g-preview img[src=""], .gallery-card .g-preview img:not([src]) { display:none; }
     .gallery-card .g-preview .g-placeholder { color:var(--text2); opacity:0.4; }
     .gallery-card .g-preview .g-placeholder .ico { width:48px; height:48px; }
     .gallery-card .g-body { padding:12px; }
@@ -626,6 +627,7 @@
     <div class="nav-item" data-page="cards"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Карточки товаров</div>
     <div class="nav-item" data-page="product"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span> Продукт <span class="new-badge">NEW</span></div>
     <div class="nav-item" data-page="photogen"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span> AI Фото товара <span class="new-badge">NEW</span></div>
+    <div class="nav-item" data-page="factory"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V8l7-3v5l7-3v5l6-3v11H2z"/></svg></span> 🏭 Запуск завода <span class="new-badge">NEW</span></div>
     <div class="nav-sep"></div>
     <div class="nav-section-label">AI Аналитика</div>
     <div class="nav-item" data-page="references"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span> Вирусные ссылки <span class="new-badge">NEW</span></div>
@@ -636,7 +638,7 @@
     <div class="nav-item" data-page="composer"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.02-.23-.27-.38-.62-.38-1.01 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.17-4.49-9-10-9z"/></svg></span> Стиль-паки <span class="new-badge">NEW</span></div>
     <div class="nav-sep"></div>
     <div class="nav-section-label">Система</div>
-    <div class="nav-item" data-page="generations"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Генерации</div>
+    <div class="nav-item" data-page="generations"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Генерации и медиа</div>
     <div class="nav-item" data-page="schedule"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Расписание</div>
     <div class="nav-item" data-page="errors"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Ошибки</div>
     <div class="nav-item" data-page="settings" id="nav-settings"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Настройки</div>
@@ -1248,6 +1250,25 @@
       </div>
     </div>
 
+    <!-- Photo Picker Modal (для страницы AI Фото товара) -->
+    <div id="pg-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1100;align-items:center;justify-content:center;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:720px;max-width:96vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">🗂️ Выбрать референс-фото</h3>
+          <button onclick="closePgPicker()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;">×</button>
+        </div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+          <input type="text" id="pg-picker-search" placeholder="Поиск по названию..." style="width:100%;font-size:13px;" oninput="pgPickerFilter(this.value)">
+        </div>
+        <div id="pg-picker-grid" style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;overflow-y:auto;flex:1;">
+          <div style="text-align:center;color:var(--text2);font-size:13px;padding:40px;grid-column:1/-1;">Загрузка...</div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:right;">
+          <button class="btn btn-outline" onclick="closePgPicker()">Отмена</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Batch Run Modal -->
     <div id="batch-modal" class="modal" style="display:none;">
       <div class="modal-overlay" onclick="closeBatchModal()"></div>
@@ -1282,7 +1303,7 @@
         </div>
         <div class="modal-body">
           <div id="aigen-ref-banner" style="display:none;margin-bottom:12px;padding:8px 10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:8px;font-size:12px;display:flex;align-items:center;gap:10px;">
-            <img id="aigen-ref-img" src="" style="width:48px;height:64px;object-fit:cover;border-radius:4px;flex-shrink:0;" onerror="this.parentElement.style.display='none'">
+            <img id="aigen-ref-img" style="width:48px;height:64px;object-fit:cover;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">
             <div>
               <div style="color:var(--text2);margin-bottom:2px;">Референс-фото</div>
               <div style="font-weight:600;color:#818cf8;">✅ Фото товара будет использовано как основа (img2img)</div>
@@ -1323,9 +1344,9 @@
       <div class="page-header">
         <div>
           <h2>📸 AI Фото товара</h2>
-          <p style="font-size:13px;color:var(--text2);margin-top:2px;">Генерация фотореалистичных фото по референс-изображению через img2img</p>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">img2img с референсом или text-to-image без него — модель seedream-3</p>
         </div>
-        <div id="pg-model-badge" style="font-size:12px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;">Модель: flux-kontext-pro</div>
+        <div id="pg-model-badge" style="font-size:12px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;">Модель: seedream-3</div>
       </div>
       <div style="display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start;">
         <!-- Left: Settings -->
@@ -1347,6 +1368,8 @@
               📎 Загрузить фото
               <input type="file" accept="image/*" style="display:none;" onchange="pgUploadRef(this)">
             </label>
+            <!-- Pick from existing -->
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px;" onclick="openPgPicker()">🗂️ Выбрать из загруженных</button>
             <!-- URL input -->
             <div style="display:flex;gap:6px;">
               <input type="text" id="pg-ref-url" placeholder="Или вставьте URL фото..." style="flex:1;font-size:12px;" oninput="pgCheckUrlPreview(this.value)">
@@ -1442,6 +1465,104 @@
               <div id="pg-result-meta" style="font-size:12px;color:var(--text2);margin-bottom:12px;"></div>
               <div id="pg-result-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;"></div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Factory Launch -->
+    <div id="page-factory" class="page">
+      <div class="page-header">
+        <div>
+          <h2>🏭 Запуск завода</h2>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">Полный автоматический конвейер: идея → фото → аватар → монтаж → публикация</p>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start;">
+        <!-- Left: Settings -->
+        <div class="card" style="padding:16px;">
+          <h3 style="margin-bottom:14px;font-size:15px;">⚙️ Настройки запуска</h3>
+
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Продукт *</label>
+            <select id="fct-product" style="width:100%;" onchange="factoryProductChanged()">
+              <option value="">Выберите продукт...</option>
+            </select>
+          </div>
+
+          <div id="fct-product-preview" style="display:none;margin-bottom:14px;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+            <div style="display:flex;gap:10px;align-items:center;">
+              <img id="fct-product-thumb" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg2);">
+              <div>
+                <div id="fct-product-name" style="font-weight:600;font-size:14px;"></div>
+                <div id="fct-product-desc" style="font-size:12px;color:var(--text2);margin-top:2px;max-height:40px;overflow:hidden;"></div>
+                <div id="fct-product-provider" style="font-size:11px;color:var(--accent);margin-top:3px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Стиль фотографий</label>
+            <select id="fct-concept" style="width:100%;">
+              <option value="studio">📷 Студия (белый фон)</option>
+              <option value="lifestyle">🏠 Лайфстайл (реальная обстановка)</option>
+              <option value="flatlay">🎨 Flat-lay (вид сверху)</option>
+              <option value="minimal">✨ Минимализм</option>
+              <option value="luxury">💎 Люкс (премиум)</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Количество фото (1–4)</label>
+            <input type="number" id="fct-img-count" value="2" min="1" max="4" style="width:80px;">
+          </div>
+
+          <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-subtitles" checked> Субтитры</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-auto-publish"> Авто-публикация после готовности</label>
+          </div>
+
+          <div id="fct-channels-wrap" style="display:none;margin-bottom:14px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Каналы публикации</label>
+            <div style="display:flex;gap:10px;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-ch-telegram" checked> Telegram</label>
+              <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-ch-vk"> VK</label>
+              <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-ch-youtube"> YouTube</label>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="fct-launch-btn" onclick="launchFactory()" style="width:100%;padding:12px;font-size:15px;" disabled>
+            🚀 Запустить завод
+          </button>
+        </div>
+
+        <!-- Right: Progress + History -->
+        <div>
+          <!-- Active run progress -->
+          <div id="fct-progress-card" class="card" style="padding:16px;display:none;">
+            <h3 style="margin-bottom:14px;font-size:15px;">⏳ Прогресс запуска</h3>
+            <div id="fct-progress-steps"></div>
+            <div style="margin-top:12px;">
+              <div style="background:var(--bg2);border-radius:8px;height:8px;overflow:hidden;">
+                <div id="fct-progress-bar" style="height:100%;background:var(--accent);border-radius:8px;width:0%;transition:width 0.5s;"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                <span id="fct-progress-status" style="font-size:12px;color:var(--text2);">Ожидание...</span>
+                <span id="fct-progress-pct" style="font-size:12px;color:var(--text2);">0%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Run history -->
+          <div class="card" style="padding:16px;margin-top:16px;">
+            <h3 style="margin-bottom:14px;font-size:15px;">📋 История запусков</h3>
+            <table>
+              <thead><tr><th>ID</th><th>Продукт</th><th>Шаг</th><th>Статус</th><th>Видео</th><th>Дата</th></tr></thead>
+              <tbody id="fct-history-table">
+                <tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">Нет запусков</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1717,14 +1838,16 @@
     <!-- Generations Gallery -->
     <div id="page-generations" class="page">
       <div class="page-header">
-        <h2>Генерации</h2>
+        <h2>Генерации и медиа</h2>
       </div>
       <div class="tabs" id="gen-tabs">
         <div class="tab active" data-gen-tab="videos">Видео</div>
+        <div class="tab" data-gen-tab="photogen">🖼️ AI Фото</div>
         <div class="tab" data-gen-tab="cards">Карточки</div>
         <div class="tab" data-gen-tab="scripts">Сценарии</div>
         <div class="tab" data-gen-tab="prompts">Промпты</div>
         <div class="tab" data-gen-tab="media">Медиа-файлы</div>
+        <div class="tab" data-gen-tab="montage">🎦 Монтаж</div>
       </div>
       <div id="gen-gallery-content">
         <div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><p>Загрузка...</p></div>
@@ -1861,6 +1984,7 @@
                   <button class="btn btn-sm" onclick="montageAddLayer('subtitle')" style="padding:2px 6px;font-size:10px;background:rgba(99,102,241,0.2);color:#818cf8;border:none;" title="Субтитры">T</button>
                   <button class="btn btn-sm" onclick="montageAddLayer('image')" style="padding:2px 6px;font-size:10px;background:rgba(34,197,94,0.2);color:#4ade80;border:none;" title="Изображение">🖼</button>
                   <button class="btn btn-sm" onclick="montageAddLayer('rect')" style="padding:2px 6px;font-size:10px;background:rgba(245,158,11,0.2);color:#fcd34d;border:none;" title="Прямоугольник">▭</button>
+                  <button class="btn btn-sm" onclick="montageAddLayer('avatar')" style="padding:2px 6px;font-size:10px;background:rgba(139,92,246,0.2);color:#c084fc;border:none;" title="Зона аватара">👤</button>
                 </div>
               </div>
               <div id="mse-layers" style="padding:6px 12px;max-height:200px;overflow-y:auto;"></div>
@@ -2871,6 +2995,7 @@ function navigateTo(page) {
     case 'product': loadProducts(); break;
     case 'product-detail': break;
     case 'photogen': loadPhotoGen(); break;
+    case 'factory': loadFactory(); break;
   }
 }
 
@@ -2883,10 +3008,13 @@ function initWebSocket() {
   socket.on('content-ready', () => { if (currentPage === 'content') loadContent(); toast('Новый контент сгенерирован!', 'success'); });
   socket.on('video-ready', (data) => { if (currentPage === 'videos') loadVideos(); toast(`Видео #${data.session_id} готово к проверке!`, 'success'); });
   socket.on('card-ready', (data) => { if (currentPage === 'cards') loadCards(); toast(`Карточка «${data.product_name || ''}» сгенерирована!`, 'success'); });
-  socket.on('session-update', () => { if (currentPage === 'videos') loadVideos(); if (currentPage === 'dashboard') loadDashboard(); if (currentPage === 'product-detail' && currentProductId) openProductDetail(currentProductId); });
+  socket.on('session-update', () => { if (currentPage === 'videos') loadVideos(); if (currentPage === 'dashboard') loadDashboard(); if (currentPage === 'product-detail' && currentProductId) openProductDetail(currentProductId); if (currentPage === 'factory') loadFactoryHistory(); });
   socket.on('workflow-error', (data) => { toast(`Ошибка: ${data.errorMessage || data.error_message}`, 'error'); });
   socket.on('product-run:created', () => { if (currentPage === 'product') loadProducts(); if (currentPage === 'product-detail' && currentProductId) openProductDetail(currentProductId); });
   socket.on('product-batch:started', (data) => { toast(`Пакетный запуск: ${data.count} продуктов`, 'success'); if (currentPage === 'product') loadProducts(); });
+  socket.on('factory:step', (data) => { factoryOnStep(data); });
+  socket.on('factory:done', (data) => { factoryOnDone(data); });
+  socket.on('factory:error', (data) => { factoryOnError(data); });
 
   // Прогресс рендера монтажа (от montage-pro.js)
   socket.on('montage:progress', (data) => {
@@ -2909,6 +3037,8 @@ function initWebSocket() {
         toast('✅ Рендер завершён!', 'success');
         const btn = document.getElementById('mr-start-btn');
         if (btn) btn.textContent = '▶ Запустить снова';
+        // Auto-refresh Монтаж tab in Генерации и медиа
+        if (currentPage === 'generations' && currentGenTab === 'montage') renderGenTab();
       }
     }
   });
@@ -3812,7 +3942,7 @@ async function loadVideos() {
     grid.innerHTML = items.map(v => {
       const hasVideo = !!v.final_video_url;
       const preview = hasVideo
-        ? `<video src="${esc(v.final_video_url)}" class="g-preview" style="width:100%;height:160px;object-fit:cover;" muted playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>`
+        ? `<video src="${esc(v.final_video_url)}" class="g-preview" style="width:100%;height:160px;object-fit:cover;" muted playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;" onerror="this.outerHTML='<div class=\\'g-preview\\'><div class=\\'g-placeholder\\'>🎬 Видео недоступно</div></div>'"></video>`
         : `<div class="g-preview"><div class="g-placeholder">${ico('video')}</div></div>`;
       return `<div class="gallery-card">
         ${preview}
@@ -3864,7 +3994,7 @@ async function openVideoDetail(id) {
 
     // Video preview
     if (v.final_video_url) {
-      html += `<div class="card full-width"><h3>Видео</h3><video class="video-preview" controls src="${v.final_video_url}"></video></div>`;
+      html += `<div class="card full-width"><h3>Видео</h3><video class="video-preview" controls src="${esc(v.final_video_url)}" onerror="this.outerHTML='<p style=\\'color:var(--text2);\\'>Видео недоступно</p>'"></video></div>`;
     }
 
     html += `<div class="card"><h3>Информация</h3>
@@ -4990,6 +5120,17 @@ function esc(s) {
   return d.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
 
+// Преобразует абсолютные production URL в относительные для совместимости с текущим хостом
+function mediaUrl(url) {
+  if (!url) return '';
+  // https://k-m-m.ru/api/media/public/... → /api/media/public/...
+  try {
+    const u = new URL(url, window.location.origin);
+    if (u.pathname.startsWith('/api/media/public/')) return u.pathname;
+  } catch {}
+  return url;
+}
+
 function fmtDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -5108,7 +5249,9 @@ async function renderGenTab() {
       case 'cards': await renderGenCards(container); break;
       case 'scripts': await renderGenScripts(container); break;
       case 'prompts': await renderGenPrompts(container); break;
+      case 'photogen': await renderGenPhotoGen(container); break;
       case 'media': await renderGenMedia(container); break;
+      case 'montage': await renderGenMontage(container); break;
     }
   } catch (e) {
     container.innerHTML = `<div class="empty-state">${ico('alertTriangle',32)}<p>Ошибка: ${esc(e.message)}</p></div>`;
@@ -5124,7 +5267,7 @@ async function renderGenVideos(container) {
     <div class="gallery-grid">${items.map(v => `
       <div class="gallery-card" onclick="openVideoDetail(${v.id})" style="cursor:pointer;">
         <div class="g-preview">${v.final_video_url
-          ? `<video src="${esc(v.final_video_url)}" muted preload="metadata"></video>`
+          ? `<video src="${esc(v.final_video_url)}" muted preload="metadata" onerror="this.outerHTML='<div class=\\'g-placeholder\\'>🎬</div>'"></video>`
           : `<div class="g-placeholder">${ico('video',48)}</div>`
         }</div>
         <div class="g-body">
@@ -5191,6 +5334,117 @@ async function renderGenPrompts(container) {
         </div>
       </div>
     `).join('')}</div></div>`;
+}
+
+async function renderGenPhotoGen(container) {
+  try {
+    const res = await api('GET', '/api/media?source=photogen&limit=100');
+    const items = res.data || [];
+    if (!items.length) {
+      container.innerHTML = `<div class="empty-state">${ico('image',48)}<p>Сгенерированных AI-фото пока нет. Перейдите на страницу «📸 AI Фото товара».</p></div>`;
+      return;
+    }
+    container.innerHTML = `<div class="gen-section">
+      <div class="gen-section-header"><h3>${ico('image',20)} AI Генерация фото</h3><span class="count">${items.length}</span></div>
+      <div class="gallery-grid">${items.map(f => `
+        <div class="gallery-card">
+          <div class="g-preview"><img src="${esc(f.url)}" alt="${esc(f.file_name)}" onerror="this.parentElement.innerHTML='<div class=g-placeholder>❌</div>'"></div>
+          <div class="g-body">
+            <div class="g-title" style="font-size:11px;">${esc(f.file_name || 'AI фото')}</div>
+            <div class="g-meta"><span>${fmtDate(f.created_at)}</span></div>
+          </div>
+          <div class="g-actions">
+            <a href="${esc(f.url)}" download class="btn btn-sm btn-outline" style="flex:1;text-align:center;">⬇ Скачать</a>
+            <button class="btn btn-sm btn-outline" title="Использовать как референс" onclick="pgPickerUseItem('${esc(f.url)}','${esc(f.file_key)}');navigateTo('photogen')">📸</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteMediaFile(${f.id})”">${ico('trash')}</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">${ico('alertTriangle',32)}<p>Ошибка: ${esc(e.message)}</p></div>`;
+  }
+}
+
+// ─── Photo Picker (референс для AI Фото) ───
+let _pgPickerItems = [];
+async function openPgPicker() {
+  document.getElementById('pg-picker-modal').style.display = 'flex';
+  document.getElementById('pg-picker-search').value = '';
+  document.getElementById('pg-picker-grid').innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:40px;grid-column:1/-1;">Загрузка...</div>';
+  try {
+    const res = await api('GET', '/api/media?type=image&limit=200');
+    _pgPickerItems = res.data || [];
+    pgPickerFilter('');
+  } catch (e) {
+    document.getElementById('pg-picker-grid').innerHTML = `<div style="text-align:center;color:var(--red);grid-column:1/-1;padding:40px;">Ошибка: ${esc(e.message)}</div>`;
+  }
+}
+
+function closePgPicker() {
+  document.getElementById('pg-picker-modal').style.display = 'none';
+}
+
+function pgPickerFilter(search) {
+  const grid = document.getElementById('pg-picker-grid');
+  const q = search.toLowerCase();
+  const filtered = _pgPickerItems.filter(f => !q || (f.file_name || f.file_key || '').toLowerCase().includes(q));
+  if (!filtered.length) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:40px;grid-column:1/-1;">Файлы не найдены</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(f => {
+    // Используем без авторизации публичный прокси — доступен снаружи и GPTunnel
+    const previewUrl = `/api/media/public/${f.file_key}`;
+    return `
+    <div onclick="pgPickerUseItem('${esc(previewUrl)}','${esc(f.file_key)}')" style="cursor:pointer;border:2px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="aspect-ratio:1;overflow:hidden;background:var(--bg3);">
+        <img src="${esc(previewUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <div style="padding:4px 6px;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.file_name || f.file_key)}</div>
+    </div>`;
+  }).join('');
+}
+
+function pgPickerUseItem(url, fileKey) {
+  pgRefUrl     = url;
+  pgRefFileKey = fileKey || null;
+  pgRenderRefState();
+  closePgPicker();
+  toast('Фото выбрано', 'success');
+}
+
+async function renderGenMontage(container) {
+  try {
+    const res = await api('GET', '/api/montage/renders');
+    const items = res.data || [];
+    if (!items.length) {
+      container.innerHTML = `<div class="empty-state">${ico('film',48)}<p>Нет отрендеренных монтажей</p><p style="font-size:13px;color:var(--text2);">Перейдите в раздел «🎬 Монтаж» и запустите рендер — видео появятся здесь автоматически</p><button class="btn btn-primary" style="margin-top:12px;" onclick="navigateTo('montage')">Открыть монтаж</button></div>`;
+      return;
+    }
+    container.innerHTML = `<div class="gen-section">
+      <div class="gen-section-header"><h3>🎬 Готовые монтажи</h3><span class="count">${items.length}</span></div>
+      <div class="gallery-grid">${items.map(f => `
+        <div class="gallery-card">
+          <div class="g-preview">
+            <video src="${esc(f.url)}" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;"
+              onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+          </div>
+          <div class="g-body">
+            <div class="g-title" style="font-size:11px;">${esc(f.file_name||'Монтаж')}</div>
+            <div class="g-meta"><span>${fmtDate(f.created_at)}</span></div>
+          </div>
+          <div class="g-actions">
+            <a href="${esc(f.url)}" target="_blank" class="btn btn-sm btn-outline" style="flex:1;text-align:center;">▶ Смотреть</a>
+            <a href="${esc(f.url)}" download="${esc(f.file_name||'montage.mp4')}" class="btn btn-sm btn-outline">⬇</a>
+            <button class="btn btn-sm btn-danger" onclick="deleteMediaFile(${f.id})">${ico('trash')}</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">${ico('alertTriangle',32)}<p>Ошибка: ${esc(e.message)}</p></div>`;
+  }
 }
 
 async function renderGenMedia(container) {
@@ -5306,7 +5560,7 @@ async function loadReferences() {
       return `<div class="gallery-card" onclick="openReferenceDetail(${r.id})" style="cursor:pointer;">
         <div class="g-preview" style="background:var(--bg3);">
           ${r.thumbnail_url
-            ? `<img src="${esc(r.thumbnail_url)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+            ? `<img src="${esc(r.thumbnail_url)}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
             : `<div class="g-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>`}
           <div style="position:absolute;top:8px;left:8px;">
             <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:${pc.bg};color:${pc.color};backdrop-filter:blur(4px);">${plt.toUpperCase()}</span>
@@ -5402,7 +5656,7 @@ async function loadProducts() {
     }
     tbody.innerHTML = r.data.map(p => {
       const photos = Array.isArray(p.photos) ? p.photos : [];
-      const thumb = photos[0] ? `<img src="${esc(photos[0])}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">` : '<div style="width:40px;height:40px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;">📦</div>';
+      const thumb = photos[0] ? `<img src="${esc(mediaUrl(photos[0]))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;" onerror="this.outerHTML='<div style=\'width:40px;height:40px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;\'>📦</div>'">` : '<div style="width:40px;height:40px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;">📦</div>';
       const statusBadge = { draft: 'pending', active: 'approved', archived: 'used' }[p.status] || 'pending';
       const statusLabel = { draft: 'Черновик', active: 'Активный', archived: 'Архив' }[p.status] || p.status;
       return `<tr style="cursor:pointer;" onclick="openProductDetail(${p.id})">
@@ -5439,7 +5693,7 @@ async function openProductDetail(id) {
     // Photos
     const photos = Array.isArray(p.photos) ? p.photos : [];
     document.getElementById('pd-photos').innerHTML = photos.length
-      ? photos.map((url, i) => `<img src="${esc(url)}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="window.open('${esc(url)}','_blank')" title="Фото ${i+1}">`).join('')
+      ? photos.map((url, i) => `<img src="${esc(mediaUrl(url))}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="window.open('${esc(mediaUrl(url))}','_blank')" title="Фото ${i+1}" onerror="this.style.display='none'">`).join('')
       : '<p style="color:var(--text2);font-size:13px;">Нет фото. Загрузите или сгенерируйте.</p>';
 
     // Info
@@ -5960,7 +6214,7 @@ async function generateProductImages() {
     const refBanner = document.getElementById('aigen-ref-banner');
     const noBanner  = document.getElementById('aigen-no-ref-banner');
     if (photos[0]) {
-      document.getElementById('aigen-ref-img').src = photos[0];
+      document.getElementById('aigen-ref-img').src = mediaUrl(photos[0]);
       refBanner.style.display = 'flex';
       noBanner.style.display  = 'none';
     } else {
@@ -6017,10 +6271,223 @@ async function addGeneratedPhotoToProduct(url) {
 }
 
 // ═══════════════════════════════════════════════════
+// 🏭 Запуск завода
+// ═══════════════════════════════════════════════════
+let _factoryRunId = null;
+let _factoryProducts = [];
+
+const FACTORY_STEPS = [
+  { key: 'idea',    label: '💡 Генерация идеи и сценария', pct: 10 },
+  { key: 'images',  label: '🎨 Генерация фотографий',      pct: 35 },
+  { key: 'video',   label: '🎬 Генерация аватара',          pct: 60 },
+  { key: 'montage', label: '🎞️ Монтаж видео',             pct: 85 },
+  { key: 'publish', label: '📤 Публикация',                 pct: 95 },
+  { key: 'done',    label: '✅ Готово',                      pct: 100 }
+];
+
+async function loadFactory() {
+  // Load products for dropdown (all except archived)
+  try {
+    const r = await api('GET', '/api/products?limit=100');
+    _factoryProducts = (r.data || []).filter(p => p.status !== 'archived');
+    const sel = document.getElementById('fct-product');
+    sel.innerHTML = '<option value="">Выберите продукт...</option>' +
+      _factoryProducts.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  } catch (e) {
+    toast('Ошибка загрузки продуктов: ' + e.message, 'error');
+  }
+  factoryProductChanged();
+  loadFactoryHistory();
+}
+
+function factoryProductChanged() {
+  const sel = document.getElementById('fct-product');
+  const id = parseInt(sel.value);
+  const preview = document.getElementById('fct-product-preview');
+  const btn = document.getElementById('fct-launch-btn');
+
+  if (!id) {
+    preview.style.display = 'none';
+    btn.disabled = true;
+    return;
+  }
+
+  const p = _factoryProducts.find(x => x.id === id);
+  if (!p) { preview.style.display = 'none'; btn.disabled = true; return; }
+
+  const photos = Array.isArray(p.photos) ? p.photos : [];
+  document.getElementById('fct-product-thumb').src = photos[0] ? mediaUrl(photos[0]) : '';
+  document.getElementById('fct-product-thumb').style.display = photos[0] ? '' : 'none';
+  document.getElementById('fct-product-name').textContent = p.name;
+  document.getElementById('fct-product-desc').textContent = p.description || 'Без описания';
+  document.getElementById('fct-product-provider').textContent = `Провайдер: ${p.video_provider || 'heygen'}`;
+  preview.style.display = 'block';
+  btn.disabled = false;
+}
+
+// Toggle channels visibility
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'fct-auto-publish') {
+    document.getElementById('fct-channels-wrap').style.display = e.target.checked ? 'block' : 'none';
+  }
+});
+
+async function launchFactory() {
+  const productId = parseInt(document.getElementById('fct-product').value);
+  if (!productId) { toast('Выберите продукт', 'error'); return; }
+
+  const concept = document.getElementById('fct-concept').value;
+  const imgCount = parseInt(document.getElementById('fct-img-count').value) || 2;
+  const subtitles = document.getElementById('fct-subtitles').checked;
+  const autoPublish = document.getElementById('fct-auto-publish').checked;
+  const channels = [];
+  if (autoPublish) {
+    if (document.getElementById('fct-ch-telegram').checked) channels.push('telegram');
+    if (document.getElementById('fct-ch-vk').checked) channels.push('vk');
+    if (document.getElementById('fct-ch-youtube').checked) channels.push('youtube');
+  }
+
+  const btn = document.getElementById('fct-launch-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Запускаю...';
+
+  // Show progress
+  const progressCard = document.getElementById('fct-progress-card');
+  progressCard.style.display = 'block';
+  factoryRenderSteps('idea', 'running');
+
+  try {
+    const r = await api('POST', `/api/products/${productId}/factory-run`, {
+      concept,
+      image_count: imgCount,
+      subtitles_enabled: subtitles,
+      auto_publish: autoPublish,
+      publish_channels: channels
+    });
+    _factoryRunId = r.data?.run_id;
+    toast('🏭 Завод запущен! Следите за прогрессом.', 'success');
+  } catch (e) {
+    toast('Ошибка запуска: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '🚀 Запустить завод';
+    progressCard.style.display = 'none';
+  }
+}
+
+function factoryRenderSteps(currentKey, state) {
+  const container = document.getElementById('fct-progress-steps');
+  const step = FACTORY_STEPS.find(s => s.key === currentKey);
+  const currentIndex = FACTORY_STEPS.findIndex(s => s.key === currentKey);
+
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  container.innerHTML = FACTORY_STEPS.map((s, i) => {
+    let icon = '⬜';
+    let color = 'var(--text2)';
+    if (i < safeIndex) { icon = '✅'; color = 'var(--green)'; }
+    else if (i === safeIndex) {
+      if (state === 'error') { icon = '❌'; color = 'var(--red)'; }
+      else if (state === 'done') { icon = '✅'; color = 'var(--green)'; }
+      else { icon = '⏳'; color = 'var(--accent)'; }
+    }
+    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:${color};">
+      <span>${icon}</span><span>${s.label}</span>
+    </div>`;
+  }).join('');
+
+  // Update progress bar
+  const pct = step ? step.pct : 0;
+  document.getElementById('fct-progress-bar').style.width = pct + '%';
+  document.getElementById('fct-progress-pct').textContent = pct + '%';
+  document.getElementById('fct-progress-status').textContent =
+    state === 'error' ? '❌ Ошибка' :
+    state === 'done' ? '✅ Завершено' :
+    (step ? step.label : 'Ожидание...');
+}
+
+function factoryOnStep(data) {
+  if (data.run_id && data.run_id !== _factoryRunId) return;
+  const stepKey = data.step || data.current_step;
+  factoryRenderSteps(stepKey, 'running');
+  if (currentPage === 'factory') loadFactoryHistory();
+}
+
+function factoryOnDone(data) {
+  if (data.run_id && data.run_id !== _factoryRunId) return;
+  factoryRenderSteps('done', 'done');
+  const btn = document.getElementById('fct-launch-btn');
+  btn.disabled = false;
+  btn.textContent = '🚀 Запустить завод';
+  toast('✅ Завод завершил работу! Видео готово.', 'success');
+  _factoryRunId = null;
+  if (currentPage === 'factory') loadFactoryHistory();
+}
+
+function factoryOnError(data) {
+  if (data.run_id && data.run_id !== _factoryRunId) return;
+  const step = data.step || 'idea';
+  factoryRenderSteps(step, 'error');
+  const btn = document.getElementById('fct-launch-btn');
+  btn.disabled = false;
+  btn.textContent = '🚀 Запустить завод';
+  toast('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+  _factoryRunId = null;
+  if (currentPage === 'factory') loadFactoryHistory();
+}
+
+async function loadFactoryHistory() {
+  try {
+    const r = await api('GET', '/api/products/factory-runs?limit=20');
+    const runs = r.data || [];
+    const tbody = document.getElementById('fct-history-table');
+    if (!runs.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">Нет запусков</td></tr>';
+      return;
+    }
+
+    const statusMap = {
+      created: 'pending', generating_idea: 'processing', generating_images: 'processing',
+      generating_video: 'processing', montage: 'processing', publishing: 'processing',
+      ready_for_review: 'processing', approved: 'approved', published: 'approved',
+      done: 'approved', error: 'rejected', cancelled: 'rejected'
+    };
+    const statusLabel = {
+      created: 'Создан', generating_idea: 'Идея...', generating_images: 'Фото...',
+      generating_video: 'Аватар...', montage: 'Монтаж...', publishing: 'Публикация...',
+      ready_for_review: 'На ревью', approved: 'Одобрен', published: 'Опубликован',
+      done: 'Готово', error: 'Ошибка', cancelled: 'Отменён'
+    };
+    const stepLabel = {
+      created: 'Старт', idea: 'Идея', images: 'Фото', video: 'Аватар',
+      montage: 'Монтаж', publish: 'Публикация', done: 'Готово'
+    };
+
+    tbody.innerHTML = runs.map(r => {
+      const videoUrl = r.final_video_url || r.montage_video_url || r.avatar_video_url;
+      const videoLink = videoUrl
+        ? `<a href="${esc(videoUrl)}" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;">▶</a>`
+        : '—';
+      return `<tr>
+        <td>${r.id}</td>
+        <td>${esc(r.product_name || '—')}</td>
+        <td>${stepLabel[r.current_step] || r.current_step || '—'}</td>
+        <td><span class="badge badge-${statusMap[r.status] || 'pending'}">${statusLabel[r.status] || r.status}</span>
+          ${r.error_message ? `<div style="font-size:11px;color:var(--red);margin-top:2px;">${esc(r.error_message).slice(0,80)}</div>` : ''}
+        </td>
+        <td>${videoLink}</td>
+        <td>${new Date(r.created_at).toLocaleDateString('ru')}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadFactoryHistory:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════
 // AI Фото товара — отдельная страница
 // ═══════════════════════════════════════════════════
 let pgCount = 2;
-let pgRefUrl = null;
+let pgRefUrl     = null;
+let pgRefFileKey = null;   // MinIO file key — для presigned URL при отправке AI
 
 function loadPhotoGen() {
   // Сбрасываем состояние при переходе на страницу
@@ -6059,7 +6526,8 @@ function pgRenderRefState() {
 }
 
 function pgClearRef() {
-  pgRefUrl = null;
+  pgRefUrl     = null;
+  pgRefFileKey = null;
   pgRenderRefState();
 }
 
@@ -6076,7 +6544,8 @@ async function pgUploadRef(input) {
     });
     if (!resp.ok) throw new Error('Ошибка загрузки');
     const data = await resp.json();
-    pgRefUrl = data.publicUrl || data.internalUrl;
+    pgRefUrl     = data.publicUrl || data.internalUrl;
+    pgRefFileKey = data.fileKey || null;
     pgRenderRefState();
     toast('Фото загружено', 'success');
   } catch (e) {
@@ -6137,7 +6606,8 @@ async function runPhotoGen() {
 
   try {
     const r = await api('POST', '/api/media/photo-gen', {
-      reference_photo: pgRefUrl || null,
+      reference_photo:    pgRefUrl     || null,
+      reference_file_key: pgRefFileKey || null,
       concept,
       prompt_extra: promptExtra,
       count: pgCount,
@@ -6161,7 +6631,7 @@ async function runPhotoGen() {
     const grid = document.getElementById('pg-result-grid');
     const meta = document.getElementById('pg-result-meta');
     const conceptLabels = { studio:'Студия', lifestyle:'Lifestyle', flatlay:'Flat-lay', minimal:'Минимализм', luxury:'Люкс', street:'Улица', nature:'Природа' };
-    meta.innerHTML = `Концепция: <b>${esc(conceptLabels[concept] || concept)}</b> · Модель: <b>${esc(r.data?.model || 'flux-kontext-pro')}</b>${r.data?.has_reference ? ' · <span style="color:#818cf8;">img2img ✅</span>' : ' · text-to-image'} · Фото: <b>${images.length}</b>`;
+    meta.innerHTML = `Концепция: <b>${esc(conceptLabels[concept] || concept)}</b> · Модель: <b>${esc(r.data?.model || 'seedream-3')}</b>${r.data?.has_reference ? ' · <span style="color:#818cf8;">img2img ✅</span>' : ' · text-to-image'} · Фото: <b>${images.length}</b>`;
 
     grid.innerHTML = images.map((url, i) => `
       <div class="pg-result-card">
@@ -6490,6 +6960,10 @@ function mseRenderCanvas() {
       el.style.background = layer.color || 'rgba(255,255,255,0.15)';
       el.style.height = (layer.height || 5) + '%';
       el.style.borderRadius = '4px';
+    } else if (layer.type === 'avatar') {
+      el.style.cssText += ';background:rgba(139,92,246,0.15);border:2px dashed #c084fc;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-direction:column;';
+      el.style.height = (layer.height || 60) + '%';
+      el.innerHTML = '<div style="font-size:28px;pointer-events:none;">👤</div><div style="font-size:9px;color:#c084fc;margin-top:4px;pointer-events:none;">Аватар</div>';
     }
     el.addEventListener('mousedown', e => mseLayerMouseDown(e, li));
     el.addEventListener('click', e => { e.stopPropagation(); mseSelectLayer(li); });
@@ -6554,6 +7028,7 @@ function mseAddLayer(type) {
   if (type === 'subtitle') Object.assign(layer, { text: 'Новый текст', font: 'Arial', size: 36, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6, y: 80 });
   if (type === 'image')    Object.assign(layer, { src: '', width: 80, y: 30 });
   if (type === 'rect')     Object.assign(layer, { color: 'rgba(255,255,255,0.15)', height: 6, y: 70 });
+  if (type === 'avatar')   Object.assign(layer, { width: 45, height: 60, y: 20, x: 50, label: 'Аватар' });
   scene.layers.push(layer);
   mseSelectedLayer = { sceneIdx: mseActiveScene, layerIdx: scene.layers.length - 1 };
   mseRenderCanvas();
@@ -6575,7 +7050,7 @@ function mseRenderLayerList() {
   c.innerHTML = scene.layers.map((l, li) => {
     const selLayer = mseSelectedLayer;
     const active = selLayer && selLayer.sceneIdx === mseActiveScene && selLayer.layerIdx === li;
-    const icons = { subtitle:'T', image:'🖼', rect:'▭', logo:'🏷' };
+    const icons = { subtitle:'T', image:'🖼', rect:'▭', logo:'🏷', avatar:'👤' };
     return `<div onclick="mseSelectLayer(${li})" style="
       display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;
       background:${active ? 'rgba(99,102,241,0.15)' : 'transparent'};margin-bottom:2px;
@@ -6683,6 +7158,17 @@ function mseRenderProps() {
       <div class="form-group" style="margin-bottom:7px;">
         <label style="font-size:10px;">Высота %</label>
         <input type="range" min="1" max="30" value="${layer.height||5}" oninput="mseLayerSet(${li},'height',+this.value);mseRenderCanvas();" style="width:100%;">
+      </div>`;
+  } else if (layer.type === 'avatar') {
+    html += `
+      <div class="form-group" style="margin-bottom:7px;">
+        <label style="font-size:10px;">Высота зоны % (вертикальный охват)</label>
+        <input type="range" min="10" max="95" value="${layer.height||60}" oninput="mseLayerSet(${li},'height',+this.value);mseRenderCanvas();" style="width:100%;">
+        <span style="font-size:10px;color:var(--text2);">${layer.height||60}%</span>
+      </div>
+      <div style="font-size:11px;color:#c084fc;padding:8px;background:rgba(139,92,246,0.1);border-radius:6px;line-height:1.5;">
+        👤 <b>Зона аватара</b> — здесь расположится видеоаватар при рендере.<br>
+        Перетащите и измените размер по своему желанию.
       </div>`;
   }
   lPropsInner.innerHTML = html;
@@ -7103,19 +7589,162 @@ function mlRenderGrid(items, tab) {
 // ═══════════════════════════════════════════
 // SCRIPTS LIBRARY
 // ═══════════════════════════════════════════
+// ─── Встроенные шаблоны монтажа ───
+const BUILTIN_MONTAGE_TEMPLATES = [
+  {
+    id: 'tpl_avatar_left',
+    name: 'Аватар слева',
+    description: 'Аватар занимает левую половину, фото/контент справа',
+    icon: '◧',
+    color: '#818cf8',
+    scenes: [{
+      id: 'sc1', duration: 10, bg_type: 'color', bg_color: '#111827',
+      layers: [
+        { id: 'l1', type: 'avatar', x: 25, y: 10, width: 45, height: 80, opacity: 1, label: 'Аватар' },
+        { id: 'l2', type: 'image',  x: 75, y: 20, width: 42, opacity: 1, src: '' },
+        { id: 'l3', type: 'subtitle', x: 75, y: 78, width: 44, opacity: 1, text: 'Текст описания', font: 'Arial', size: 28, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.55 }
+      ]
+    }]
+  },
+  {
+    id: 'tpl_avatar_right',
+    name: 'Аватар справа',
+    description: 'Фото/контент слева, аватар справа',
+    icon: '◨',
+    color: '#34d399',
+    scenes: [{
+      id: 'sc1', duration: 10, bg_type: 'color', bg_color: '#111827',
+      layers: [
+        { id: 'l1', type: 'image',  x: 25, y: 20, width: 42, opacity: 1, src: '' },
+        { id: 'l2', type: 'avatar', x: 75, y: 10, width: 45, height: 80, opacity: 1, label: 'Аватар' },
+        { id: 'l3', type: 'subtitle', x: 25, y: 78, width: 44, opacity: 1, text: 'Текст описания', font: 'Arial', size: 28, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.55 }
+      ]
+    }]
+  },
+  {
+    id: 'tpl_avatar_bottom',
+    name: 'Аватар снизу',
+    description: 'Фото товара на весь экран, аватар снизу с прозрачностью',
+    icon: '⬇',
+    color: '#f59e0b',
+    scenes: [{
+      id: 'sc1', duration: 10, bg_type: 'color', bg_color: '#000000',
+      layers: [
+        { id: 'l1', type: 'image',  x: 50, y: 30, width: 90, opacity: 1, src: '' },
+        { id: 'l2', type: 'avatar', x: 50, y: 55, width: 80, height: 45, opacity: 0.95, label: 'Аватар' },
+        { id: 'l3', type: 'subtitle', x: 50, y: 92, width: 90, opacity: 1, text: 'Подпись', font: 'Arial', size: 30, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.7 }
+      ]
+    }]
+  },
+  {
+    id: 'tpl_fullscreen_avatar',
+    name: 'Аватар на весь экран',
+    description: 'Аватар занимает весь кадр, субтитры внизу',
+    icon: '⛶',
+    color: '#c084fc',
+    scenes: [{
+      id: 'sc1', duration: 10, bg_type: 'color', bg_color: '#0f172a',
+      layers: [
+        { id: 'l1', type: 'avatar', x: 50, y: 15, width: 90, height: 70, opacity: 1, label: 'Аватар' },
+        { id: 'l2', type: 'subtitle', x: 50, y: 88, width: 90, opacity: 1, text: 'Субтитры', font: 'Arial', size: 32, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.65 }
+      ]
+    }]
+  },
+  {
+    id: 'tpl_split_equal',
+    name: '50/50 Разделение',
+    description: 'Два равных блока: аватар и фото рядом',
+    icon: '⬛⬛',
+    color: '#38bdf8',
+    scenes: [{
+      id: 'sc1', duration: 10, bg_type: 'gradient', bg_color: '#1e1b4b', bg_color2: '#0f172a',
+      layers: [
+        { id: 'l1', type: 'rect',   x: 50, y: 50, width: 100, height: 100, opacity: 0.6, color: 'rgba(99,102,241,0.1)' },
+        { id: 'l2', type: 'avatar', x: 25, y: 15, width: 45, height: 65, opacity: 1, label: 'Аватар' },
+        { id: 'l3', type: 'image',  x: 75, y: 25, width: 45, opacity: 1, src: '' },
+        { id: 'l4', type: 'subtitle', x: 50, y: 87, width: 90, opacity: 1, text: 'Текст', font: 'Montserrat', size: 28, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.5 }
+      ]
+    }]
+  },
+  {
+    id: 'tpl_product_showcase',
+    name: 'Витрина товара',
+    description: 'Фото товара крупным планом, без аватара, с подписями',
+    icon: '🛍',
+    color: '#f472b6',
+    scenes: [
+      {
+        id: 'sc1', duration: 4, bg_type: 'color', bg_color: '#111827',
+        layers: [
+          { id: 'l1', type: 'image', x: 50, y: 38, width: 85, opacity: 1, src: '' },
+          { id: 'l2', type: 'subtitle', x: 50, y: 82, width: 88, opacity: 1, text: 'Название товара', font: 'Montserrat', size: 36, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6 }
+        ]
+      },
+      {
+        id: 'sc2', duration: 4, bg_type: 'color', bg_color: '#111827',
+        layers: [
+          { id: 'l1', type: 'image', x: 50, y: 38, width: 85, opacity: 1, src: '' },
+          { id: 'l2', type: 'subtitle', x: 50, y: 82, width: 88, opacity: 1, text: 'Особенности', font: 'Arial', size: 30, color: '#FFFFFF', bg_color: '#000000', bg_opacity: 0.6 }
+        ]
+      }
+    ]
+  }
+];
+
+function montageApplyBuiltinTemplate(tplId) {
+  const tpl = BUILTIN_MONTAGE_TEMPLATES.find(t => t.id === tplId);
+  if (!tpl) return;
+  // Deep-clone scenes and assign fresh IDs
+  mseScenes = tpl.scenes.map(s => ({
+    ...s,
+    id: mseGenId(),
+    layers: s.layers.map(l => ({ ...l, id: mseGenId() }))
+  }));
+  mseActiveScene   = 0;
+  mseSelectedLayer = null;
+  switchMontageTab('script-editor');
+  mseRenderSceneList();
+  mseRenderCanvas();
+  mseRenderProps();
+  toast(`Шаблон «${tpl.name}» загружен`, 'success');
+}
+
 async function montageLoadScripts() {
   const list = document.getElementById('montage-scripts-list');
   if (!list) return;
   list.innerHTML = '<div class="empty-state" style="padding:24px;">Загрузка...</div>';
+
+  // ── Встроенные шаблоны ──
+  const builtinHtml = `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">✨ Готовые шаблоны</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;">
+        ${BUILTIN_MONTAGE_TEMPLATES.map(t => `
+          <div class="card" style="padding:12px;border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:border-color 0.15s;"
+               onmouseover="this.style.borderColor='${t.color}40'" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:36px;height:36px;border-radius:8px;background:${t.color}22;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${t.icon}</div>
+              <div>
+                <div style="font-size:13px;font-weight:600;">${esc(t.name)}</div>
+                <div style="font-size:11px;color:var(--text2);">${esc(t.description)}</div>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="montageApplyBuiltinTemplate('${t.id}')" style="width:100%;font-size:12px;">
+              🎨 Применить шаблон
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+
   try {
     const res = await api('GET', '/api/montage/scripts');
     const scripts = res.data || [];
-    if (!scripts.length) {
-      list.innerHTML = `<div class="empty-state" style="padding:32px;"><div class="icon">📂</div><p>Нет сохранённых шаблонов</p><p style="font-size:12px;color:var(--text2);">Создайте монтаж и сохраните его как шаблон</p></div>`;
-      return;
-    }
-    list.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
-      ${scripts.map(s => `
+    const savedHtml = scripts.length
+      ? `<div>
+          <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📂 Мои сохранённые шаблоны</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+            ${scripts.map(s => `
         <div class="card" style="padding:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
             <div>
@@ -7135,9 +7764,12 @@ async function montageLoadScripts() {
           </div>
         </div>
       `).join('')}
-    </div>`;
+          </div>
+        </div>`
+      : '';
+    list.innerHTML = builtinHtml + savedHtml;
   } catch (e) {
-    list.innerHTML = `<div class="empty-state" style="padding:24px;">Ошибка: ${esc(e.message)}</div>`;
+    list.innerHTML = builtinHtml + `<div class="empty-state" style="padding:24px;">Ошибка загрузки: ${esc(e.message)}</div>`;
   }
 }
 

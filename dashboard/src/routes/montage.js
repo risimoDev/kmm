@@ -44,20 +44,31 @@ async function proxyToMontage(method, path, body = null) {
 // WS-РїРѕРґРїРёСЃРєР°: СЂРµС‚СЂР°РЅСЃР»РёСЂСѓРµС‚ РїСЂРѕРіСЂРµСЃСЃ Python в†’ Socket.IO
 // в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ
 
-function subscribeRenderProgress(jobId, io) {
+function subscribeRenderProgress(jobId, io, userId = null) {
   const ws = new WS(`ws://montage-service:8001/ws/${jobId}`);
   ws.on('open', () => ws.send('ping'));
   ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
       io.emit('montage:progress', { job_id: jobId, ...msg });
+      // Auto-save completed render to media_files
+      if (msg.status === 'done' && msg.output_url && isConnected()) {
+        const match = msg.output_url.match(/^minio:\/\/[^\/]+\/(.+)$/);
+        const fileKey = match ? match[1] : `renders/${jobId}/output.mp4`;
+        const fileName = `montage-${jobId.slice(0, 8)}.mp4`;
+        query(
+          `INSERT INTO media_files (user_id, file_key, file_name, file_type, mime_type, source)
+           VALUES ($1, $2, $3, 'video', 'video/mp4', 'montage_render')`,
+          [userId || null, fileKey, fileName]
+        ).catch(e => console.error('[Montage] save render to DB failed:', e.message));
+      }
     } catch {}
   });
   ws.on('error', (err) =>
     console.error(`[Montage WS ${jobId.slice(0, 8)}] ${err.message}`)
   );
   ws.on('close', () =>
-    console.log(`[Montage WS ${jobId.slice(0, 8)}] Р·Р°РєСЂС‹С‚`)
+    console.log(`[Montage WS ${jobId.slice(0, 8)}] closed`)
   );
 }
 
@@ -234,7 +245,7 @@ router.post('/render', async (req, res, next) => {
     const { status, data } = await proxyToMontage('POST', '/render', req.body);
     if (data.ok && data.job_id) {
       const io = req.app.get('io');
-      if (io) subscribeRenderProgress(data.job_id, io);
+      if (io) subscribeRenderProgress(data.job_id, io, req.user?.id || null);
       if (req.body.script_id && isConnected()) {
         await query(
           'UPDATE montage_scripts SET render_count = render_count + 1, last_rendered_at = NOW() WHERE id = $1',
@@ -254,7 +265,7 @@ router.post('/render/multi', async (req, res, next) => {
     const { status, data } = await proxyToMontage('POST', '/render/multi', req.body);
     if (data.ok && Array.isArray(data.jobs)) {
       const io = req.app.get('io');
-      if (io) data.jobs.forEach(j => subscribeRenderProgress(j.job_id, io));
+      if (io) data.jobs.forEach(j => subscribeRenderProgress(j.job_id, io, req.user?.id || null));
     }
     res.status(status).json(data);
   } catch (err) {
@@ -439,6 +450,31 @@ router.post('/ai-generate', async (req, res, next) => {
     }
 
     res.json({ ok: true, data: scriptJson });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════
+// GET /api/montage/renders — list of completed render videos
+// ═══════════════════════════════════════════════════════
+router.get('/renders', async (req, res, next) => {
+  try {
+    if (!isConnected()) return res.json({ ok: true, data: [] });
+    const { rows } = await query(
+      `SELECT id, file_key, file_name, created_at
+       FROM media_files
+       WHERE source = 'montage_render'
+       ORDER BY created_at DESC
+       LIMIT 200`
+    );
+    const PUBLIC_BASE = process.env.PUBLIC_BASE_URL || 'https://k-m-m.ru';
+    const data = rows.map(r => ({
+      ...r,
+      url: `${PUBLIC_BASE}/api/media/public/${r.file_key}`
+    }));
+    res.json({ ok: true, data });
   } catch (err) {
     next(err);
   }

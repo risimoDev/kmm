@@ -1,5 +1,6 @@
 // ─── Products Routes ───
 // GET    /api/products                   — Список продуктов
+// GET    /api/products/factory-runs      — История factory-запусков
 // GET    /api/products/:id               — Детали продукта
 // POST   /api/products                   — Создать продукт
 // PUT    /api/products/:id               — Обновить продукт
@@ -7,6 +8,7 @@
 // POST   /api/products/:id/generate-idea — Сгенерировать идею/сценарий
 // POST   /api/products/:id/generate-images — Сгенерировать фотореалистичные фото
 // POST   /api/products/:id/run-pipeline  — Запустить полный пайплайн
+// POST   /api/products/:id/factory-run   — 🏭 Запуск завода (автоматический конвейер)
 // GET    /api/products/:id/runs          — Список запусков
 // GET    /api/products/runs/:runId       — Детали запуска
 // PUT    /api/products/runs/:runId/approve  — Одобрить
@@ -14,11 +16,24 @@
 
 const { Router } = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
+const { Client: MinioClient } = require('minio');
 const { query, isConnected } = require('../db');
 const { emitToSession } = require('../socket');
 
 const router = Router();
 const N8N_URL = process.env.N8N_URL || 'http://n8n:5678';
+
+// ─── MinIO клиент (для сохранения сгенерированных фото) ───
+const minio = new MinioClient({
+  endPoint: process.env.MINIO_ENDPOINT || 'minio',
+  port: parseInt(process.env.MINIO_PORT || '9000'),
+  useSSL: false,
+  accessKey: process.env.MINIO_ROOT_USER || 'minioadmin',
+  secretKey: process.env.MINIO_ROOT_PASSWORD || 'minioadmin'
+});
+const BUCKET = process.env.MINIO_BUCKET || 'content-factory';
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || 'https://k-m-m.ru';
 
 // ─── Helper: получить настройки AI ───
 async function getAISettings() {
@@ -93,6 +108,24 @@ router.get('/', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ─── История factory-запусков (BEFORE /:id to avoid route conflict) ───
+router.get('/factory-runs', async (req, res, next) => {
+  try {
+    if (!isConnected()) return res.json({ ok: true, data: [] });
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const result = await query(
+      `SELECT pr.*, p.name AS product_name,
+              ps.final_video_url AS pipeline_video_url
+       FROM product_runs pr
+       LEFT JOIN products p ON p.id = pr.product_id
+       LEFT JOIN pipeline_sessions ps ON ps.id = pr.session_id
+       WHERE pr.current_step != 'created' OR pr.status != 'created'
+       ORDER BY pr.created_at DESC LIMIT $1`, [limit]
+    );
+    res.json({ ok: true, data: result.rows });
+  } catch (err) { next(err); }
 });
 
 // ─── Детали продукта ───
@@ -540,11 +573,34 @@ router.post('/:id/generate-images', async (req, res, next) => {
       pendingTasks.push(...stillPending);
     }
 
+    // Скачать сгенерированные фото в MinIO для постоянного хранения
+    const savedImages = [];
+    for (const url of results) {
+      try {
+        const imgResp = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+        const buf = Buffer.from(imgResp.data);
+        const hash = crypto.randomBytes(8).toString('hex');
+        const fileKey = `images/${Date.now()}-${hash}.jpg`;
+        await minio.putObject(BUCKET, fileKey, buf, buf.length, { 'Content-Type': 'image/jpeg' });
+        if (isConnected()) {
+          await query(
+            `INSERT INTO media_files (user_id, file_key, file_name, file_type, mime_type, file_size, source)
+             VALUES ($1, $2, $3, 'image', 'image/jpeg', $4, 'product-gen')`,
+            [req.user?.id || null, fileKey, `product-${concept}-${hash}.jpg`, buf.length]
+          );
+        }
+        savedImages.push(`${PUBLIC_BASE_URL}/api/media/public/${fileKey}`);
+      } catch (saveErr) {
+        console.warn('[generate-images] save to MinIO failed, using original URL:', saveErr.message);
+        savedImages.push(url);
+      }
+    }
+
     res.json({
       ok: true,
       data: {
-        images: results,
-        count: results.length,
+        images: savedImages,
+        count: savedImages.length,
         model: imageModel,
         has_reference: !!refPhoto,
         concept
@@ -910,6 +966,286 @@ router.post('/batch-run', async (req, res, next) => {
     emitToSession(null, 'product-batch:started', { count: results.length });
 
     res.json({ ok: true, data: results, total: results.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// 🏭 FACTORY — полный автоматический конвейер
+// ═══════════════════════════════════════════════════
+
+// ─── Запуск завода (полный автоматический пайплайн) ───
+router.post('/:id/factory-run', async (req, res, next) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
+
+    const product = (await query('SELECT * FROM products WHERE id = $1', [req.params.id])).rows[0];
+    if (!product) return res.status(404).json({ ok: false, error: 'Продукт не найден' });
+
+    const {
+      concept = 'studio',
+      image_count = 2,
+      subtitles_enabled = true,
+      auto_publish = false,
+      publish_channels = []
+    } = req.body;
+
+    const provider = product.video_provider || 'heygen';
+    const photos = Array.isArray(product.photos) ? product.photos : [];
+    const mainPhoto = photos[0] || '';
+
+    // 1. Создать запись запуска
+    const runResult = await query(
+      `INSERT INTO product_runs
+        (product_id, status, current_step,
+         heygen_avatar_id, heygen_voice_id,
+         a2e_avatar_id, a2e_voice_id,
+         video_provider, subtitles_enabled, created_by)
+       VALUES ($1, 'generating_idea', 'idea', $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        product.id,
+        product.heygen_avatar_id || null,
+        product.heygen_voice_id || null,
+        product.a2e_avatar_id || null,
+        product.a2e_voice_id || null,
+        provider,
+        subtitles_enabled !== false,
+        req.user?.id || null
+      ]
+    );
+    const run = runResult.rows[0];
+    const runId = run.id;
+
+    // Emit initial step
+    emitToSession(null, 'factory:step', { run_id: runId, step: 'idea' });
+
+    // Respond immediately — rest is async
+    res.status(201).json({ ok: true, data: { run_id: runId, status: 'generating_idea' } });
+
+    // ===== ASYNC PIPELINE (fire-and-forget) =====
+    (async () => {
+      let currentFactoryStep = 'idea';
+      try {
+        const settings = await getAISettings();
+        const apiKey = settings.ai_api_key;
+        const baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';
+        const model = settings.ai_model || 'gpt-4o';
+        const authPrefix = settings.ai_auth_prefix || '';
+        const authHeader = authPrefix ? `${authPrefix} ${apiKey}` : apiKey;
+
+        if (!apiKey) throw new Error('API ключ AI не настроен (Настройки → AI)');
+
+        // ── STEP 1: Генерация идеи и сценария ──
+        const chars = Array.isArray(product.characteristics) ? product.characteristics : [];
+        const charsText = chars.map(c => `${c.name || c}: ${c.value || ''}`).join('\n');
+
+        const ideaPrompt = `Ты — креативный маркетолог и сценарист рекламных видео.
+
+Продукт: ${product.name}
+Описание: ${product.description || 'нет'}
+Характеристики:
+${charsText || 'не указаны'}
+
+Создай:
+1. **Идею** для короткого рекламного видео (30-60 секунд, формат Reels/Shorts/TikTok)
+2. **Сценарий озвучки** — текст, который будет озвучен голосом аватара. 50-100 слов.
+3. **Визуальное описание** — какие сцены и фотографии продукта показать.
+
+Ответ строго в JSON:
+{
+  "idea": "краткое описание идеи видео",
+  "script": "текст сценария для озвучки",
+  "visual_description": "описание визуального ряда",
+  "hook": "цепляющая фраза для начала"
+}`;
+
+        const aiResp = await axios.post(`${baseUrl}/chat/completions`, {
+          model,
+          messages: [
+            { role: 'system', content: settings.ai_system_prompt || 'Ты — креативный маркетолог.' },
+            { role: 'user', content: ideaPrompt }
+          ],
+          temperature: 0.8,
+          response_format: { type: 'json_object' }
+        }, {
+          headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+          timeout: 60000
+        });
+
+        const content = aiResp.data.choices?.[0]?.message?.content;
+        let idea;
+        try { idea = JSON.parse(content); } catch { idea = { idea: content, script: '', visual_description: '', hook: '' }; }
+
+        const scriptText = idea.script || idea.idea || '';
+        const ideaText = idea.idea || '';
+
+        if (!scriptText) throw new Error('AI не сгенерировал сценарий');
+
+        await query(
+          "UPDATE product_runs SET status = 'generating_images', current_step = 'images', idea_text = $1, script_text = $2 WHERE id = $3",
+          [ideaText, scriptText, runId]
+        );
+        emitToSession(null, 'factory:step', { run_id: runId, step: 'images' });
+        currentFactoryStep = 'images';
+
+        // ── STEP 2: Генерация фотографий ──
+        let generatedImages = [];
+        if (mainPhoto) {
+          const configuredModel = settings.card_image_model || 'flux-kontext-pro';
+          const IMG2IMG_MODELS = ['flux-kontext-pro', 'gpt-image-1', 'gpt-image-1-low', 'gpt-image-1-medium', 'gpt-image-1-high'];
+          const imageModel = IMG2IMG_MODELS.includes(configuredModel) ? configuredModel : 'flux-kontext-pro';
+
+          const conceptInstructions = {
+            studio:    'Clean white/neutral studio background, professional product photography lighting, soft shadows, minimalist composition.',
+            lifestyle: 'Natural lifestyle setting relevant to the product category. Warm realistic lighting, authentic everyday environment.',
+            flatlay:   'Overhead flat-lay composition on a stylish surface. Complementary props arranged artistically around the product.',
+            minimal:   'Ultra-minimalist background with a single accent color. Extreme clean aesthetic, generous white space.',
+            luxury:    'Premium luxury setting with dark moody tones or rich materials. High-end commercial photography with dramatic lighting.'
+          };
+          const conceptStyle = conceptInstructions[concept] || conceptInstructions.studio;
+          const imagePrompt = `Photorealistic commercial product photo. ${conceptStyle} The product must remain EXACTLY as shown in the reference — do not alter its shape, color, or details. 9:16 vertical format, high quality.`;
+
+          const safeCount = Math.min(Math.max(parseInt(image_count) || 2, 1), 4);
+          const taskIds = [];
+
+          for (let i = 0; i < safeCount; i++) {
+            try {
+              const body = { model: imageModel, prompt: imagePrompt, ar: '9:16', image: mainPhoto };
+              const createResp = await axios.post(`${baseUrl}/media/create`, body, {
+                headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+                timeout: 30000
+              });
+              const taskId = createResp.data?.id || createResp.data?.task_id;
+              const directUrl = createResp.data?.url || createResp.data?.image_url || createResp.data?.data?.[0]?.url;
+              if (directUrl) taskIds.push({ taskId: null, url: directUrl });
+              else if (taskId) taskIds.push({ taskId, url: null });
+            } catch (err) { console.error(`Factory img ${i + 1}:`, err.message); }
+          }
+
+          // Collect sync results
+          taskIds.filter(t => t.url).forEach(t => generatedImages.push(t.url));
+          const pending = taskIds.filter(t => t.taskId && !t.url);
+
+          // Poll async tasks
+          for (let poll = 0; poll < 22 && pending.length > 0; poll++) {
+            await new Promise(r => setTimeout(r, 4000));
+            const still = [];
+            for (const task of pending) {
+              try {
+                const resp = await axios.post(`${baseUrl}/media/result`, { task_id: task.taskId }, {
+                  headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+                  timeout: 15000
+                });
+                const d = resp.data;
+                const st = (d.status || '').toLowerCase();
+                const url = d.url || d.image_url || d.data?.[0]?.url;
+                if ((st === 'done' || st === 'completed' || st === 'success') && url) generatedImages.push(url);
+                else if (st !== 'failed' && st !== 'error') still.push(task);
+              } catch { still.push(task); }
+            }
+            pending.length = 0;
+            pending.push(...still);
+          }
+        }
+
+        await query(
+          "UPDATE product_runs SET generated_images = $1 WHERE id = $2",
+          [JSON.stringify(generatedImages), runId]
+        );
+
+        // ── STEP 3: Генерация видео (через n8n) ──
+        currentFactoryStep = 'video';
+        await query(
+          "UPDATE product_runs SET status = 'generating_video', current_step = 'video' WHERE id = $1",
+          [runId]
+        );
+        emitToSession(null, 'factory:step', { run_id: runId, step: 'video' });
+
+        // Create pipeline_session
+        const sessionResult = await query(
+          `INSERT INTO pipeline_sessions
+            (user_id, source, status, current_step, product_name, product_image_url,
+             video_type, subtitles_enabled, auto_publish)
+           VALUES ($1, 'product', 'created', 'created', $2, $3, $4, $5, $6)
+           RETURNING id`,
+          [
+            req.user?.id || null,
+            product.name,
+            mainPhoto,
+            provider === 'heygen' ? 'heygen' : 'a2e',
+            subtitles_enabled !== false,
+            auto_publish
+          ]
+        );
+        const sessionId = sessionResult.rows[0].id;
+        await query('UPDATE product_runs SET session_id = $1 WHERE id = $2', [sessionId, runId]);
+
+        // Create voice_scripts
+        const wordCount = scriptText.trim().split(/\s+/).length;
+        const durationHint = Math.ceil(wordCount / 2.5);
+        const vsResult = await query(
+          `INSERT INTO voice_scripts (idea_id, script_text, word_count, duration_hint, timing_marks, montage_script, status)
+           VALUES (NULL, $1, $2, $3, '[]'::jsonb, '[]'::jsonb, 'approved')
+           RETURNING id`,
+          [scriptText, wordCount, durationHint]
+        );
+        await query('UPDATE pipeline_sessions SET voice_script_id = $1 WHERE id = $2', [vsResult.rows[0].id, sessionId]);
+
+        // Determine webhook
+        const webhookUrl = provider === 'heygen'
+          ? `${N8N_URL}/webhook/video-factory-heygen`
+          : `${N8N_URL}/webhook/video-factory-a2e-product`;
+
+        const webhookPayload = {
+          session_id: sessionId,
+          product_run_id: runId,
+          product_id: product.id,
+          product_name: product.name,
+          product_description: product.description || '',
+          product_image_url: mainPhoto,
+          product_photos: photos,
+          generated_images: generatedImages,
+          script_text: scriptText,
+          idea_text: ideaText,
+          video_type: provider === 'heygen' ? 'heygen' : 'a2e_product',
+          subtitles_enabled: subtitles_enabled !== false,
+          auto_publish: auto_publish,
+          publish_channels: publish_channels,
+          factory_mode: true
+        };
+
+        if (provider === 'heygen') {
+          webhookPayload.heygen_avatar_id = product.heygen_avatar_id || '';
+          webhookPayload.heygen_voice_id = product.heygen_voice_id || '';
+          webhookPayload.heygen_background = '#00FF00';
+          webhookPayload.heygen_ratio = '9:16';
+        } else {
+          webhookPayload.a2e_avatar_id = product.a2e_avatar_id || '';
+          webhookPayload.a2e_voice_id = product.a2e_voice_id || '';
+        }
+
+        try {
+          await axios.post(webhookUrl, webhookPayload, { timeout: 15000 });
+        } catch (n8nErr) {
+          console.error('Factory N8N trigger error:', n8nErr.message);
+        }
+
+        // The rest of the pipeline (video gen → montage → publish) is handled by N8N
+        // N8N will update pipeline_sessions status, and we'll listen for session-update events
+        // For auto_publish, N8N checks the flag in pipeline_sessions
+
+      } catch (err) {
+        console.error('Factory pipeline error:', err.message);
+        await query(
+          "UPDATE product_runs SET status = 'error', error_message = $1 WHERE id = $2",
+          [err.message, runId]
+        ).catch(() => {});
+        emitToSession(null, 'factory:error', { run_id: runId, step: currentFactoryStep, error: err.message });
+      }
+    })();
+
   } catch (err) {
     next(err);
   }
