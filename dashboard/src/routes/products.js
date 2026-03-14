@@ -841,7 +841,7 @@ router.put('/runs/:runId/approve', async (req, res, next) => {
   }
 });
 
-// ─── Отклонить запуск ───
+// ─── Отклонить / остановить запуск ───
 router.put('/runs/:runId/reject', async (req, res, next) => {
   try {
     if (!isConnected()) return res.status(503).json({ ok: false, error: 'БД недоступна' });
@@ -856,6 +856,13 @@ router.put('/runs/:runId/reject', async (req, res, next) => {
     if (run.session_id) {
       await query("UPDATE pipeline_sessions SET status = 'rejected' WHERE id = $1", [run.session_id]);
     }
+
+    // Emit factory:error so the UI updates in real-time
+    emitToSession(null, 'factory:error', {
+      run_id: run.id,
+      step: run.current_step || 'idea',
+      error: req.body.reason || 'Остановлено пользователем'
+    });
 
     res.json({ ok: true, data: run });
   } catch (err) {
@@ -1033,6 +1040,13 @@ router.post('/:id/factory-run', async (req, res, next) => {
     // ===== ASYNC PIPELINE (fire-and-forget) =====
     (async () => {
       let currentFactoryStep = 'idea';
+
+      // Helper: check if run was cancelled
+      async function isRunCancelled() {
+        const r = await query('SELECT status FROM product_runs WHERE id = $1', [runId]);
+        return r.rows[0]?.status === 'cancelled';
+      }
+
       try {
         const settings = await getAISettings();
         const apiKey = settings.ai_api_key;
@@ -1089,6 +1103,9 @@ ${charsText || 'не указаны'}
         const ideaText = idea.idea || '';
 
         if (!scriptText) throw new Error('AI не сгенерировал сценарий');
+
+        // Check cancellation before proceeding
+        if (await isRunCancelled()) return;
 
         await query(
           "UPDATE product_runs SET status = 'generating_images', current_step = 'images', idea_text = $1, script_text = $2 WHERE id = $3",
@@ -1166,6 +1183,9 @@ ${charsText || 'не указаны'}
           "UPDATE product_runs SET generated_images = $1 WHERE id = $2",
           [JSON.stringify(generatedImages), runId]
         );
+
+        // Check cancellation before video step
+        if (await isRunCancelled()) return;
 
         // ── STEP 3: Генерация видео (через n8n) ──
         currentFactoryStep = 'video';

@@ -1558,15 +1558,20 @@
             </div>
             <div id="fct-step-results" style="margin-top:10px;font-size:12px;"></div>
             <div id="fct-error-banner" style="display:none;margin-top:12px;padding:12px;background:rgba(239,68,68,0.08);border:1px solid var(--red);border-radius:8px;color:var(--red);"></div>
+            <!-- Stop / Restart buttons -->
+            <div id="fct-controls" style="margin-top:14px;display:flex;gap:10px;">
+              <button class="btn" id="fct-stop-btn" onclick="factoryStop()" style="display:none;flex:1;padding:10px;background:var(--red);color:#fff;border:none;font-size:14px;">⏹ Остановить</button>
+              <button class="btn" id="fct-restart-btn" onclick="factoryRestart()" style="display:none;flex:1;padding:10px;font-size:14px;">🔄 Перезапустить</button>
+            </div>
           </div>
 
           <!-- Run history -->
           <div class="card" style="padding:16px;margin-top:16px;">
             <h3 style="margin-bottom:14px;font-size:15px;">📋 История запусков</h3>
             <table>
-              <thead><tr><th>ID</th><th>Продукт</th><th>Шаг</th><th>Статус</th><th>Видео</th><th>Дата</th></tr></thead>
+              <thead><tr><th>ID</th><th>Продукт</th><th>Шаг</th><th>Статус</th><th>Видео</th><th>Дата</th><th>Действия</th></tr></thead>
               <tbody id="fct-history-table">
-                <tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">Нет запусков</td></tr>
+                <tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px;">Нет запусков</td></tr>
               </tbody>
             </table>
           </div>
@@ -6291,6 +6296,7 @@ let _factoryRunId = null;
 let _factorySessionId = null;   // pipeline_sessions.id — для связи с N8N событиями
 let _factoryProducts = [];
 let _factoryCurrentStep = null;
+let _factoryLastProductId = null; // для перезапуска
 
 const FACTORY_STEPS = [
   { key: 'idea',    label: '💡 Генерация идеи и сценария', pct: 10 },
@@ -6387,6 +6393,8 @@ async function launchFactory() {
     _factoryRunId = r.data?.run_id;
     _factorySessionId = r.data?.session_id || null;
     _factoryCurrentStep = 'idea';
+    _factoryLastProductId = productId;
+    factoryUpdateControls('running');
     toast('🏭 Завод запущен! Следите за прогрессом.', 'success');
   } catch (e) {
     toast('Ошибка запуска: ' + e.message, 'error');
@@ -6458,6 +6466,7 @@ function factoryOnDone(data) {
   _factoryRunId = null;
   _factorySessionId = null;
   _factoryCurrentStep = null;
+  factoryUpdateControls('done');
   if (currentPage === 'factory') loadFactoryHistory();
 }
 
@@ -6484,6 +6493,7 @@ function factoryOnError(data) {
   _factoryRunId = null;
   _factorySessionId = null;
   _factoryCurrentStep = null;
+  factoryUpdateControls('error');
   if (currentPage === 'factory') loadFactoryHistory();
 }
 
@@ -6540,6 +6550,70 @@ function factoryShowResults(results) {
   el.innerHTML = html;
 }
 
+// Управление кнопками Остановить / Перезапустить
+function factoryUpdateControls(state) {
+  const stopBtn = document.getElementById('fct-stop-btn');
+  const restartBtn = document.getElementById('fct-restart-btn');
+  if (state === 'running') {
+    stopBtn.style.display = '';
+    restartBtn.style.display = 'none';
+  } else if (state === 'error' || state === 'done' || state === 'cancelled') {
+    stopBtn.style.display = 'none';
+    restartBtn.style.display = '';
+  } else {
+    stopBtn.style.display = 'none';
+    restartBtn.style.display = 'none';
+  }
+}
+
+// Остановить текущий запуск
+async function factoryStop() {
+  if (!_factoryRunId) { toast('Нет активного запуска', 'error'); return; }
+  const stopBtn = document.getElementById('fct-stop-btn');
+  stopBtn.disabled = true;
+  stopBtn.textContent = '⏳ Останавливаю...';
+  try {
+    await api('PUT', `/api/products/runs/${_factoryRunId}/reject`, { reason: 'Остановлено пользователем' });
+    factoryRenderSteps(_factoryCurrentStep || 'idea', 'error');
+    document.getElementById('fct-progress-status').textContent = '⏹ Остановлено';
+    document.getElementById('fct-error-banner').innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:24px;">⏹</span>
+      <div><div style="font-weight:600;">Запуск остановлен пользователем</div></div>
+    </div>`;
+    document.getElementById('fct-error-banner').style.display = 'block';
+    const btn = document.getElementById('fct-launch-btn');
+    btn.disabled = false;
+    btn.textContent = '🚀 Запустить завод';
+    _factoryRunId = null;
+    _factorySessionId = null;
+    _factoryCurrentStep = null;
+    factoryUpdateControls('cancelled');
+    toast('⏹ Запуск остановлен', 'success');
+    if (currentPage === 'factory') loadFactoryHistory();
+  } catch (e) {
+    toast('Ошибка остановки: ' + e.message, 'error');
+    stopBtn.disabled = false;
+    stopBtn.textContent = '⏹ Остановить';
+  }
+}
+
+// Перезапустить — повторный запуск с тем же продуктом
+function factoryRestart() {
+  if (!_factoryLastProductId) {
+    toast('Не удалось определить продукт для перезапуска', 'error');
+    return;
+  }
+  // Убрать progress card остаточного состояния
+  document.getElementById('fct-progress-card').style.display = 'none';
+  document.getElementById('fct-error-banner').style.display = 'none';
+  factoryUpdateControls('idle');
+  // Установить продукт в селекторе и запустить
+  const sel = document.getElementById('fct-product');
+  sel.value = String(_factoryLastProductId);
+  factoryProductChanged();
+  launchFactory();
+}
+
 // Восстановить прогресс при обновлении страницы (если есть активный запуск)
 async function factoryRestoreActiveRun() {
   try {
@@ -6549,6 +6623,7 @@ async function factoryRestoreActiveRun() {
     if (active) {
       _factoryRunId = active.id;
       _factorySessionId = active.session_id || null;
+      _factoryLastProductId = active.product_id || null;
       const stepMap = {
         generating_idea: 'idea', generating_images: 'images', generating_video: 'video',
         montage: 'montage', publishing: 'publish', ready_for_review: 'video'
@@ -6559,6 +6634,30 @@ async function factoryRestoreActiveRun() {
       factoryRenderSteps(stepKey, 'running');
       document.getElementById('fct-launch-btn').disabled = true;
       document.getElementById('fct-launch-btn').textContent = '⏳ Выполняется...';
+      factoryUpdateControls('running');
+    } else {
+      // Проверить последний завершённый/ошибочный запуск для кнопки перезапуска
+      const last = runs[0];
+      if (last && ['error', 'cancelled'].includes(last.status)) {
+        _factoryLastProductId = last.product_id || null;
+        document.getElementById('fct-progress-card').style.display = 'block';
+        const stepMap2 = {
+          generating_idea: 'idea', generating_images: 'images', generating_video: 'video',
+          montage: 'montage', publishing: 'publish'
+        };
+        const stepKey = stepMap2[last.current_step] || last.current_step || 'idea';
+        factoryRenderSteps(stepKey, 'error');
+        if (last.error_message) {
+          const banner = document.getElementById('fct-error-banner');
+          banner.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:24px;">${last.status === 'cancelled' ? '⏹' : '❌'}</span>
+            <div style="flex:1;"><div style="font-weight:600;margin-bottom:4px;">${last.status === 'cancelled' ? 'Остановлено' : 'Ошибка'}</div>
+            <div style="font-size:13px;color:var(--text2);word-break:break-word;">${esc(last.error_message)}</div></div>
+          </div>`;
+          banner.style.display = 'block';
+        }
+        factoryUpdateControls('error');
+      }
     }
   } catch {}
 }
@@ -6569,7 +6668,7 @@ async function loadFactoryHistory() {
     const runs = r.data || [];
     const tbody = document.getElementById('fct-history-table');
     if (!runs.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">Нет запусков</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px;">Нет запусков</td></tr>';
       return;
     }
 
@@ -6590,11 +6689,19 @@ async function loadFactoryHistory() {
       montage: 'Монтаж', publish: 'Публикация', done: 'Готово'
     };
 
+    const isActive = s => !['error', 'cancelled', 'done', 'approved', 'published'].includes(s);
+
     tbody.innerHTML = runs.map(r => {
       const videoUrl = r.final_video_url || r.montage_video_url || r.avatar_video_url;
       const videoLink = videoUrl
         ? `<a href="${esc(videoUrl)}" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;">▶</a>`
         : '—';
+      let actions = '';
+      if (isActive(r.status)) {
+        actions = `<button class="btn btn-outline btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red);" onclick="factoryStopRun(${r.id})">⏹</button>`;
+      } else if (r.status === 'error' || r.status === 'cancelled') {
+        actions = `<button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="factoryRestartProduct(${r.product_id})">🔄</button>`;
+      }
       return `<tr>
         <td>${r.id}</td>
         <td>${esc(r.product_name || '—')}</td>
@@ -6604,11 +6711,36 @@ async function loadFactoryHistory() {
         </td>
         <td>${videoLink}</td>
         <td>${new Date(r.created_at).toLocaleDateString('ru')}</td>
+        <td>${actions}</td>
       </tr>`;
     }).join('');
   } catch (e) {
     console.error('loadFactoryHistory:', e);
   }
+}
+
+// Остановить запуск из таблицы истории
+async function factoryStopRun(runId) {
+  try {
+    await api('PUT', `/api/products/runs/${runId}/reject`, { reason: 'Остановлено пользователем' });
+    toast('⏹ Запуск остановлен', 'success');
+    loadFactoryHistory();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+// Перезапустить продукт из таблицы истории
+function factoryRestartProduct(productId) {
+  if (!productId) return;
+  _factoryLastProductId = productId;
+  document.getElementById('fct-progress-card').style.display = 'none';
+  document.getElementById('fct-error-banner').style.display = 'none';
+  factoryUpdateControls('idle');
+  const sel = document.getElementById('fct-product');
+  sel.value = String(productId);
+  factoryProductChanged();
+  launchFactory();
 }
 
 // ═══════════════════════════════════════════════════
