@@ -3,7 +3,9 @@
 n8n-data/
 Part 1. n8n workflow/
 docs/
+nginx/ssl/
 
+__pycache__/
 # Environment variables
 .env
 .env.local
