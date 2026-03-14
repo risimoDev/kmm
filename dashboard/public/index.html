@@ -4824,11 +4824,15 @@ async function loadHeyGenAvatarListTo(gridId, loadingId, hiddenId, defaultVal) {
       card.style.cssText = 'cursor:pointer;border:2px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg2);transition:all 0.15s;';
       const thumb = a.preview_image_url || '';
       const name  = a.avatar_name || a.avatar_id;
+      const typeBadge = a.avatar_type === 'talking_photo'
+        ? '<span style="position:absolute;top:2px;right:2px;background:rgba(168,85,247,0.85);color:#fff;font-size:9px;padding:1px 4px;border-radius:4px;">📷</span>'
+        : '';
       card.innerHTML = `
-        <div style="width:100%;height:80px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        <div style="position:relative;width:100%;height:80px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;">
           ${thumb
             ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.parentElement.innerHTML='<span style=\\'color:var(--text2);font-size:11px;\\'>Нет фото</span>';">`
             : '<span style="color:var(--text2);font-size:11px;">Нет фото</span>'}
+          ${typeBadge}
         </div>
         <div style="padding:6px;font-size:11px;color:var(--text2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${a.avatar_id}">${name}</div>`;
       card.onclick = () => selectAvatar(a.avatar_id);
@@ -5909,9 +5913,11 @@ async function loadProviderAvatars() {
       const name = a.avatar_name || a.name || aId;
       const img = a.preview_image_url || a.video_cover || a.people_img || '';
       const selected = aId === selectedAvatarId;
+      const badge = a.avatar_type === 'talking_photo' ? '<span style="font-size:8px;color:#c084fc;">📷 Фото</span>' : '';
       return `<div onclick="selectAvatar('${esc(aId)}')" style="cursor:pointer;border:2px solid ${selected ? 'var(--accent)' : 'var(--border)'};border-radius:8px;padding:4px;text-align:center;width:80px;" id="av-${esc(aId)}">
         ${img ? `<img src="${esc(img)}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;">` : '<div style="width:72px;height:72px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;">🎭</div>'}
         <div style="font-size:10px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(name)}</div>
+        ${badge}
       </div>`;
     }).join('');
   } catch (e) {

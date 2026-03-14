@@ -442,14 +442,29 @@ router.get('/heygen-avatars', async (req, res, next) => {
       timeout: 15_000
     });
 
-    const avatars = (response.data?.data?.avatars || []).map(a => ({
+    const rawAvatars = response.data?.data?.avatars || [];
+    const rawTalkingPhotos = response.data?.data?.talking_photos || [];
+
+    // Stock/custom avatars → type: "avatar"
+    const avatars = rawAvatars.map(a => ({
       avatar_id: a.avatar_id,
       avatar_name: a.avatar_name || a.avatar_id,
       preview_image_url: a.preview_image_url || a.thumbnail_image_url || '',
-      gender: a.gender || ''
+      gender: a.gender || '',
+      avatar_type: 'avatar'
     }));
 
-    res.json({ ok: true, data: avatars });
+    // Talking photos → type: "talking_photo"
+    const talkingPhotos = rawTalkingPhotos.map(tp => ({
+      avatar_id: tp.talking_photo_id,
+      avatar_name: tp.talking_photo_name || tp.talking_photo_id,
+      preview_image_url: tp.preview_image_url || '',
+      gender: '',
+      avatar_type: 'talking_photo'
+    }));
+
+    // Talking photos first (more likely to work for video gen), then stock avatars
+    res.json({ ok: true, data: [...talkingPhotos, ...avatars] });
   } catch (err) {
     const msg = err.response?.data?.message || err.message;
     res.json({ ok: false, error: `HeyGen: ${msg}` });
