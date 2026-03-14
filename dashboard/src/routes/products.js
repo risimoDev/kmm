@@ -450,10 +450,8 @@ router.post('/:id/generate-images', async (req, res, next) => {
     const apiKey = settings.ai_api_key;
     const baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';
     const authPrefix = settings.ai_auth_prefix || '';
-    // Для img2img используем flux-kontext-pro если не задан другой img2img-capable model
-    const configuredModel = settings.card_image_model || 'flux-kontext-pro';
-    const IMG2IMG_MODELS = ['flux-kontext-pro', 'gpt-image-1', 'gpt-image-1-low', 'gpt-image-1-medium', 'gpt-image-1-high'];
-    const imageModel = IMG2IMG_MODELS.includes(configuredModel) ? configuredModel : 'flux-kontext-pro';
+    const imageModel = settings.card_image_model || 'google-imagen-3';
+    const imageAR = settings.card_image_ar || '9:16';
 
     if (!apiKey) {
       return res.status(400).json({ ok: false, error: 'API ключ AI не настроен' });
@@ -497,15 +495,16 @@ router.post('/:id/generate-images', async (req, res, next) => {
 
     // Запускаем все задачи одновременно, потом поллингуем результаты
     const taskIds = [];
+    let lastCreateError = '';
     for (let i = 0; i < safeCount; i++) {
       try {
         const body = {
           model: imageModel,
           prompt: imagePrompt,
-          ar: '9:16'
+          ar: imageAR
         };
-        // Передаём референс-фото как image (string) для img2img
-        if (refPhoto) body.image = refPhoto;
+        // Передаём референс-фото как images[] (массив) — стандарт gptunnel API
+        if (refPhoto) body.images = [refPhoto];
 
         const createResp = await axios.post(`${baseUrl}/media/create`, body, {
           headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
@@ -513,22 +512,29 @@ router.post('/:id/generate-images', async (req, res, next) => {
         });
 
         const taskId = createResp.data?.id || createResp.data?.task_id;
+        const taskStatus = (createResp.data?.status || '').toLowerCase();
         // Некоторые модели возвращают URL сразу (синхронно)
         const directUrl = createResp.data?.url || createResp.data?.image_url
                        || createResp.data?.data?.[0]?.url;
 
-        if (directUrl) {
+        if (taskStatus === 'failed' || taskStatus === 'error') {
+          const failMsg = createResp.data?.message || createResp.data?.error || 'unknown';
+          console.error(`Image create ${i + 1} immediately failed:`, failMsg);
+          lastCreateError = failMsg;
+        } else if (directUrl) {
           taskIds.push({ taskId: null, url: directUrl });
         } else if (taskId) {
           taskIds.push({ taskId, url: null });
         }
       } catch (createErr) {
-        console.error(`Image create ${i + 1} failed:`, createErr.message);
+        const apiMsg = createErr.response?.data?.error?.message || createErr.response?.data?.message || createErr.message;
+        console.error(`Image create ${i + 1} failed:`, apiMsg);
+        lastCreateError = apiMsg;
       }
     }
 
     if (!taskIds.length) {
-      return res.json({ ok: false, error: 'Не удалось запустить генерацию изображений. Проверьте API ключ и баланс.' });
+      return res.json({ ok: false, error: `Не удалось запустить генерацию: ${lastCreateError || 'все задачи отклонены'}` });
     }
 
     // Поллинг задач (до 90 сек, интервал 4 сек)
@@ -1022,7 +1028,7 @@ router.post('/:id/factory-run', async (req, res, next) => {
     emitToSession(null, 'factory:step', { run_id: runId, step: 'idea' });
 
     // Respond immediately — rest is async
-    res.status(201).json({ ok: true, data: { run_id: runId, status: 'generating_idea' } });
+    res.status(201).json({ ok: true, data: { run_id: runId, status: 'generating_idea', session_id: null } });
 
     // ===== ASYNC PIPELINE (fire-and-forget) =====
     (async () => {
@@ -1038,6 +1044,7 @@ router.post('/:id/factory-run', async (req, res, next) => {
         if (!apiKey) throw new Error('API ключ AI не настроен (Настройки → AI)');
 
         // ── STEP 1: Генерация идеи и сценария ──
+        emitToSession(null, 'factory:detail', { run_id: runId, detail: 'Генерация идеи и сценария через AI...' });
         const chars = Array.isArray(product.characteristics) ? product.characteristics : [];
         const charsText = chars.map(c => `${c.name || c}: ${c.value || ''}`).join('\n');
 
@@ -1087,15 +1094,14 @@ ${charsText || 'не указаны'}
           "UPDATE product_runs SET status = 'generating_images', current_step = 'images', idea_text = $1, script_text = $2 WHERE id = $3",
           [ideaText, scriptText, runId]
         );
-        emitToSession(null, 'factory:step', { run_id: runId, step: 'images' });
+        emitToSession(null, 'factory:step', { run_id: runId, step: 'images', results: { idea: ideaText, script: scriptText } });
         currentFactoryStep = 'images';
 
         // ── STEP 2: Генерация фотографий ──
         let generatedImages = [];
         if (mainPhoto) {
-          const configuredModel = settings.card_image_model || 'flux-kontext-pro';
-          const IMG2IMG_MODELS = ['flux-kontext-pro', 'gpt-image-1', 'gpt-image-1-low', 'gpt-image-1-medium', 'gpt-image-1-high'];
-          const imageModel = IMG2IMG_MODELS.includes(configuredModel) ? configuredModel : 'flux-kontext-pro';
+          const imageModel = settings.card_image_model || 'google-imagen-3';
+          const imageAR = settings.card_image_ar || '9:16';
 
           const conceptInstructions = {
             studio:    'Clean white/neutral studio background, professional product photography lighting, soft shadows, minimalist composition.',
@@ -1105,21 +1111,26 @@ ${charsText || 'не указаны'}
             luxury:    'Premium luxury setting with dark moody tones or rich materials. High-end commercial photography with dramatic lighting.'
           };
           const conceptStyle = conceptInstructions[concept] || conceptInstructions.studio;
-          const imagePrompt = `Photorealistic commercial product photo. ${conceptStyle} The product must remain EXACTLY as shown in the reference — do not alter its shape, color, or details. 9:16 vertical format, high quality.`;
+          const imagePrompt = `Photorealistic commercial product photo. ${conceptStyle} The product must remain EXACTLY as shown in the reference — do not alter its shape, color, or details. High quality.`;
 
           const safeCount = Math.min(Math.max(parseInt(image_count) || 2, 1), 4);
           const taskIds = [];
+          emitToSession(null, 'factory:detail', { run_id: runId, detail: `Создание ${safeCount} фото (модель: ${imageModel})...` });
 
           for (let i = 0; i < safeCount; i++) {
             try {
-              const body = { model: imageModel, prompt: imagePrompt, ar: '9:16', image: mainPhoto };
+              const body = { model: imageModel, prompt: imagePrompt, ar: imageAR };
+              if (mainPhoto) body.images = [mainPhoto];
               const createResp = await axios.post(`${baseUrl}/media/create`, body, {
                 headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
                 timeout: 30000
               });
               const taskId = createResp.data?.id || createResp.data?.task_id;
+              const taskStatus = (createResp.data?.status || '').toLowerCase();
               const directUrl = createResp.data?.url || createResp.data?.image_url || createResp.data?.data?.[0]?.url;
-              if (directUrl) taskIds.push({ taskId: null, url: directUrl });
+              if (taskStatus === 'failed' || taskStatus === 'error') {
+                console.error(`Factory img ${i + 1} immediately failed:`, createResp.data?.message || 'unknown');
+              } else if (directUrl) taskIds.push({ taskId: null, url: directUrl });
               else if (taskId) taskIds.push({ taskId, url: null });
             } catch (err) { console.error(`Factory img ${i + 1}:`, err.message); }
           }
@@ -1131,6 +1142,7 @@ ${charsText || 'не указаны'}
           // Poll async tasks
           for (let poll = 0; poll < 22 && pending.length > 0; poll++) {
             await new Promise(r => setTimeout(r, 4000));
+            emitToSession(null, 'factory:detail', { run_id: runId, detail: `Ожидание фотографий... ${poll + 1}/22 (готово: ${generatedImages.length})` });
             const still = [];
             for (const task of pending) {
               try {
@@ -1161,7 +1173,8 @@ ${charsText || 'не указаны'}
           "UPDATE product_runs SET status = 'generating_video', current_step = 'video' WHERE id = $1",
           [runId]
         );
-        emitToSession(null, 'factory:step', { run_id: runId, step: 'video' });
+        emitToSession(null, 'factory:step', { run_id: runId, step: 'video', results: { images: generatedImages } });
+        emitToSession(null, 'factory:detail', { run_id: runId, detail: `Запуск генерации аватара (${provider})...` });
 
         // Create pipeline_session
         const sessionResult = await query(
@@ -1181,6 +1194,7 @@ ${charsText || 'не указаны'}
         );
         const sessionId = sessionResult.rows[0].id;
         await query('UPDATE product_runs SET session_id = $1 WHERE id = $2', [sessionId, runId]);
+        emitToSession(null, 'factory:step', { run_id: runId, step: 'video', session_id: sessionId });
 
         // Create voice_scripts
         const wordCount = scriptText.trim().split(/\s+/).length;
@@ -1226,10 +1240,13 @@ ${charsText || 'не указаны'}
           webhookPayload.a2e_voice_id = product.a2e_voice_id || '';
         }
 
+        emitToSession(null, 'factory:detail', { run_id: runId, detail: 'Отправка задачи в N8N pipeline...' });
         try {
           await axios.post(webhookUrl, webhookPayload, { timeout: 15000 });
+          emitToSession(null, 'factory:detail', { run_id: runId, detail: 'N8N pipeline запущен, ожидание генерации видео...' });
         } catch (n8nErr) {
           console.error('Factory N8N trigger error:', n8nErr.message);
+          emitToSession(null, 'factory:error', { run_id: runId, step: 'video', error: 'Ошибка запуска N8N: ' + n8nErr.message });
         }
 
         // The rest of the pipeline (video gen → montage → publish) is handled by N8N

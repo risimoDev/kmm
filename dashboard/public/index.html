@@ -184,6 +184,9 @@
     .gen-progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:4px; transition:width 0.5s ease; }
     .gen-progress-text { margin-top:8px; font-size:13px; color:var(--text2); }
 
+    /* Factory spinner */
+    .factory-spinner { display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:4px; }
+
     /* Variants Grid */
     .variants-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
     .variant-card { border:2px solid var(--border); border-radius:12px; overflow:hidden; transition:all 0.2s; }
@@ -1543,6 +1546,7 @@
           <div id="fct-progress-card" class="card" style="padding:16px;display:none;">
             <h3 style="margin-bottom:14px;font-size:15px;">⏳ Прогресс запуска</h3>
             <div id="fct-progress-steps"></div>
+            <div id="fct-step-detail" style="font-size:12px;color:var(--text2);margin-top:4px;min-height:16px;"></div>
             <div style="margin-top:12px;">
               <div style="background:var(--bg2);border-radius:8px;height:8px;overflow:hidden;">
                 <div id="fct-progress-bar" style="height:100%;background:var(--accent);border-radius:8px;width:0%;transition:width 0.5s;"></div>
@@ -1552,6 +1556,8 @@
                 <span id="fct-progress-pct" style="font-size:12px;color:var(--text2);">0%</span>
               </div>
             </div>
+            <div id="fct-step-results" style="margin-top:10px;font-size:12px;"></div>
+            <div id="fct-error-banner" style="display:none;margin-top:12px;padding:12px;background:rgba(239,68,68,0.08);border:1px solid var(--red);border-radius:8px;color:var(--red);"></div>
           </div>
 
           <!-- Run history -->
@@ -3004,17 +3010,18 @@ function navigateTo(page) {
 // ═══════════════════════════════════════════════════
 function initWebSocket() {
   socket = io({ path: '/ws', auth: { token } });
-  socket.on('connect', () => console.log('WS connected'));
+  socket.on('connect', () => { console.log('WS connected'); socket.emit('watch-all'); });
   socket.on('content-ready', () => { if (currentPage === 'content') loadContent(); toast('Новый контент сгенерирован!', 'success'); });
   socket.on('video-ready', (data) => { if (currentPage === 'videos') loadVideos(); toast(`Видео #${data.session_id} готово к проверке!`, 'success'); });
   socket.on('card-ready', (data) => { if (currentPage === 'cards') loadCards(); toast(`Карточка «${data.product_name || ''}» сгенерирована!`, 'success'); });
-  socket.on('session-update', () => { if (currentPage === 'videos') loadVideos(); if (currentPage === 'dashboard') loadDashboard(); if (currentPage === 'product-detail' && currentProductId) openProductDetail(currentProductId); if (currentPage === 'factory') loadFactoryHistory(); });
-  socket.on('workflow-error', (data) => { toast(`Ошибка: ${data.errorMessage || data.error_message}`, 'error'); });
+  socket.on('session-update', (data) => { if (currentPage === 'videos') loadVideos(); if (currentPage === 'dashboard') loadDashboard(); if (currentPage === 'product-detail' && currentProductId) openProductDetail(currentProductId); if (currentPage === 'factory') loadFactoryHistory(); factoryMapSessionUpdate(data); });
+  socket.on('workflow-error', (data) => { toast(`Ошибка: ${data.errorMessage || data.error_message}`, 'error'); factoryMapWorkflowError(data); });
   socket.on('product-run:created', () => { if (currentPage === 'product') loadProducts(); if (currentPage === 'product-detail' && currentProductId) openProductDetail(currentProductId); });
   socket.on('product-batch:started', (data) => { toast(`Пакетный запуск: ${data.count} продуктов`, 'success'); if (currentPage === 'product') loadProducts(); });
   socket.on('factory:step', (data) => { factoryOnStep(data); });
   socket.on('factory:done', (data) => { factoryOnDone(data); });
   socket.on('factory:error', (data) => { factoryOnError(data); });
+  socket.on('factory:detail', (data) => { factoryOnDetail(data); });
 
   // Прогресс рендера монтажа (от montage-pro.js)
   socket.on('montage:progress', (data) => {
@@ -6241,7 +6248,8 @@ async function runAIImageGen() {
     });
     const images = r.data?.images || [];
     if (!images.length) {
-      results.innerHTML = '<p style="color:var(--text2);">Не удалось сгенерировать. Проверьте API ключ и баланс.</p>';
+      const errMsg = r.error || 'Не удалось сгенерировать. Проверьте API ключ и баланс.';
+      results.innerHTML = `<p style="color:var(--red);">${esc(errMsg)}</p>`;
       return;
     }
     const modelBadge = r.data?.model ? `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Модель: ${esc(r.data.model)}${r.data.has_reference ? ' · img2img с фото товара' : ' · text-to-image'}</div>` : '';
@@ -6274,19 +6282,20 @@ async function addGeneratedPhotoToProduct(url) {
 // 🏭 Запуск завода
 // ═══════════════════════════════════════════════════
 let _factoryRunId = null;
+let _factorySessionId = null;   // pipeline_sessions.id — для связи с N8N событиями
 let _factoryProducts = [];
+let _factoryCurrentStep = null;
 
 const FACTORY_STEPS = [
   { key: 'idea',    label: '💡 Генерация идеи и сценария', pct: 10 },
-  { key: 'images',  label: '🎨 Генерация фотографий',      pct: 35 },
-  { key: 'video',   label: '🎬 Генерация аватара',          pct: 60 },
-  { key: 'montage', label: '🎞️ Монтаж видео',             pct: 85 },
+  { key: 'images',  label: '🎨 Генерация фотографий',      pct: 30 },
+  { key: 'video',   label: '🎬 Генерация аватара',          pct: 55 },
+  { key: 'montage', label: '🎞️ Монтаж видео',             pct: 80 },
   { key: 'publish', label: '📤 Публикация',                 pct: 95 },
   { key: 'done',    label: '✅ Готово',                      pct: 100 }
 ];
 
 async function loadFactory() {
-  // Load products for dropdown (all except archived)
   try {
     const r = await api('GET', '/api/products?limit=100');
     _factoryProducts = (r.data || []).filter(p => p.status !== 'archived');
@@ -6298,6 +6307,8 @@ async function loadFactory() {
   }
   factoryProductChanged();
   loadFactoryHistory();
+  // Восстановить прогресс-бар если есть активный запуск
+  factoryRestoreActiveRun();
 }
 
 function factoryProductChanged() {
@@ -6354,6 +6365,9 @@ async function launchFactory() {
   // Show progress
   const progressCard = document.getElementById('fct-progress-card');
   progressCard.style.display = 'block';
+  document.getElementById('fct-error-banner').style.display = 'none';
+  document.getElementById('fct-step-detail').textContent = '';
+  document.getElementById('fct-step-results').innerHTML = '';
   factoryRenderSteps('idea', 'running');
 
   try {
@@ -6365,6 +6379,8 @@ async function launchFactory() {
       publish_channels: channels
     });
     _factoryRunId = r.data?.run_id;
+    _factorySessionId = r.data?.session_id || null;
+    _factoryCurrentStep = 'idea';
     toast('🏭 Завод запущен! Следите за прогрессом.', 'success');
   } catch (e) {
     toast('Ошибка запуска: ' + e.message, 'error');
@@ -6383,55 +6399,162 @@ function factoryRenderSteps(currentKey, state) {
   container.innerHTML = FACTORY_STEPS.map((s, i) => {
     let icon = '⬜';
     let color = 'var(--text2)';
-    if (i < safeIndex) { icon = '✅'; color = 'var(--green)'; }
-    else if (i === safeIndex) {
-      if (state === 'error') { icon = '❌'; color = 'var(--red)'; }
-      else if (state === 'done') { icon = '✅'; color = 'var(--green)'; }
-      else { icon = '⏳'; color = 'var(--accent)'; }
+    let weight = 'normal';
+    if (i < safeIndex || (state === 'done' && i <= safeIndex)) { icon = '✅'; color = 'var(--green)'; }
+    else if (i === safeIndex && state !== 'done') {
+      if (state === 'error') { icon = '❌'; color = 'var(--red)'; weight = '600'; }
+      else { icon = '⏳'; color = 'var(--accent)'; weight = '600'; }
     }
-    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:${color};">
-      <span>${icon}</span><span>${s.label}</span>
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;color:${color};font-weight:${weight};">
+      <span style="font-size:15px;">${icon}</span><span>${s.label}</span>
+      ${i === safeIndex && state === 'running' ? '<span class="factory-spinner"></span>' : ''}
     </div>`;
   }).join('');
 
   // Update progress bar
   const pct = step ? step.pct : 0;
-  document.getElementById('fct-progress-bar').style.width = pct + '%';
+  const bar = document.getElementById('fct-progress-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = state === 'error' ? 'var(--red)' : state === 'done' ? 'var(--green)' : 'var(--accent)';
   document.getElementById('fct-progress-pct').textContent = pct + '%';
   document.getElementById('fct-progress-status').textContent =
-    state === 'error' ? '❌ Ошибка' :
+    state === 'error' ? '❌ Ошибка на этапе: ' + (step ? step.label : currentKey) :
     state === 'done' ? '✅ Завершено' :
     (step ? step.label : 'Ожидание...');
 }
 
 function factoryOnStep(data) {
-  if (data.run_id && data.run_id !== _factoryRunId) return;
+  if (data.run_id && _factoryRunId && data.run_id !== _factoryRunId) return;
   const stepKey = data.step || data.current_step;
+  _factoryCurrentStep = stepKey;
+  if (data.session_id) _factorySessionId = data.session_id;
   factoryRenderSteps(stepKey, 'running');
+  document.getElementById('fct-step-detail').textContent = data.detail || '';
+  // Показать промежуточные результаты
+  if (data.results) factoryShowResults(data.results);
   if (currentPage === 'factory') loadFactoryHistory();
 }
 
+function factoryOnDetail(data) {
+  if (data.run_id && _factoryRunId && data.run_id !== _factoryRunId) return;
+  document.getElementById('fct-step-detail').textContent = data.detail || '';
+}
+
 function factoryOnDone(data) {
-  if (data.run_id && data.run_id !== _factoryRunId) return;
+  if (data.run_id && _factoryRunId && data.run_id !== _factoryRunId) return;
   factoryRenderSteps('done', 'done');
+  document.getElementById('fct-step-detail').textContent = '';
   const btn = document.getElementById('fct-launch-btn');
   btn.disabled = false;
   btn.textContent = '🚀 Запустить завод';
+  if (data.results) factoryShowResults(data.results);
   toast('✅ Завод завершил работу! Видео готово.', 'success');
   _factoryRunId = null;
+  _factorySessionId = null;
+  _factoryCurrentStep = null;
   if (currentPage === 'factory') loadFactoryHistory();
 }
 
 function factoryOnError(data) {
-  if (data.run_id && data.run_id !== _factoryRunId) return;
-  const step = data.step || 'idea';
+  if (data.run_id && _factoryRunId && data.run_id !== _factoryRunId) return;
+  const step = data.step || _factoryCurrentStep || 'idea';
   factoryRenderSteps(step, 'error');
+  document.getElementById('fct-step-detail').textContent = '';
   const btn = document.getElementById('fct-launch-btn');
   btn.disabled = false;
   btn.textContent = '🚀 Запустить завод';
+  // Показать баннер ошибки
+  const banner = document.getElementById('fct-error-banner');
+  const errStep = FACTORY_STEPS.find(s => s.key === step);
+  banner.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px;">
+    <span style="font-size:24px;">❌</span>
+    <div style="flex:1;">
+      <div style="font-weight:600;margin-bottom:4px;">Ошибка на этапе: ${esc(errStep ? errStep.label : step)}</div>
+      <div style="font-size:13px;color:var(--text2);word-break:break-word;">${esc(data.error || 'Неизвестная ошибка')}</div>
+    </div>
+  </div>`;
+  banner.style.display = 'block';
   toast('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
   _factoryRunId = null;
+  _factorySessionId = null;
+  _factoryCurrentStep = null;
   if (currentPage === 'factory') loadFactoryHistory();
+}
+
+// Маппинг session-update событий N8N → factory шаги
+function factoryMapSessionUpdate(data) {
+  if (!_factorySessionId || !data.sessionId) return;
+  if (String(data.sessionId) !== String(_factorySessionId)) return;
+  const status = data.status;
+  const step = data.currentStep;
+
+  // Маппинг N8N статусов на factory шаги
+  if (status === 'error') {
+    factoryOnError({ run_id: _factoryRunId, step: _factoryCurrentStep || 'video', error: data.errorMessage || 'Ошибка в N8N pipeline' });
+  } else if (status === 'approved' || status === 'published' || step === 'approved' || step === 'published') {
+    factoryOnDone({ run_id: _factoryRunId });
+  } else if (status === 'processing' || status === 'created') {
+    // Маппинг currentStep → factory key
+    const stepMap = { montage: 'montage', publishing: 'publish', published: 'done' };
+    const factoryKey = stepMap[step] || null;
+    if (factoryKey) {
+      factoryOnStep({ run_id: _factoryRunId, step: factoryKey });
+    }
+  }
+}
+
+// Маппинг workflow-error → factory error
+function factoryMapWorkflowError(data) {
+  if (!_factorySessionId) return;
+  if (data.sessionId && String(data.sessionId) !== String(_factorySessionId)) return;
+  // workflow-error без sessionId может быть наша ошибка, пропускаем
+  if (!data.sessionId) return;
+  factoryOnError({ run_id: _factoryRunId, step: _factoryCurrentStep || 'video', error: data.errorMessage || data.error_message || 'Workflow error' });
+}
+
+// Показать промежуточные результаты в прогрессе
+function factoryShowResults(results) {
+  const el = document.getElementById('fct-step-results');
+  if (!results) { el.innerHTML = ''; return; }
+  let html = '';
+  if (results.idea) {
+    html += `<div style="padding:8px;background:var(--bg);border-radius:6px;margin-bottom:6px;"><b>💡 Идея:</b> ${esc(results.idea)}</div>`;
+  }
+  if (results.script) {
+    html += `<div style="padding:8px;background:var(--bg);border-radius:6px;margin-bottom:6px;"><b>📝 Сценарий:</b> ${esc(results.script)}</div>`;
+  }
+  if (results.images && results.images.length) {
+    html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">${results.images.map(u =>
+      `<img src="${esc(mediaUrl(u))}" style="width:60px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);" onerror="this.style.display='none'">`
+    ).join('')}</div>`;
+  }
+  if (results.video_url) {
+    html += `<div style="padding:8px;background:var(--bg);border-radius:6px;"><a href="${esc(results.video_url)}" target="_blank" class="btn btn-outline btn-sm">▶ Смотреть видео</a></div>`;
+  }
+  el.innerHTML = html;
+}
+
+// Восстановить прогресс при обновлении страницы (если есть активный запуск)
+async function factoryRestoreActiveRun() {
+  try {
+    const r = await api('GET', '/api/products/factory-runs?limit=5');
+    const runs = r.data || [];
+    const active = runs.find(r => !['error', 'cancelled', 'done', 'approved', 'published'].includes(r.status));
+    if (active) {
+      _factoryRunId = active.id;
+      _factorySessionId = active.session_id || null;
+      const stepMap = {
+        generating_idea: 'idea', generating_images: 'images', generating_video: 'video',
+        montage: 'montage', publishing: 'publish', ready_for_review: 'video'
+      };
+      const stepKey = stepMap[active.status] || active.current_step || 'idea';
+      _factoryCurrentStep = stepKey;
+      document.getElementById('fct-progress-card').style.display = 'block';
+      factoryRenderSteps(stepKey, 'running');
+      document.getElementById('fct-launch-btn').disabled = true;
+      document.getElementById('fct-launch-btn').textContent = '⏳ Выполняется...';
+    }
+  } catch {}
 }
 
 async function loadFactoryHistory() {
@@ -6623,7 +6746,8 @@ async function runPhotoGen() {
     const images = r.data?.images || [];
     if (!images.length) {
       empty.style.display = 'block';
-      empty.innerHTML = '<div style="font-size:48px;margin-bottom:12px;">⚠️</div><div style="color:var(--red);">Не удалось сгенерировать. Проверьте API ключ и баланс.</div>';
+      const errMsg = r.error || 'Не удалось сгенерировать. Проверьте API ключ и баланс.';
+      empty.innerHTML = `<div style="font-size:48px;margin-bottom:12px;">⚠️</div><div style="color:var(--red);">${esc(errMsg)}</div>`;
       toast('Не удалось сгенерировать фото', 'error');
       return;
     }

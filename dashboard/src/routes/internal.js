@@ -182,6 +182,35 @@ router.post('/session-update', async (req, res, next) => {
       return res.json({ ok: true, auto_approved: true });
     }
 
+    // Обновляем product_runs если привязан к этой сессии
+    const factoryStepMap = { voice: 'video', video: 'video', montage: 'montage', publishing: 'publish' };
+    const factoryStep = factoryStepMap[currentStep] || currentStep;
+    if (['processing', 'error', 'cancelled'].includes(status) || currentStep) {
+      await query(
+        `UPDATE product_runs SET status = $1, current_step = COALESCE($2, current_step) WHERE session_id = $3`,
+        [status === 'error' ? 'error' : status === 'cancelled' ? 'cancelled' : 'processing', factoryStep, sessionId]
+      ).catch(() => {});
+    }
+    if (status === 'published') {
+      await query(
+        `UPDATE product_runs SET status = 'published', current_step = 'done' WHERE session_id = $1`,
+        [sessionId]
+      ).catch(() => {});
+    }
+
+    // Factory events для привязанных product_runs
+    const prRow = await query('SELECT id FROM product_runs WHERE session_id = $1', [sessionId]).catch(() => ({ rows: [] }));
+    if (prRow.rows.length > 0) {
+      const run_id = prRow.rows[0].id;
+      if (status === 'error') {
+        emitToSession(null, 'factory:error', { run_id, step: factoryStep, error: req.body.errorMessage || 'Ошибка в N8N pipeline' });
+      } else if (status === 'published' || status === 'approved') {
+        emitToSession(null, 'factory:done', { run_id });
+      } else if (currentStep) {
+        emitToSession(null, 'factory:step', { run_id, step: factoryStep, session_id: sessionId });
+      }
+    }
+
     // WebSocket нотификация
     emitToSession(sessionId, 'session-update', { sessionId, status, currentStep });
     // Глобальная нотификация для Dashboard
@@ -217,6 +246,18 @@ router.post('/error', async (req, res, next) => {
       sessionId, workflowName, nodeName, errorMessage,
       timestamp: new Date().toISOString()
     });
+
+    // Factory error bridge
+    if (sessionId) {
+      const prRow = await query('SELECT id FROM product_runs WHERE session_id = $1', [sessionId]).catch(() => ({ rows: [] }));
+      if (prRow.rows.length > 0) {
+        emitToSession(null, 'factory:error', { run_id: prRow.rows[0].id, step: nodeName || workflowName, error: errorMessage });
+        await query(
+          "UPDATE product_runs SET status = 'error', error_message = $1 WHERE session_id = $2",
+          [errorMessage, sessionId]
+        ).catch(() => {});
+      }
+    }
 
     res.json({ ok: true });
   } catch (err) {
@@ -317,6 +358,19 @@ router.post('/content-ready', async (req, res, next) => {
 router.post('/video-ready', async (req, res, next) => {
   try {
     const { session_id, final_video_url, status } = req.body;
+
+    // Update product_runs if linked
+    if (session_id && isConnected()) {
+      await query(
+        `UPDATE product_runs SET status = 'montage', current_step = 'montage', video_url = $1 WHERE session_id = $2`,
+        [final_video_url || null, session_id]
+      ).catch(() => {});
+      const prRow = await query('SELECT id FROM product_runs WHERE session_id = $1', [session_id]).catch(() => ({ rows: [] }));
+      if (prRow.rows.length > 0) {
+        emitToSession(null, 'factory:step', { run_id: prRow.rows[0].id, step: 'montage', session_id, results: { video_url: final_video_url } });
+        emitToSession(null, 'factory:detail', { run_id: prRow.rows[0].id, detail: 'Видео сгенерировано, запуск монтажа...' });
+      }
+    }
 
     // WebSocket: уведомить Dashboard 
     emitToSession(session_id, 'video-ready', {
@@ -425,6 +479,18 @@ router.post('/log-error', async (req, res, next) => {
       sessionId: session_id, workflowName: workflow_name, nodeName: node_name, errorMessage: error_message,
       timestamp: new Date().toISOString()
     });
+
+    // Factory error bridge
+    if (session_id) {
+      const prRow = await query('SELECT id FROM product_runs WHERE session_id = $1', [session_id]).catch(() => ({ rows: [] }));
+      if (prRow.rows.length > 0) {
+        emitToSession(null, 'factory:error', { run_id: prRow.rows[0].id, step: node_name || workflow_name, error: error_message });
+        await query(
+          "UPDATE product_runs SET status = 'error', error_message = $1 WHERE session_id = $2",
+          [error_message, session_id]
+        ).catch(() => {});
+      }
+    }
 
     res.json({ ok: true });
   } catch (err) {

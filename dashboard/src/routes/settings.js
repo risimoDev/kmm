@@ -97,7 +97,7 @@ router.post('/test-ai', techAdminOnly, async (req, res, next) => {
 
     const headers = { 'Content-Type': 'application/json' };
     const prefix = authPrefix || '';
-    headers['Authorization'] = `${prefix}${apiKey}`;
+    headers['Authorization'] = prefix ? `${prefix} ${apiKey}` : apiKey;
 
     const startTime = Date.now();
     const response = await axios.post(`${baseUrl}/chat/completions`, {

@@ -336,6 +336,7 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     const baseUrl  = settings.ai_base_url   || 'https://gptunnel.ru/v1';
     const authPfx  = settings.ai_auth_prefix || '';
+    const imageModel = settings.card_image_model || 'google-imagen-3';
 
     const {
       reference_photo    = null,   // внешний URL (если вставлен вручную)
@@ -403,12 +404,10 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     // Запускаем все задачи параллельно
     const taskIds = [];
+    let lastCreateError = '';
     for (let i = 0; i < safeCount; i++) {
       try {
-        // seedream-3 — img2img (с images[]) или text-to-image (с ar:'9:16')
-        // Docs: https://docs.gptunnel.ru/media-api/seedream-3-edit
-        //       https://docs.gptunnel.ru/media-api/seedream-3
-        const body = { model: 'seedream-3', prompt: imagePrompt };
+        const body = { model: imageModel, prompt: imagePrompt };
         if (refUrl) {
           body.images = [refUrl];   // img2img edit mode
         } else {
@@ -420,16 +419,23 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
           timeout: 30000
         });
         const taskId    = cr.data?.id || cr.data?.task_id;
+        const taskStatus = (cr.data?.status || '').toLowerCase();
         const directUrl = cr.data?.url || cr.data?.image_url || cr.data?.data?.[0]?.url;
-        if (directUrl) taskIds.push({ taskId: null, url: directUrl });
+        if (taskStatus === 'failed' || taskStatus === 'error') {
+          const failMsg = cr.data?.message || cr.data?.error || 'unknown';
+          console.error(`[photo-gen] create ${i+1} immediately failed:`, failMsg);
+          lastCreateError = failMsg;
+        } else if (directUrl) taskIds.push({ taskId: null, url: directUrl });
         else if (taskId) taskIds.push({ taskId, url: null });
       } catch (e) {
-        console.error(`[photo-gen] create ${i+1} failed:`, e.message);
+        const apiMsg = e.response?.data?.error?.message || e.response?.data?.message || e.message;
+        console.error(`[photo-gen] create ${i+1} failed:`, apiMsg);
+        lastCreateError = apiMsg;
       }
     }
 
     if (!taskIds.length) {
-      return res.json({ ok: false, error: 'Не удалось запустить генерацию. Проверьте API ключ и баланс.' });
+      return res.json({ ok: false, error: `Не удалось запустить генерацию: ${lastCreateError || 'все задачи отклонены'}` });
     }
 
     const results = [];
@@ -489,7 +495,7 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     res.json({
       ok: true,
-      data: { images: savedImages, count: savedImages.length, model: 'seedream-3', has_reference: !!refUrl, concept }
+      data: { images: savedImages, count: savedImages.length, model: imageModel, has_reference: !!refUrl, concept }
     });
   } catch (err) {
     if (err.response) return res.status(err.response.status).json({ ok: false, error: `Image API error: ${err.response.data?.error?.message || err.message}` });
