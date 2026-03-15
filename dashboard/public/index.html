@@ -4819,7 +4819,7 @@ async function loadHeyGenAvatarListTo(gridId, loadingId, hiddenId, defaultVal) {
     const res = await api('GET', '/api/settings/heygen-avatars');
     loading.style.display = 'none';
     if (!res.ok) { loading.style.display = 'block'; loading.textContent = 'Ошибка: ' + (res.error || ''); return; }
-    const avatars = res.data || [];
+    const avatars = (res.data || []).filter(a => a.avatar_type !== 'talking_photo');
     if (!avatars.length) { loading.style.display = 'block'; loading.textContent = 'Аватары не найдены'; return; }
 
     avatars.forEach(a => {
@@ -5908,7 +5908,8 @@ async function loadProviderAvatars() {
   try {
     const endpoint = provider === 'heygen' ? '/api/settings/heygen-avatars' : '/api/settings/a2e-avatars';
     const r = await api('GET', endpoint);
-    const avatars = r.data || [];
+    const avatarsRaw = r.data || [];
+    const avatars = provider === 'heygen' ? avatarsRaw.filter(a => a.avatar_type !== 'talking_photo') : avatarsRaw;
     if (!avatars.length) {
       container.innerHTML = '<p style="font-size:12px;color:var(--text2);">Аватары не найдены. Проверьте API ключ в настройках.</p>';
       return;
