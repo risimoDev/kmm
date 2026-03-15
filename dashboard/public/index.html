@@ -6507,8 +6507,14 @@ function factoryMapSessionUpdate(data) {
   // Маппинг N8N статусов на factory шаги
   if (status === 'error') {
     factoryOnError({ run_id: _factoryRunId, step: _factoryCurrentStep || 'video', error: data.errorMessage || 'Ошибка в N8N pipeline' });
-  } else if (status === 'approved' || status === 'published' || step === 'approved' || step === 'published') {
+  } else if (status === 'published' || step === 'published') {
     factoryOnDone({ run_id: _factoryRunId });
+  } else if (status === 'approved' || step === 'done') {
+    // approved = видео одобрено (авто или вручную), конвейер завершён
+    factoryOnDone({ run_id: _factoryRunId });
+  } else if (status === 'ready_for_review' || step === 'review') {
+    // ready_for_review = видео готово, скоро будет approved (авто-подтверждение)
+    factoryOnStep({ run_id: _factoryRunId, step: 'montage' });
   } else if (status === 'processing' || status === 'created') {
     // Маппинг currentStep → factory key
     const stepMap = { montage: 'montage', publishing: 'publish', published: 'done' };
@@ -6626,7 +6632,7 @@ async function factoryRestoreActiveRun() {
       _factoryLastProductId = active.product_id || null;
       const stepMap = {
         generating_idea: 'idea', generating_images: 'images', generating_video: 'video',
-        montage: 'montage', publishing: 'publish', ready_for_review: 'video'
+        montage: 'montage', publishing: 'publish', ready_for_review: 'montage'
       };
       const stepKey = stepMap[active.status] || active.current_step || 'idea';
       _factoryCurrentStep = stepKey;

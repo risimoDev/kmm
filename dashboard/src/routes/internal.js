@@ -174,11 +174,18 @@ router.post('/session-update', async (req, res, next) => {
       );
       // Также обновляем product_run если он привязан к этой сессии
       await query(
-        `UPDATE product_runs SET status = 'approved', current_step = 'approved' WHERE session_id = $1`,
+        `UPDATE product_runs SET status = 'approved', current_step = 'done' WHERE session_id = $1`,
         [sessionId]
       ).catch(() => {}); // не критично если таблицы нет
-      emitToSession(sessionId, 'session-update', { sessionId, status: 'approved', currentStep: 'approved' });
-      emitToSession(null, 'session-update', { sessionId, status: 'approved', currentStep: 'approved' });
+
+      // Factory done event
+      const prRow2 = await query('SELECT id FROM product_runs WHERE session_id = $1', [sessionId]).catch(() => ({ rows: [] }));
+      if (prRow2.rows.length > 0) {
+        emitToSession(null, 'factory:done', { run_id: prRow2.rows[0].id });
+      }
+
+      emitToSession(sessionId, 'session-update', { sessionId, status: 'approved', currentStep: 'done' });
+      emitToSession(null, 'session-update', { sessionId, status: 'approved', currentStep: 'done' });
       return res.json({ ok: true, auto_approved: true });
     }
 
@@ -359,16 +366,57 @@ router.post('/video-ready', async (req, res, next) => {
   try {
     const { session_id, final_video_url, status } = req.body;
 
-    // Update product_runs if linked
     if (session_id && isConnected()) {
-      await query(
-        `UPDATE product_runs SET status = 'montage', current_step = 'montage', video_url = $1 WHERE session_id = $2`,
-        [final_video_url || null, session_id]
-      ).catch(() => {});
+      // 1. Read current session state from DB (N8N sets ready_for_review via SQL before this callback)
+      const sessRow = await query(
+        'SELECT id, status, final_video_url, raw_video_url FROM pipeline_sessions WHERE id = $1',
+        [session_id]
+      ).catch(() => ({ rows: [] }));
+      const sess = sessRow.rows[0];
+
+      // Use video URL from: callback body → DB final_video_url → DB raw_video_url
+      const videoUrl = final_video_url || sess?.final_video_url || sess?.raw_video_url || null;
+
+      // 2. Save video URL in product_run
+      if (videoUrl) {
+        await query(
+          `UPDATE product_runs SET avatar_video_url = COALESCE(avatar_video_url, $1), final_video_url = COALESCE(final_video_url, $1) WHERE session_id = $2`,
+          [videoUrl, session_id]
+        ).catch(() => {});
+      }
+
       const prRow = await query('SELECT id FROM product_runs WHERE session_id = $1', [session_id]).catch(() => ({ rows: [] }));
-      if (prRow.rows.length > 0) {
-        emitToSession(null, 'factory:step', { run_id: prRow.rows[0].id, step: 'montage', session_id, results: { video_url: final_video_url } });
-        emitToSession(null, 'factory:detail', { run_id: prRow.rows[0].id, detail: 'Видео сгенерировано, запуск монтажа...' });
+      const runId = prRow.rows[0]?.id;
+
+      // 3. Only auto-approve if video is actually ready (status = ready_for_review)
+      const sessionStatus = sess?.status;
+      if (sessionStatus === 'ready_for_review') {
+        // Video is confirmed ready — approve and finalize
+        await query(
+          `UPDATE pipeline_sessions SET status = 'approved' WHERE id = $1`,
+          [session_id]
+        ).catch(() => {});
+        await query(
+          `UPDATE product_runs SET status = 'approved', current_step = 'done' WHERE session_id = $1`,
+          [session_id]
+        ).catch(() => {});
+
+        if (runId) {
+          emitToSession(null, 'factory:step', { run_id: runId, step: 'montage', session_id, results: { video_url: videoUrl } });
+          emitToSession(null, 'factory:detail', { run_id: runId, detail: 'Видео готово, финализация...' });
+          // Delay so UI shows montage step before done
+          setTimeout(() => {
+            emitToSession(null, 'factory:done', { run_id: runId, results: { video_url: videoUrl } });
+          }, 2000);
+        }
+      } else {
+        // Session NOT in ready_for_review — video might still be processing
+        // Just update progress, don't auto-approve
+        console.log(`video-ready: session ${session_id} status is '${sessionStatus}', not ready_for_review — skipping auto-approve`);
+        if (runId) {
+          emitToSession(null, 'factory:step', { run_id: runId, step: 'video', session_id });
+          emitToSession(null, 'factory:detail', { run_id: runId, detail: `Ожидание завершения видео (статус: ${sessionStatus || 'unknown'})...` });
+        }
       }
     }
 
