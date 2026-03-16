@@ -1006,10 +1006,13 @@ router.post('/:id/factory-run', async (req, res, next) => {
       image_count = 2,
       subtitles_enabled = true,
       auto_publish = false,
-      publish_channels = []
+      publish_channels = [],
+      heygen_avatar_id: avatarIdOverride  // optional override from factory launch page
     } = req.body;
 
     const provider = product.video_provider || 'heygen';
+    // Use per-launch avatar override if provided, otherwise fall back to product's stored ID
+    const effectiveAvatarId = (provider === 'heygen' && avatarIdOverride) ? avatarIdOverride : product.heygen_avatar_id;
     const photos = Array.isArray(product.photos) ? product.photos : [];
     const mainPhoto = photos[0] || '';
 
@@ -1024,7 +1027,7 @@ router.post('/:id/factory-run', async (req, res, next) => {
        RETURNING *`,
       [
         product.id,
-        product.heygen_avatar_id || null,
+        effectiveAvatarId || null,
         product.heygen_voice_id || null,
         product.a2e_avatar_id || null,
         product.a2e_voice_id || null,
@@ -1263,7 +1266,7 @@ ${charsText || 'не указаны'}
         };
 
         if (provider === 'heygen') {
-          webhookPayload.heygen_avatar_id = product.heygen_avatar_id || '';
+          webhookPayload.heygen_avatar_id = effectiveAvatarId || product.heygen_avatar_id || '';
           webhookPayload.heygen_voice_id = product.heygen_voice_id || '';
           webhookPayload.heygen_background = '#00FF00';
           webhookPayload.heygen_ratio = '9:16';

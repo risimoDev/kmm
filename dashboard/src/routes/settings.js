@@ -463,8 +463,8 @@ router.get('/heygen-avatars', async (req, res, next) => {
       avatar_type: 'talking_photo'
     }));
 
-    // Talking photos first (more likely to work for video gen), then stock avatars
-    res.json({ ok: true, data: [...talkingPhotos, ...avatars] });
+    // Return only regular avatars — talking photos are NOT supported for video generation
+    res.json({ ok: true, data: avatars });
   } catch (err) {
     const msg = err.response?.data?.message || err.message;
     res.json({ ok: false, error: `HeyGen: ${msg}` });

@@ -1521,6 +1521,14 @@
             <input type="number" id="fct-img-count" value="2" min="1" max="4" style="width:80px;">
           </div>
 
+          <!-- Avatar selector -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">🎭 Аватар HeyGen</label>
+            <input type="hidden" id="fct-avatar-id" value="">
+            <div id="fct-avatar-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;max-height:200px;overflow-y:auto;padding:2px;"></div>
+            <div id="fct-avatar-loading" style="font-size:12px;color:var(--text2);padding:6px 0;">Загрузка аватаров...</div>
+          </div>
+
           <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-subtitles" checked> Субтитры</label>
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="fct-auto-publish"> Авто-публикация после готовности</label>
@@ -6294,6 +6302,57 @@ async function addGeneratedPhotoToProduct(url) {
 // 🏭 Запуск завода
 // ═══════════════════════════════════════════════════
 let _factoryRunId = null;
+
+async function loadFactoryAvatars(defaultAvatarId) {
+  const grid   = document.getElementById('fct-avatar-grid');
+  const hidden = document.getElementById('fct-avatar-id');
+  const loading= document.getElementById('fct-avatar-loading');
+  if (!grid) return;
+  grid.innerHTML = '';
+  loading.style.display = 'block';
+  loading.textContent   = 'Загрузка аватаров...';
+
+  function selectFctAvatar(id) {
+    hidden.value = id;
+    grid.querySelectorAll('.fct-av-card').forEach(el => {
+      const sel = el.dataset.id === id;
+      el.style.borderColor = sel ? 'var(--accent)' : 'var(--border)';
+      el.style.boxShadow   = sel ? '0 0 0 2px var(--accent)' : 'none';
+    });
+  }
+
+  try {
+    const res = await api('GET', '/api/settings/heygen-avatars');
+    loading.style.display = 'none';
+    if (!res.ok) { loading.style.display='block'; loading.textContent='Ошибка: '+(res.error||''); return; }
+    // API already returns only regular avatars (no talking photos)
+    const avatars = res.data || [];
+    if (!avatars.length) { loading.style.display='block'; loading.textContent='Аватары не найдены'; return; }
+
+    avatars.forEach(a => {
+      const card = document.createElement('div');
+      card.className = 'fct-av-card';
+      card.dataset.id = a.avatar_id;
+      card.style.cssText = 'cursor:pointer;border:2px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg2);transition:all 0.15s;';
+      const thumb = a.preview_image_url || '';
+      card.innerHTML = `
+        <div style="width:100%;height:70px;background:var(--bg);overflow:hidden;">
+          ${thumb ? `<img src="${esc(thumb)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">` : '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:18px;">🎭</div>'}
+        </div>
+        <div style="padding:4px;">
+          <div style="font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(a.avatar_name||a.avatar_id)}">${esc(a.avatar_name||a.avatar_id)}</div>
+          <div style="font-size:9px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;" title="ID: ${esc(a.avatar_id)}">${esc(a.avatar_id)}</div>
+        </div>`;
+      card.onclick = () => selectFctAvatar(a.avatar_id);
+      card.onmouseenter = () => { if (hidden.value !== a.avatar_id) card.style.borderColor='rgba(192,132,252,0.4)'; };
+      card.onmouseleave = () => { if (hidden.value !== a.avatar_id) card.style.borderColor='var(--border)'; };
+      grid.appendChild(card);
+    });
+    // Pre-select product's avatar or first available
+    const preselect = defaultAvatarId || (avatars[0]?.avatar_id || '');
+    selectFctAvatar(preselect);
+  } catch (e) { loading.style.display='block'; loading.textContent='Ошибка: '+e.message; }
+}
 let _factorySessionId = null;   // pipeline_sessions.id — для связи с N8N событиями
 let _factoryProducts = [];
 let _factoryCurrentStep = null;
@@ -6320,6 +6379,8 @@ async function loadFactory() {
   }
   factoryProductChanged();
   loadFactoryHistory();
+  // Предзагрузить аватары при открытии страницы
+  loadFactoryAvatars('');
   // Восстановить прогресс-бар если есть активный запуск
   factoryRestoreActiveRun();
 }
@@ -6347,6 +6408,11 @@ function factoryProductChanged() {
   document.getElementById('fct-product-provider').textContent = `Провайдер: ${p.video_provider || 'heygen'}`;
   preview.style.display = 'block';
   btn.disabled = false;
+
+  // Load avatars for this product
+  if ((p.video_provider || 'heygen') === 'heygen') {
+    loadFactoryAvatars(p.heygen_avatar_id || '');
+  }
 }
 
 // Toggle channels visibility
@@ -6384,12 +6450,14 @@ async function launchFactory() {
   factoryRenderSteps('idea', 'running');
 
   try {
+    const avatarId = document.getElementById('fct-avatar-id').value;
     const r = await api('POST', `/api/products/${productId}/factory-run`, {
       concept,
       image_count: imgCount,
       subtitles_enabled: subtitles,
       auto_publish: autoPublish,
-      publish_channels: channels
+      publish_channels: channels,
+      heygen_avatar_id: avatarId || undefined
     });
     _factoryRunId = r.data?.run_id;
     _factorySessionId = r.data?.session_id || null;
