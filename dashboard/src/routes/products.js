@@ -450,7 +450,9 @@ router.post('/:id/generate-images', async (req, res, next) => {
     const apiKey = settings.ai_api_key;
     const baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';
     const authPrefix = settings.ai_auth_prefix || '';
-    const imageModel = settings.card_image_model || 'google-imagen-3';
+    // img2img requires a model that supports image editing; gpt-image-1-high = best quality
+    const imgEditModel = settings.card_img2img_model || 'gpt-image-1-high';
+    const imgTextModel = settings.card_image_model   || 'google-imagen-4';
     const imageAR = settings.card_image_ar || '9:16';
 
     if (!apiKey) {
@@ -492,19 +494,19 @@ router.post('/:id/generate-images', async (req, res, next) => {
     }
 
     const authHeader = authPrefix ? `${authPrefix} ${apiKey}` : apiKey;
+    const imageModel = refPhoto ? imgEditModel : imgTextModel;
 
     // Запускаем все задачи одновременно, потом поллингуем результаты
     const taskIds = [];
     let lastCreateError = '';
     for (let i = 0; i < safeCount; i++) {
       try {
-        const body = {
-          model: imageModel,
-          prompt: imagePrompt,
-          ar: imageAR
-        };
-        // Передаём референс-фото как images[] (массив) — стандарт gptunnel API
-        if (refPhoto) body.images = [refPhoto];
+        const body = { model: imageModel, prompt: imagePrompt };
+        if (refPhoto) {
+          body.image = refPhoto;  // img2img: single string (NOT array — array causes 500 error)
+        } else {
+          body.ar = imageAR;      // text-to-image: set aspect ratio
+        }
 
         const createResp = await axios.post(`${baseUrl}/media/create`, body, {
           headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
@@ -513,22 +515,25 @@ router.post('/:id/generate-images', async (req, res, next) => {
 
         const taskId = createResp.data?.id || createResp.data?.task_id;
         const taskStatus = (createResp.data?.status || '').toLowerCase();
+        const apiCode = createResp.data?.code; // 0 = success, non-0 = error
         // Некоторые модели возвращают URL сразу (синхронно)
         const directUrl = createResp.data?.url || createResp.data?.image_url
                        || createResp.data?.data?.[0]?.url;
 
-        if (taskStatus === 'failed' || taskStatus === 'error') {
+        if ((apiCode !== undefined && apiCode !== 0) || taskStatus === 'failed' || taskStatus === 'error') {
           const failMsg = createResp.data?.message || createResp.data?.error || 'unknown';
-          console.error(`Image create ${i + 1} immediately failed:`, failMsg);
+          console.error(`Image create ${i + 1} failed (code=${apiCode}):`, failMsg);
           lastCreateError = failMsg;
         } else if (directUrl) {
           taskIds.push({ taskId: null, url: directUrl });
         } else if (taskId) {
           taskIds.push({ taskId, url: null });
+        } else {
+          console.warn(`Image create ${i + 1}: no taskId returned`, createResp.data);
         }
       } catch (createErr) {
         const apiMsg = createErr.response?.data?.error?.message || createErr.response?.data?.message || createErr.message;
-        console.error(`Image create ${i + 1} failed:`, apiMsg);
+        console.error(`Image create ${i + 1} failed:`, apiMsg, '| resp:', JSON.stringify(createErr.response?.data || ''));
         lastCreateError = apiMsg;
       }
     }
@@ -1117,8 +1122,10 @@ ${charsText || 'не указаны'}
         // ── STEP 2: Генерация фотографий ──
         let generatedImages = [];
         if (mainPhoto) {
-          const imageModel = settings.card_image_model || 'google-imagen-3';
+          const imgEditModel = settings.card_img2img_model || 'gpt-image-1-high';
+          const imgTextModel = settings.card_image_model   || 'google-imagen-4';
           const imageAR = settings.card_image_ar || '9:16';
+          const imageModel = mainPhoto ? imgEditModel : imgTextModel;
 
           const conceptInstructions = {
             studio:    'Clean white/neutral studio background, professional product photography lighting, soft shadows, minimalist composition.',
@@ -1136,20 +1143,25 @@ ${charsText || 'не указаны'}
 
           for (let i = 0; i < safeCount; i++) {
             try {
-              const body = { model: imageModel, prompt: imagePrompt, ar: imageAR };
-              if (mainPhoto) body.images = [mainPhoto];
+              const body = { model: imageModel, prompt: imagePrompt };
+              if (mainPhoto) {
+                body.image = mainPhoto;  // img2img: single string (NOT array)
+              } else {
+                body.ar = imageAR;
+              }
               const createResp = await axios.post(`${baseUrl}/media/create`, body, {
                 headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
                 timeout: 30000
               });
               const taskId = createResp.data?.id || createResp.data?.task_id;
               const taskStatus = (createResp.data?.status || '').toLowerCase();
+              const apiCode = createResp.data?.code;
               const directUrl = createResp.data?.url || createResp.data?.image_url || createResp.data?.data?.[0]?.url;
-              if (taskStatus === 'failed' || taskStatus === 'error') {
-                console.error(`Factory img ${i + 1} immediately failed:`, createResp.data?.message || 'unknown');
+              if ((apiCode !== undefined && apiCode !== 0) || taskStatus === 'failed' || taskStatus === 'error') {
+                console.error(`Factory img ${i + 1} failed (code=${apiCode}):`, createResp.data?.message || 'unknown');
               } else if (directUrl) taskIds.push({ taskId: null, url: directUrl });
               else if (taskId) taskIds.push({ taskId, url: null });
-            } catch (err) { console.error(`Factory img ${i + 1}:`, err.message); }
+            } catch (err) { console.error(`Factory img ${i + 1}:`, err.message, err.response?.data?.message || ''); }
           }
 
           // Collect sync results
