@@ -336,9 +336,9 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     const baseUrl      = settings.ai_base_url    || 'https://gptunnel.ru/v1';
     const authPfx      = settings.ai_auth_prefix  || '';
-    // img2img: seedream-3 supports editing via images[] array (confirmed in GPTunnel docs)
-    // gpt-image-1-high ignores the image param and just does text-to-image
-    const imgEditModel = settings.card_img2img_model || 'seedream-3';
+    // flux-kontext-max: специализированная модель для РЕДАКТИРОВАНИЯ (сохраняет объект, меняет фон)
+    // seedream-3/gpt-image-1 — генеративные, не редактирующие
+    const imgEditModel = settings.card_img2img_model || 'flux-kontext-max';
     const imgTextModel = settings.card_image_model   || 'google-imagen-4';
 
     const {
@@ -365,35 +365,37 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     const safeCount = Math.min(Math.max(parseInt(count) || 1, 1), 4);
 
-    // Промты для каждого концепта: edit (img2img) и text (text-to-image)
+    // Промты для img2img (Flux Kontext): короткие редакционные команды.
+    // Flux Kontext редактирует исходное фото — НЕ генерирует заново.
+    // Промты для text-to-image: полное описание сцены и товара.
     const conceptInstructions = {
       studio: {
-        edit: `Professional e-commerce product photography. Replace the background with a clean pure white studio backdrop. Soft diffused box lighting from above and sides, subtle drop shadow below the product, product perfectly centered. Keep the product 100% identical to the reference — same shape, colors, details, labels, packaging.`,
-        text: `Professional e-commerce product photo. Product: "${product_name}". Clean pure white studio backdrop, soft diffused box lighting, subtle drop shadow. Product centered, sharp focus, high-end commercial photography.`
+        edit: `Change the background to a clean pure white studio backdrop. Add soft diffused lighting from above and sides with a subtle drop shadow below the product. Keep the product completely unchanged.`,
+        text: `Professional e-commerce product photo. Product: "${product_name}". Clean pure white studio backdrop, soft diffused box lighting, subtle drop shadow, product centered, sharp focus.`
       },
       lifestyle: {
-        edit: `Lifestyle product photography. Place the product in a cozy home interior scene — warm wooden table or countertop, soft morning light streaming through a nearby window, blurred background with indoor plants and natural home decor. Authentic, warm, inviting atmosphere. Keep the product 100% identical to the reference — same shape, colors, details, labels.`,
-        text: `Lifestyle product photo. Product: "${product_name}". Cozy home interior, warm wooden surface, soft morning sunlight from a window. Blurred background with indoor plants and natural home decor. Authentic, warm, editorial lifestyle photography.`
+        edit: `Change the background to a cozy home interior. Place the product on a warm wooden table with soft morning light from a window. Add blurred indoor plants and home decor in the background. Keep the product completely unchanged.`,
+        text: `Lifestyle product photo. Product: "${product_name}". Cozy home interior, warm wooden surface, soft morning sunlight from a window, blurred background with indoor plants.`
       },
       flatlay: {
-        edit: `Overhead flat-lay product photography. Strict top-down 90° bird's-eye view. Place the product centered on a clean light marble or natural linen surface. Small minimal elegant props tastefully arranged around the product. Even soft diffused lighting with no harsh shadows. Editorial Scandinavian minimal style. Keep the product 100% identical to the reference — same shape, colors, details.`,
-        text: `Overhead flat-lay photo. Product: "${product_name}". Strict top-down view, product centered on light marble or linen surface. Minimal elegant props arranged around it. Even diffused soft lighting. Clean editorial Scandinavian style.`
+        edit: `Reposition the product to a strict top-down bird's-eye view on a clean light marble surface. Add minimal elegant props arranged around it. Even soft lighting with no harsh shadows. Keep the product completely unchanged.`,
+        text: `Overhead flat-lay photo. Product: "${product_name}". Strict top-down view, product centered on light marble surface. Minimal elegant props, even diffused soft lighting.`
       },
       minimal: {
-        edit: `Minimalist product photography. Solid soft pastel or muted accent color as the entire background. Maximum negative white space around the product. Clean geometric symmetrical composition, soft studio box lighting. No props, no distracting elements — absolute simplicity and elegance. Keep the product 100% identical to the reference — same shape, colors, details.`,
-        text: `Minimalist product photo. Product: "${product_name}". Solid soft pastel background. Maximum negative space, clean symmetrical composition, studio box lighting. Elegant modern minimalism, no distracting elements.`
+        edit: `Change the background to a solid soft pastel color. Center the product with maximum negative white space around it. Clean symmetrical composition, soft studio lighting. Keep the product completely unchanged.`,
+        text: `Minimalist product photo. Product: "${product_name}". Solid soft pastel background, maximum negative space, clean symmetrical composition, studio lighting.`
       },
       luxury: {
-        edit: `Luxury premium product photography. Dark moody setup — deep black marble or rich dark velvet surface. Dramatic low-key directional side lighting with a single hard light source creating strong contrast. Subtle gold or brass accent decorative elements in background. High contrast shadows, editorial luxury fashion magazine aesthetic. Keep the product 100% identical to the reference — same shape, colors, details, packaging.`,
-        text: `Luxury premium product photo. Product: "${product_name}". Dark moody setup, black marble or velvet surface. Dramatic low-key side lighting, hard directional light, gold accent elements. High contrast, editorial luxury magazine aesthetic.`
+        edit: `Change the background to a dark black marble or velvet surface. Add dramatic low-key directional side lighting with strong contrast shadows. Add subtle gold accent reflections in the background. Keep the product completely unchanged.`,
+        text: `Luxury premium product photo. Product: "${product_name}". Dark moody setup, black marble surface, dramatic side lighting, gold accent elements, high contrast.`
       },
       street: {
-        edit: `Urban outdoor product photography. Product placed on a concrete urban surface — a ledge, wall, or railing in a city environment. Natural ambient daylight, shallow depth of field with bokeh city street background with blurred buildings and people. Fresh contemporary fashion editorial vibe. Keep the product 100% identical to the reference — same shape, colors, details.`,
-        text: `Urban street product photo. Product: "${product_name}". Outdoor city environment, concrete ledge or urban surface. Natural daylight, bokeh city background with blurred buildings. Fresh contemporary fashion editorial vibe.`
+        edit: `Move the product to an outdoor urban setting — place it on a concrete ledge in a city street. Add natural daylight with bokeh city background of blurred buildings. Keep the product completely unchanged.`,
+        text: `Urban street product photo. Product: "${product_name}". Outdoor city, concrete ledge, natural daylight, bokeh city background with blurred buildings.`
       },
       nature: {
-        edit: `Natural outdoor product photography. Product placed on a mossy stone, weathered driftwood log, or nestled among lush tropical monstera and palm leaves. Soft dappled golden sunlight filtering through the forest canopy. Organic natural textures, fresh botanical aesthetic. Keep the product 100% identical to the reference — same shape, colors, details, labels.`,
-        text: `Natural outdoor product photo. Product: "${product_name}". Mossy stone or weathered wood surface, lush tropical leaves around. Soft golden dappled sunlight through canopy. Organic textures, fresh botanical aesthetic.`
+        edit: `Place the product on a mossy stone or weathered wood among lush tropical leaves. Add soft dappled golden sunlight filtering through the forest canopy. Keep the product completely unchanged.`,
+        text: `Natural outdoor product photo. Product: "${product_name}". Mossy stone or wood surface, lush tropical leaves, soft golden sunlight through canopy.`
       }
     };
 
@@ -401,11 +403,11 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     let imagePrompt;
     if (refUrl) {
-      // img2img (edit) — описываем сцену/фон, модель подставляет товар из референса
-      imagePrompt = `${concept_obj.edit}${prompt_extra ? ' Additional details: ' + prompt_extra : ''} Ultra high resolution, photorealistic commercial product photography.`.trim();
+      // img2img (Flux Kontext): короткая редакционная инструкция + доп. детали
+      imagePrompt = `${concept_obj.edit}${prompt_extra ? ' ' + prompt_extra : ''}`.trim();
     } else {
-      // text-to-image — описываем и товар, и всю сцену целиком
-      imagePrompt = `${concept_obj.text}${prompt_extra ? ' Additional details: ' + prompt_extra : ''} Ultra high resolution, photorealistic commercial product photography.`.trim();
+      // text-to-image: описываем товар и сцену
+      imagePrompt = `${concept_obj.text}${prompt_extra ? ' ' + prompt_extra : ''} Ultra high resolution, photorealistic commercial product photography.`.trim();
     }
 
     const authHeader = authPfx ? `${authPfx} ${apiKey}` : apiKey;
@@ -419,7 +421,7 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
       try {
         const body = { model: imageModel, prompt: imagePrompt };
         if (refUrl) {
-          body.image = refUrl;  // img2img: seedream-3 requires image= string (NOT images[] array)
+          body.image = refUrl;  // flux-kontext-max requires image= string (NOT images[] array)
         } else {
           body.ar = '9:16';     // text-to-image: задаём соотношение сторон
         }

@@ -450,9 +450,8 @@ router.post('/:id/generate-images', async (req, res, next) => {
     const apiKey = settings.ai_api_key;
     const baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';
     const authPrefix = settings.ai_auth_prefix || '';
-    // img2img: seedream-3 supports editing via images[] array (confirmed in GPTunnel docs)
-    // gpt-image-1-high ignores the image param and just does text-to-image
-    const imgEditModel = settings.card_img2img_model || 'seedream-3';
+    // flux-kontext-max: специализированная модель для редактирования — сохраняет объект, меняет фон
+    const imgEditModel = settings.card_img2img_model || 'flux-kontext-max';
     const imgTextModel = settings.card_image_model   || 'google-imagen-4';
     const imageAR = settings.card_image_ar || '9:16';
 
@@ -504,7 +503,7 @@ router.post('/:id/generate-images', async (req, res, next) => {
       try {
         const body = { model: imageModel, prompt: imagePrompt };
         if (refPhoto) {
-          body.image = refPhoto;  // img2img: seedream-3 requires image= string (NOT images[] array)
+          body.image = refPhoto;  // flux-kontext-max requires image= string (NOT images[] array)
         } else {
           body.ar = imageAR;         // text-to-image: set aspect ratio
         }
@@ -1123,7 +1122,7 @@ ${charsText || 'не указаны'}
         // ── STEP 2: Генерация фотографий ──
         let generatedImages = [];
         if (mainPhoto) {
-          const imgEditModel = settings.card_img2img_model || 'seedream-3';
+          const imgEditModel = settings.card_img2img_model || 'flux-kontext-max';
           const imgTextModel = settings.card_image_model   || 'google-imagen-4';
           const imageAR = settings.card_image_ar || '9:16';
           const imageModel = mainPhoto ? imgEditModel : imgTextModel;
@@ -1146,7 +1145,7 @@ ${charsText || 'не указаны'}
             try {
               const body = { model: imageModel, prompt: imagePrompt };
               if (mainPhoto) {
-                body.image = mainPhoto;  // img2img: seedream-3 requires image= string (NOT images[] array)
+                body.image = mainPhoto;  // flux-kontext-max requires image= string (NOT images[] array)
               } else {
                 body.ar = imageAR;
               }
