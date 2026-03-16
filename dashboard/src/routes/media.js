@@ -336,9 +336,9 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
 
     const baseUrl      = settings.ai_base_url    || 'https://gptunnel.ru/v1';
     const authPfx      = settings.ai_auth_prefix  || '';
-    // img2img requires a model that supports image editing (NOT google-imagen-3/4)
-    // gpt-image-1-high = best quality; fallback to configured card_img2img_model
-    const imgEditModel = settings.card_img2img_model || 'gpt-image-1-high';
+    // img2img: seedream-3 supports editing via images[] array (confirmed in GPTunnel docs)
+    // gpt-image-1-high ignores the image param and just does text-to-image
+    const imgEditModel = settings.card_img2img_model || 'seedream-3';
     const imgTextModel = settings.card_image_model   || 'google-imagen-4';
 
     const {
@@ -350,12 +350,17 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
       product_name       = 'product'
     } = req.body;
 
-    // Публичный URL: доступен снаружи через наш прокси-эндпоинт (authMiddleware не требуется)
+    // Публичный URL: доступен снаружи через наш прокси-эндпойнт (без auth)
     let refUrl = null;
     if (reference_file_key) {
       refUrl = `${PUBLIC_BASE_URL}/api/media/public/${reference_file_key}`;
     } else if (reference_photo) {
-      refUrl = reference_photo;
+      // Ensure absolute URL — frontend may pass a relative path
+      if (reference_photo.startsWith('/')) {
+        refUrl = `${PUBLIC_BASE_URL}${reference_photo}`;
+      } else {
+        refUrl = reference_photo;
+      }
     }
 
     const safeCount = Math.min(Math.max(parseInt(count) || 1, 1), 4);
@@ -414,7 +419,7 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
       try {
         const body = { model: imageModel, prompt: imagePrompt };
         if (refUrl) {
-          body.image = refUrl;   // img2img: single string (NOT array — array causes 500 error)
+          body.images = [refUrl];  // img2img: seedream-3 requires images[] array
         } else {
           body.ar = '9:16';     // text-to-image: задаём соотношение сторон
         }

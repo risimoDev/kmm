@@ -450,8 +450,9 @@ router.post('/:id/generate-images', async (req, res, next) => {
     const apiKey = settings.ai_api_key;
     const baseUrl = settings.ai_base_url || 'https://gptunnel.ru/v1';
     const authPrefix = settings.ai_auth_prefix || '';
-    // img2img requires a model that supports image editing; gpt-image-1-high = best quality
-    const imgEditModel = settings.card_img2img_model || 'gpt-image-1-high';
+    // img2img: seedream-3 supports editing via images[] array (confirmed in GPTunnel docs)
+    // gpt-image-1-high ignores the image param and just does text-to-image
+    const imgEditModel = settings.card_img2img_model || 'seedream-3';
     const imgTextModel = settings.card_image_model   || 'google-imagen-4';
     const imageAR = settings.card_image_ar || '9:16';
 
@@ -503,9 +504,9 @@ router.post('/:id/generate-images', async (req, res, next) => {
       try {
         const body = { model: imageModel, prompt: imagePrompt };
         if (refPhoto) {
-          body.image = refPhoto;  // img2img: single string (NOT array — array causes 500 error)
+          body.images = [refPhoto];  // img2img: seedream-3 requires images[] array
         } else {
-          body.ar = imageAR;      // text-to-image: set aspect ratio
+          body.ar = imageAR;         // text-to-image: set aspect ratio
         }
 
         const createResp = await axios.post(`${baseUrl}/media/create`, body, {
@@ -1122,7 +1123,7 @@ ${charsText || 'не указаны'}
         // ── STEP 2: Генерация фотографий ──
         let generatedImages = [];
         if (mainPhoto) {
-          const imgEditModel = settings.card_img2img_model || 'gpt-image-1-high';
+          const imgEditModel = settings.card_img2img_model || 'seedream-3';
           const imgTextModel = settings.card_image_model   || 'google-imagen-4';
           const imageAR = settings.card_image_ar || '9:16';
           const imageModel = mainPhoto ? imgEditModel : imgTextModel;
@@ -1145,7 +1146,7 @@ ${charsText || 'не указаны'}
             try {
               const body = { model: imageModel, prompt: imagePrompt };
               if (mainPhoto) {
-                body.image = mainPhoto;  // img2img: single string (NOT array)
+                body.images = [mainPhoto];  // img2img: seedream-3 requires images[] array
               } else {
                 body.ar = imageAR;
               }
