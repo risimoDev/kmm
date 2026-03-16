@@ -419,7 +419,7 @@ router.post('/photo-gen', authMiddleware, async (req, res, next) => {
       try {
         const body = { model: imageModel, prompt: imagePrompt };
         if (refUrl) {
-          body.images = [refUrl];  // img2img: seedream-3 requires images[] array
+          body.image = refUrl;  // img2img: seedream-3 requires image= string (NOT images[] array)
         } else {
           body.ar = '9:16';     // text-to-image: задаём соотношение сторон
         }

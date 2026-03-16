@@ -504,7 +504,7 @@ router.post('/:id/generate-images', async (req, res, next) => {
       try {
         const body = { model: imageModel, prompt: imagePrompt };
         if (refPhoto) {
-          body.images = [refPhoto];  // img2img: seedream-3 requires images[] array
+          body.image = refPhoto;  // img2img: seedream-3 requires image= string (NOT images[] array)
         } else {
           body.ar = imageAR;         // text-to-image: set aspect ratio
         }
@@ -1146,7 +1146,7 @@ ${charsText || 'не указаны'}
             try {
               const body = { model: imageModel, prompt: imagePrompt };
               if (mainPhoto) {
-                body.images = [mainPhoto];  // img2img: seedream-3 requires images[] array
+                body.image = mainPhoto;  // img2img: seedream-3 requires image= string (NOT images[] array)
               } else {
                 body.ar = imageAR;
               }
